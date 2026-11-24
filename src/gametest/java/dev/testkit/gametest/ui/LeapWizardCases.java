@@ -104,7 +104,26 @@ final class LeapWizardCases {
 
     /** leaporder-reset-1123: a player's Class button on the layout page is a drop-down; picking a class in its list sets the
      *  override straight, Auto clears it, and a click outside closes the list with no change. */
-    static void classDropdown(UiCase c) throws Exception {
+        /** {@code who}'s Class button: the layout moves a player when their class changes, so "the first" is not stable. */
+    private static AbstractWidget classBtn(UiCase c, Screen s, String who) {
+        int k = c.onClient(mc -> {
+            int n = 0;
+            for (String name : (String[]) Mod.call(s, "currentLayout")) {
+                if (name != null && name.equals(who)) return n;
+                if (name != null) n++;
+            }
+            return 0;
+        });
+        return c.onClient(mc -> {
+            int n = 0;
+            for (net.minecraft.client.gui.components.events.GuiEventListener l : s.children()) {
+                if (l instanceof AbstractWidget w && ModScreenDriver.label(w).startsWith("Class:") && n++ == k) return w;
+            }
+            return null;
+        });
+    }
+
+static void classDropdown(UiCase c) throws Exception {
         LeapOrderCases.State st = LeapOrderCases.setUp(c);
         try {
             for (String n : PARTY) {
@@ -126,26 +145,29 @@ final class LeapWizardCases {
             String[] want = {"MAGE", "TANK", "HEALER", "ARCHER", "BERSERKER"};
             int acted = 0;
             for (int i = 0; i < want.length; i++) {
-                AbstractWidget b = InvBatchCases.widget(c, s, "Class:");
+                AbstractWidget b = classBtn(c, s, who);
                 InvBatchCases.clickWidget(c, s, b);
                 Object open = c.onClient(mc -> Mod.staticCall("gui.DropdownWidget", "openOne"));
                 c.check(open != null, "clicking the Class button opened no list (" + want[i] + ")");
                 final int idx = i + 1;
                 int[] r = c.onClient(mc -> (int[]) Mod.call(Mod.staticCall("gui.DropdownWidget", "openOne"), "optionBounds", idx));
                 c.check(r != null, "option " + idx + " is not in the open list");
+                String diag = "idx " + idx + " row " + java.util.Arrays.toString(r) + " list " + java.util.Arrays.toString(c.onClient(mc -> (int[]) Mod.call(Mod.staticCall("gui.DropdownWidget", "openOne"), "listBounds")))
+                        + " scroll " + c.onClient(mc -> Mod.field(Mod.staticCall("gui.DropdownWidget", "openOne"), "scroll"))
+                        + " rows " + c.onClient(mc -> Mod.field(Mod.staticCall("gui.DropdownWidget", "openOne"), "visibleRows"));
                 InvBatchCases.click(c, s, r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
                 c.check(c.onClient(mc -> Mod.staticCall("gui.DropdownWidget", "openOne")) == null, "the list stayed open after a pick");
                 String got = cls(c, who);
-                c.check(got.equals(want[i]) && override(c, who), "picking " + want[i] + " gave " + got + " (override " + override(c, who) + ")");
+                c.check(got.equals(want[i]) && override(c, who), "picking " + want[i] + " gave " + got + " (override " + override(c, who) + ") " + diag);
                 acted++;
             }
             // Click outside closes with no change.
-            InvBatchCases.clickWidget(c, s, InvBatchCases.widget(c, s, "Class:"));
+            InvBatchCases.clickWidget(c, s, classBtn(c, s, who));
             InvBatchCases.click(c, s, 3, 3);
             c.check(c.onClient(mc -> Mod.staticCall("gui.DropdownWidget", "openOne")) == null, "a click outside left the list open");
             c.check(cls(c, who).equals("BERSERKER"), "a click outside changed the class to " + cls(c, who));
             // Auto clears the override.
-            InvBatchCases.clickWidget(c, s, InvBatchCases.widget(c, s, "Class:"));
+            InvBatchCases.clickWidget(c, s, classBtn(c, s, who));
             int[] r0 = c.onClient(mc -> (int[]) Mod.call(Mod.staticCall("gui.DropdownWidget", "openOne"), "optionBounds", 0));
             InvBatchCases.click(c, s, r0[0] + r0[2] / 2.0, r0[1] + r0[3] / 2.0);
             c.check(!override(c, who) && cls(c, who).equals("HEALER"), "Auto left override " + override(c, who) + " class " + cls(c, who));
