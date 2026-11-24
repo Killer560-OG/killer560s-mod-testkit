@@ -34,8 +34,8 @@ final class SimBossBoomGate1124 {
     static final String DOWN = "1124-boss-ee3boom-gatedown";
     static final String DIG = "1124-boss-ee3boom-breakerdig";
     static final String UP = "1124-boss-ee3boom-gateup";
-    /** His route's RUN node right after the boom (ground at y 124). */
-    private static final double X = 22.09, Y = 124, Z = 124.57;
+    /** His route's spot right after the boom: mid-air in the capture, so the case stands on the nearest floor beside gate 2. */
+    private static final double X0 = 22.09, Y0 = 124, Z0 = 124.57;
     private static final double REACH = 4.4;
     private static final String FILE = "ee3boom-1124.json";
 
@@ -44,6 +44,57 @@ final class SimBossBoomGate1124 {
 
     private static void say(String line) {
         System.out.println("[1124-boss-ee3boom] " + line);
+    }
+
+    /** The standing spot nearest his post-boom spot (floor below, two free blocks) whose eye meets a gate-2 block within reach. */
+    private static double[] standSpot(Minecraft mc) {
+        double[] best = null;
+        for (BlockPos f : BlockPos.betweenClosed(18, 106, 118, 28, 127, 132)) {
+            BlockPos below = f.below();
+            if (mc.level.getBlockState(below).getCollisionShape(mc.level, below).isEmpty()
+                    || !mc.level.getBlockState(f).getCollisionShape(mc.level, f).isEmpty()
+                    || !mc.level.getBlockState(f.above()).getCollisionShape(mc.level, f.above()).isEmpty()) {
+                continue;
+            }
+            double sy = below.getY() + mc.level.getBlockState(below).getCollisionShape(mc.level, below).max(net.minecraft.core.Direction.Axis.Y);
+            double d = Math.hypot(Math.hypot(f.getX() + 0.5 - X0, sy - Y0), f.getZ() + 0.5 - Z0);
+            if (best != null && d >= best[3]) {
+                continue;
+            }
+            Vec3 eye = new Vec3(f.getX() + 0.5, sy + 1.62, f.getZ() + 0.5);
+            for (BlockPos p : BlockPos.betweenClosed(16, 114, 125, 19, 138, 139)) {
+                if (mc.level.getBlockState(p).isAir() || eye.distanceTo(Vec3.atCenterOf(p)) > REACH + 0.9) {
+                    continue;
+                }
+                BlockHitResult h = mc.level.clip(new ClipContext(eye, Vec3.atCenterOf(p), ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, mc.player));
+                if (h.getType() == HitResult.Type.BLOCK && h.getBlockPos().equals(p) && eye.distanceTo(h.getLocation()) <= REACH - 0.3) {
+                    best = new double[]{f.getX() + 0.5, sy, f.getZ() + 0.5, d};
+                    break;
+                }
+            }
+        }
+        return best;
+    }
+
+    /** The AP3 executor's node state, for a case that never sees the boom's result line. */
+    private static String execState(Minecraft mc) {
+        StringBuilder b = new StringBuilder();
+        try {
+            Class<?> c = Class.forName(Ap3RuntimeTests.EXEC, false, SimBossBoomGate1124.class.getClassLoader());
+            for (String n : new String[]{"activeNode", "step", "stepTicks", "boomBg", "actNode", "boomGate"}) {
+                try {
+                    var fl = c.getDeclaredField(n);
+                    fl.setAccessible(true);
+                    Object v = fl.get(null);
+                    b.append(n).append('=').append(v == null ? "null" : v instanceof Number || v instanceof Enum<?> ? v : v.getClass().getSimpleName()).append(' ');
+                } catch (ReflectiveOperationException e) {
+                    b.append(n).append("=? ");
+                }
+            }
+        } catch (ClassNotFoundException e) {
+            b.append("no executor class");
+        }
+        return b.toString();
     }
 
     static void run(ClientGameTestContext ctx, List<String> f, String name) throws Exception {
@@ -64,8 +115,18 @@ final class SimBossBoomGate1124 {
                 return;
             }
         }
-        SimBossTests.tp(ctx, X, Y, Z, 0f, 0f);
+        SimBossTests.tp(ctx, X0, Y0, Z0, 0f, 0f);
+        ctx.waitTicks(5);
+        // That spot is mid-air in the capture: stand on the nearest floor beside gate 2 with a gate block in reach.
+        double[] spot = ctx.computeOnClient(SimBossBoomGate1124::standSpot);
+        if (spot == null) {
+            f.add(name + ": setup - no floor near " + X0 + " " + Y0 + " " + Z0 + " with a gate-2 block in reach");
+            return;
+        }
+        SimBossTests.tp(ctx, spot[0], spot[1], spot[2], 0f, 0f);
         ctx.waitTicks(10);
+        double[] at = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        final double X = at[0], Y = at[1], Z = at[2];
         // A block of gate 2 the eye meets straight on within reach: the BOOM's own look.
         double[] aim = ctx.computeOnClient(mc -> {
             Vec3 eye = mc.player.getEyePosition();
@@ -99,8 +160,10 @@ final class SimBossBoomGate1124 {
         String route = String.format(Locale.ROOT, "{\"version\":2,\"chains\":{\"BOSS\":{\"class\":\"\",\"nodes\":["
                 + "{\"type\":\"FAST_ALIGN\",\"x\":%.4f,\"y\":%.1f,\"z\":%.4f,\"width\":1.0,\"length\":1.0},"
                 + "{\"type\":\"BOOM\",\"x\":%.4f,\"y\":%.1f,\"z\":%.4f,\"yaw\":%.3f,\"pitch\":%.3f,\"width\":1.0,\"length\":1.0},"
-                + "{\"type\":\"STOPWATCH\",\"x\":%.4f,\"y\":%.1f,\"z\":%.4f,\"width\":1.0,\"length\":1.0,\"name\":\"bt\"}]}}}",
-                X, Y, Z, X, Y, Z, aim[0], aim[1], X, Y, Z);
+                + "{\"type\":\"STOPWATCH\",\"x\":%.4f,\"y\":%.1f,\"z\":%.4f,\"width\":1.0,\"length\":1.0,\"name\":\"bt\"},"
+                // A later node out of reach, as in his route: the boom is never the chain's last node.
+                + "{\"type\":\"STOPWATCH\",\"x\":%.4f,\"y\":%.1f,\"z\":%.4f,\"width\":1.0,\"length\":1.0,\"name\":\"far\"}]}}}",
+                X, Y, Z, X, Y, Z, aim[0], aim[1], X, Y, Z, X + 8, Y, Z);
         ctx.runOnClient(mc -> {
             try {
                 Object cfg = ModUnderTest.config(Ap3RuntimeTests.CONFIG);
@@ -156,6 +219,9 @@ final class SimBossBoomGate1124 {
                     srv.execute(() -> srv.getPlayerList().getPlayers().get(0).level().setBlock(d, Blocks.AIR.defaultBlockState(), 3));
                 });
                 say(name + ": dug " + d.toShortString() + " at t" + t);
+            }
+            if (t % 20 == 19) {
+                say(name + ": t" + t + " executor " + ctx.computeOnClient(SimBossBoomGate1124::execState));
             }
             if (down && (watch >= 0 || stopped >= 0) || !down && (broke >= 0 || nothing >= 0) && t > Math.max(broke, nothing) + 10) {
                 break;
