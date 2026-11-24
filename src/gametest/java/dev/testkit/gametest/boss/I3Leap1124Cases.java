@@ -362,8 +362,13 @@ final class I3Leap1124Cases {
             int clicks = count("ContainerClick");
             switch (act) {
                 case "use-key" -> c.check(count("UseItem") >= 1 && clicks == 1, "use-key: " + count("UseItem") + " uses, " + clicks + " menu clicks");
-                case "attack" -> c.check(firstTick("AttackPacket") == leapTick || firstTick("InteractPacket") == leapTick,
-                        "his attack was not in the leap's tick " + leapTick + ": " + ticks());
+                // his attack goes first, the leap waits ONE tick (ActionGate: a use after his attack in one tick is PacketOrderJ,
+                // an attack after our use PacketOrderI); a use in the attack's tick, or a slip past the next tick, is wrong
+                case "attack" -> {
+                    int hit = Math.max(firstTick("AttackPacket"), firstTick("InteractPacket"));
+                    c.check(hit >= 0 && count("AttackPacket") + count("InteractPacket") >= 1, "his attack never went out: " + ticks());
+                    c.check(leapTick == hit + 1, "the leap must follow his attack by exactly one tick (attack tick " + hit + ", leap tick " + leapTick + "): " + ticks());
+                }
                 case "swap" -> c.check(firstTick("SetCarriedItem") >= 0, "his hotbar swap never went out: " + ticks());
                 default -> c.check(clicks >= 2, "his container click and the leap's click: " + clicks + " clicks, want 2");
             }
