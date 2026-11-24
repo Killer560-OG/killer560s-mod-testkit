@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T13:19:09",
- "modSource": "lane-treeregen-present-1124",
- "modGitSha": "c376c13613904e57ce141db0e2fa3d02af3a7d36",
+ "generatedAt": "2026-11-24T13:56:50",
+ "modSource": "lane-nightly-1124-profiles320",
+ "modGitSha": "852219c437c7a072b7538a6886237d8d93699f16",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
