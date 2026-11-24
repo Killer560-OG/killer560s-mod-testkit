@@ -31,6 +31,10 @@ import java.util.List;
  *   <li>1122-autoharp-ping150 / -ping300 / -ping320: 150, 300 and 320 ms round trips (320: two rows early, the wait
  *       after the board ends just before the next step), Auto Detect Ping on (harpmiss-1122: a click was
  *       timed by client ticks, not by when the board arrived, so a 150 ms trip clicked at the very end of the note's step).</li>
+ *   <li>1124-autoharp-spike / -spike-same: his Pachelbel run (autoharp-misses-1124): clicks answered in 100 ms while the
+ *       ping tracker reads 200 ms for steps 6-15: 17 of 17 (the shipped jar clicked early off the ping); -same adds his
+ *       clicks. -spike-own adds two clicks whose own trip is 400 ms: those two notes are lost late, nothing else, and no
+ *       click is handled before its note.</li>
  * </ul>
  */
 final class AutoHarpCases {
@@ -57,10 +61,34 @@ final class AutoHarpCases {
         MenuSuite.test(s, "1122-autoharp-ping150", c -> play(c, 150, "[]", true, true, 0, null));
         MenuSuite.test(s, "1122-autoharp-ping300", c -> play(c, 300, "[]", true, true, 0, null));
         MenuSuite.test(s, "1122-autoharp-ping320", c -> play(c, 320, "[]", true, true, 0, null));
+        MenuSuite.test(s, "1124-autoharp-spike", c -> play(c, 100, "[]", true, true, 0, null, "[]", PONG_HIGH));
+        MenuSuite.test(s, "1124-autoharp-spike-same", c -> play(c, 100, "[]", true, true, 0, SameTick.Act.SCREEN_CLICK, "[]", PONG_HIGH));
+        MenuSuite.test(s, "1124-autoharp-spike-own", c -> play(c, 100, "[]", true, true, 0, null, OWN_SPIKE, PONG_HIGH));
     }
 
+    /** His Pachelbel run on Hypixel (autoharp-misses-1124): his clicks were answered in about 100 ms while the ping read
+     *  200 ms for seconds (his pong 150-201 while notes 42-43 took 91-114 ms); the shipped jar clicked a row early off that
+     *  ping and those clicks were handled a tick before their note. [from step, to step, ms]: the ping tracker reads ms while
+     *  the shown board is in those steps, from step 6, after the first clicks were answered (before any answer the ping is
+     *  all a client has, so a high one at the very first note is not this bug). Every note is savable here: 17 of 17. */
+    private static final int[] PONG_HIGH = {6, 15, 200};
+    /** -own adds his other kind of miss: clicks whose OWN trip spiked past the 250 ms a note stays (his notes 20, 23, 29, 45:
+     *  286-430 ms, the board's timing unchanged). Clicks reaching the server in steps 11-12 take 400 ms; nothing the client
+     *  has seen predicts that (the clicks before were answered in 100 ms), so their notes (j=7, j=8: one each) cannot be
+     *  saved, and the best any rule can do is lose those two, late, and play the other 15. Round 9 lost two or three more
+     *  (13-16 of 17 over runs of one jar): clicks sent a row early off a lead of 160-166 against true 100 ms trips, which
+     *  the plings' render-thread timing and the fake's tick coin flip had read long; both are gone (fix10), so the bound
+     *  stays 15 with the two lost late and none early. */
+    private static final String OWN_SPIKE = "[[11,400,50],[13,100,50]]";
+    private static final int OWN_LOST = 2;
+
     static JsonObject spec(int pingMs, String stalls) {
+        return spec(pingMs, stalls, "[]");
+    }
+
+    static JsonObject spec(int pingMs, String stalls, String pingSteps) {
         JsonObject o = MenuKit.obj("{}");
+        o.add("pingSteps", MenuKit.obj("{\"s\":" + pingSteps + "}").getAsJsonArray("s"));
         o.add("steps", MenuKit.obj("{\"s\":" + STEPS + "}").getAsJsonArray("s"));
         boolean freeze = stalls.startsWith("F");
         o.add(freeze ? "freezes" : "stalls", MenuKit.obj("{\"s\":" + (freeze ? stalls.substring(1) : stalls) + "}").getAsJsonArray("s"));
@@ -74,12 +102,30 @@ final class AutoHarpCases {
         c.ctx().runOnClient(mc -> Mod.staticCall("util.PingTracker", "onPong", sent));
     }
 
+    /** A number from the feature, or -1 on a jar that lacks the method (the origin jar for the 1124 cases). */
+    private static int modInt(Session c, String method) throws Exception {
+        try {
+            return ((Number) c.onClient(mc -> Mod.staticCall(FEATURE, method))).intValue();
+        } catch (RuntimeException e) {
+            return -1;
+        }
+    }
+
     private static void set(Session c, Object cfg, String key, Object v) {
         c.ctx().runOnClient(mc -> Mod.call(cfg, "set", key, v));
     }
 
     private static void play(Session c, int pingMs, String stalls, boolean lag, boolean ping, int offset, SameTick.Act his)
             throws Exception {
+        play(c, pingMs, stalls, lag, ping, offset, his, "[]", null);
+    }
+
+    /** {@code pingSteps} changes the faked round trip mid-song (HxHarp); {@code pong} = {from step, to step, ms} feeds the
+     *  ping tracker another reading over those steps. With {@code pong}, no click may go early: the clicks' own answers
+     *  show a trip short enough to click every note once it shows. */
+    private static void play(Session c, int pingMs, String stalls, boolean lag, boolean ping, int offset, SameTick.Act his,
+            String pingSteps, int[] pong) throws Exception {
+        int allowMissed = "[]".equals(pingSteps) ? 0 : OWN_LOST;
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
             c.note("legit jar: Auto Melody's Harp does not exist");
@@ -103,11 +149,25 @@ final class AutoHarpCases {
                 feedPing(c, pingMs);
             }
             c.ctx().runOnClient(mc -> PacketTrace.start());
-            c.hx().call("menu.harp", spec(pingMs, stalls));
+            c.hx().call("menu.harp", spec(pingMs, stalls, pingSteps));
             MenuKit.awaitScreen(c, "Harp - Test", 100);
+            int pongHits = 0;
+            long leadMin = Long.MAX_VALUE;
+            long leadMax = 0;
+            int plingsBefore = pong == null ? 0 : modInt(c, "plingCount");
             for (int t = 0; t < 1200 && c.events("harp.done").isEmpty(); t++) {
-                if (pingMs > 0) {
-                    feedPing(c, pingMs);
+                int fed = pingMs;
+                if (pong != null) {
+                    List<JsonObject> r = c.events("harp.render");
+                    int shown = r.isEmpty() ? 0 : r.get(r.size() - 1).get("step").getAsInt();
+                    fed = shown >= pong[0] && shown <= pong[1] ? pong[2] : pingMs;
+                    pongHits += fed == pong[2] ? 1 : 0;
+                    long ld = modInt(c, "lead");
+                    leadMin = Math.min(leadMin, ld);
+                    leadMax = Math.max(leadMax, ld);
+                }
+                if (fed > 0) {
+                    feedPing(c, fed);
                 }
                 c.ctx().waitTicks(1);
             }
@@ -144,10 +204,26 @@ final class AutoHarpCases {
             c.note("timeline (R step@shown/began, F freeze, C step:col@received, server ms): " + dbg.toString().trim());
             c.note("clicks step:column (! = wrong): " + seq.toString().trim() + "; latest click " + worst
                     + " ms into its step, earliest " + first + " ms; mod timeline early rows now " + Mod.staticCall(FEATURE, "lastEarlyRows"));
-            c.check(done.get("ok").getAsInt() == NOTES, "right clicks " + done.get("ok") + " of " + NOTES);
-            c.check(done.get("wrong").getAsInt() == 0, done.get("wrong") + " wrong click(s)");
-            c.check(done.get("missed").getAsInt() == 0, done.get("missed") + " missed note(s)");
+            int plings = pong == null ? 0 : modInt(c, "plingCount") - plingsBefore;
+            if (pong != null) {
+                c.note("plings read " + plings + ", lead " + leadMin + "-" + leadMax + " ms while the ping read " + pong[2]
+                        + ", longest pling wait network to render thread " + modInt(c, "plingWaitMax") + " ms");
+            }
+            c.check(done.get("ok").getAsInt() >= NOTES - allowMissed, "right clicks " + done.get("ok") + " of " + NOTES);
+            c.check(done.get("wrong").getAsInt() <= allowMissed, done.get("wrong") + " wrong click(s)");
+            c.check(done.get("missed").getAsInt() <= allowMissed, done.get("missed") + " missed note(s)");
             c.check(mine == NOTES, "the mod counted " + mine + " clicks, not " + NOTES);
+            c.check(clicks.size() == NOTES, "the server got " + clicks.size() + " harp clicks, not " + NOTES);
+            if (pong != null) {
+                c.check(plings > 0, "the feature read no pling (answer) to its clicks");
+                c.check(pongHits > 0, "the ping tracker was never fed " + pong[2] + " ms");
+                // No click is handled before its note: a wrong click may only be a late one of the spike (steps 12-14).
+                for (JsonObject k : clicks) {
+                    int st0 = k.get("step").getAsInt();
+                    c.check(k.get("ok").getAsBoolean() || (allowMissed > 0 && st0 >= 12 && st0 <= 14),
+                            "click handled in step " + st0 + " column " + k.get("col") + " missed its note (early, or outside the spike)");
+                }
+            }
             c.note("most container clicks the client sent in one client tick: " + perClientTick);
             c.check(his != null || perClientTick == 1, "container clicks in one client tick: " + perClientTick);
             if (pingMs >= 150 && (ping || offset >= 200)) {
