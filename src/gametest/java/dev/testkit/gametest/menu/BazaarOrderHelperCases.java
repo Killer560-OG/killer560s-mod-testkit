@@ -370,8 +370,11 @@ final class BazaarOrderHelperCases {
 
             // Partly filled with items to claim: no green (17 top of side = bare, 18 undercut = yellow) and a % mark.
             Map<Integer, String> part = outlines(c, "partial");
-            c.check(part.get(17).equals(part.get(14)) && !part.get(17).equals(String.format("%06X", FILLED)),
-                    "partly filled order 17 outline " + part.get(17) + " (control 14 " + part.get(14) + ")");
+            // The % glyph covers the top-left sample point (reads FFFFFF), so judge slot 17 by its other three corners.
+            String p17 = part.get(17);
+            String[] corners17 = p17.startsWith("mixed:") ? p17.substring(6).split("/") : new String[]{p17, p17, p17, p17};
+            c.check(corners17[1].equals(part.get(14)) && corners17[2].equals(part.get(14)) && corners17[3].equals(part.get(14)),
+                    "partly filled order 17 outline " + p17 + " (control 14 " + part.get(14) + "): a best-price order has no highlight");
             c.check(part.get(18).contains(String.format("%06X", OUTBID)), "partly filled undercut order 18 outline " + part.get(18));
             Map<Integer, Integer> white = whiteTopLeft(c, "partial-mark");
             c.note("white pixels top-left: " + white);
