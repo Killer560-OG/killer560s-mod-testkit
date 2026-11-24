@@ -232,7 +232,8 @@ final class PvStyle1104Cases {
                 BufferedImage img = BazaarReskinCases.shot(c, want.toLowerCase());
                 double scale = img.getWidth() / (double) geo[5];
                 int px = (int) ((geo[0] + 1) * scale + scale / 2);
-                int py = (int) ((geo[1] + geo[3] / 2) * scale + scale / 2);
+                // SkyBlockPV: low on the edge, under its Info box (which starts at the panel's left edge and reaches mid height).
+                int py = (int) ((geo[1] + (neu ? geo[3] / 2 : geo[3] - 12)) * scale + scale / 2);
                 int rgb = img.getRGB(px, py) & 0xFFFFFF;
                 int rgb0 = img.getRGB((int) (geo[0] * scale + scale / 2), py) & 0xFFFFFF;
                 c.note(want + ": panel " + geo[0] + "," + geo[1] + " " + geo[2] + "x" + geo[3] + ", content y " + geo[4]
