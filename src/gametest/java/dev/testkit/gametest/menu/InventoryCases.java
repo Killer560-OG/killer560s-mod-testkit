@@ -35,6 +35,7 @@ final class InventoryCases {
         MenuSuite.test(s, "240-menu-autosell-keep-max-smcp", InventoryCases::autosellKeepMaxSmcp);
         MenuSuite.test(s, "1105-autosell-potion", InventoryCases::autosellPotion);
         MenuSuite.test(s, "241-menu-itemprotect-bin-auction", InventoryCases::itemProtect);
+        MenuSuite.test(s, "1123-menu-itemprotect-anvil-upgrade", InventoryCases::itemProtectAnvil);
         MenuSuite.test(s, "242-menu-invsort-swap", InventoryCases::invsort);
         MenuSuite.test(s, "243-menu-slotbinds-shift-click", InventoryCases::slotBinds);
         MenuSuite.test(s, "1108-slotbinds-shared-remove", InventoryCases::slotBindsSharedRemove);
@@ -341,6 +342,64 @@ final class InventoryCases {
             MenuKit.reset(c);
             clearInv(c);
         }
+    }
+
+    /** 1123: a protected item may go in the anvil's Item to Upgrade slot (29) but never the Item to Sacrifice slot (33). */
+    static void itemProtectAnvil(Session c) throws Exception {
+        MenuKit.reset(c);
+        clearInv(c);
+        Object cfgObj = c.onClient(mc -> Mod.cfg("itemprotect.ItemProtectConfig"));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("itemprotect.ItemProtectConfig", "Enabled", true).set("itemprotect.ItemProtectConfig", "ProtectItemEnabled", true);
+            boolean had = c.onClient(mc -> (Boolean) Mod.call(cfgObj, "hasProtectedKey", "hx-hyp-1"));
+            if (!had) {
+                c.ctx().runOnClient(mc -> Mod.call(cfgObj, "toggleProtectedKey", "hx-hyp-1"));
+            }
+            c.hx().give(0, MenuKit.item("items.hyperion-protected-uuid"));
+            c.hx().give(1, MenuKit.item("items.hyperion-protected-uuid"));
+            c.hx().give(2, "minecraft:diamond");
+            c.hx().call("menu.anvil", MenuKit.obj("{}"));
+            MenuKit.awaitScreen(c, "Anvil", 100);
+            c.ctx().waitTicks(5);
+            int hotbar0 = 54 + 27;
+            int base = c.events("container.click").size();
+            // 1: shift-click into the empty anvil: it lands in the upgrade slot, so no block and a click on the wire
+            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0, ContainerInput.QUICK_MOVE));
+            c.waitUntil("the protected item's shift-click to reach the server", mc -> c.events("container.click").size() > base, 60);
+            c.ctx().waitTicks(10);
+            boolean upgradeFilled = c.onClient(mc -> McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
+                    && s.getMenu().slots.get(29).hasItem());
+            c.check(upgradeFilled, "the protected item did not land in the Item to Upgrade slot (29)");
+            // 2: upgrade slot taken, so a second shift-click would land in the sacrifice slot: blocked, nothing sent
+            int afterFirst = c.events("container.click").size();
+            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 1, ContainerInput.QUICK_MOVE));
+            c.ctx().waitTicks(20);
+            c.check(c.events("container.click").size() == afterFirst, "a protected shift-click toward the sacrifice slot reached the server");
+            // 3: a number-key swap of the protected hotbar item (slot 1) into the sacrifice slot 33: nothing may go out
+            int afterPick = c.events("container.click").size();
+            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), 33, ContainerInput.SWAP, 1));
+            c.ctx().waitTicks(20);
+            List<String> late = new ArrayList<>();
+            c.events("container.click").stream().skip(afterPick).forEach(e -> late.add(e.get("slot") + ":" + e.get("input")));
+            c.check(late.stream().noneMatch(x -> x.startsWith("33:")), "a protected item was placed in the sacrifice slot (33): " + late);
+            // 4: an unprotected item still goes through the same way
+            int afterPut = c.events("container.click").size();
+            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 2, ContainerInput.QUICK_MOVE));
+            c.waitUntil("the unprotected diamond's click to reach the server", mc -> c.events("container.click").size() > afterPut, 60);
+            c.note("anvil: protected shift-click to upgrade slot went out and landed in 29; second protected shift-click and "
+                    + "a protected click on 33 sent 0 packets; unprotected diamond sent a click");
+            if (!had) {
+                c.ctx().runOnClient(mc -> Mod.call(cfgObj, "toggleProtectedKey", "hx-hyp-1"));
+            }
+        } finally {
+            MenuKit.reset(c);
+            clearInv(c);
+        }
+    }
+
+    static void screenClick(Object screen, int slotIndex, ContainerInput input, int button) {
+        AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) screen;
+        Mod.call(s, "killer560smod$slotClicked", s.getMenu().slots.get(slotIndex), slotIndex, button, input);
     }
 
     static void screenClick(Object screen, int slotIndex, ContainerInput input) {

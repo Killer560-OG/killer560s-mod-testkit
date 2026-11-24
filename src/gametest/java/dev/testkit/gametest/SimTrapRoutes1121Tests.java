@@ -498,9 +498,10 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                 failures.add(tag + ": no trap-room walk aligned onto its next node (" + run + ")");
             }
         }
-        // r0 is excluded: Old Trap's walk #2 -> #3 is refused there ("couldn't align", 0.09 off after 101 ticks) on the 11-21 route too
-        // (oldtrap-r0-1123 in WORKQUEUE); the other three rotations must wait at #4 and walk out.
-        if (!newTrap && !tag.endsWith(" r0") && lines.stream().anyMatch(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))) {
+        // All four rotations (oldtrap-r0-1123): at r0 the walk #2 -> #3 used to be refused ("couldn't align", 0.09 off after
+        // 101 ticks) because the sim stood the crypt undead #1's Superboom opens on #3's own cell (the lid's first slab in a
+        // world-axis scan) and the motionless mob pushed him every tick; it now stands under the middle of the lid.
+        if (!newTrap && lines.stream().anyMatch(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))) {
             // oldtrap-default-1123: Old Trap's route (no pearl) must wait for its secret at #4, then its last node (a walk) runs him out of the trap room
             String run = "await " + waitVerdict + ", last node began " + lastBegan + ", left the trap room " + leftTrap;
             println(tag + " route run: " + run);

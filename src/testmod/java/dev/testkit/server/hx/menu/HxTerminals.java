@@ -154,6 +154,11 @@ final class HxTerminals {
         int[] melodyTargets;
         /** Steps where the pane left the current row's target with no correct click: a pass the player missed. */
         int melodyMissedPasses;
+        /** Real Hypixel shows the next row about 400 ms after the click that finished the row ("rowDelay", ticks; the
+         *  owner's 2026-11-23 F7 log: rows showed ~500 ms after the click at 75-120 ms ping). A click before it is ignored.
+         *  0 = the next row at once. {@code melodyAdvanceAt} is -1 when no advance is pending. */
+        int melodyRowDelay;
+        long melodyAdvanceAt = -1;
         final Map<Integer, Integer> melodyDoneCol = new LinkedHashMap<>();
 
         Terminal(Type type, long seed, String title, int rows, int[] grid, boolean closeOnSolve, int melodyInterval) {
@@ -188,6 +193,12 @@ final class HxTerminals {
                 return;
             }
             long now = server.getTickCount();
+            if (melodyAdvanceAt >= 0 && now >= melodyAdvanceAt) {
+                melodyAdvanceAt = -1;
+                melodyRow++;
+                drawMelody(server, menu);
+                menu.broadcastChanges();
+            }
             if (now - melodyLastMove < melodyInterval) {
                 return;
             }
@@ -469,6 +480,7 @@ final class HxTerminals {
                 t = new Terminal(type, seed, "Click the button on time!", bandRows + 2, buttons, close, interval);
                 t.melodyBandRows = bandRows;
                 t.melodyTarget = a.has("target") ? a.get("target").getAsInt() : 1 + rng.nextInt(5);
+                t.melodyRowDelay = a.has("rowDelay") ? a.get("rowDelay").getAsInt() : 0;
                 t.melodyKeepDone = a.has("keepDone") && a.get("keepDone").getAsBoolean();
                 t.melodyFrozen = a.has("freeze") && a.get("freeze").getAsBoolean();
                 t.melodyKeepTarget = a.has("keepTarget") && a.get("keepTarget").getAsBoolean();
@@ -732,17 +744,21 @@ final class HxTerminals {
                 case MELODY -> {
                     int col = slot % 9;
                     int row = slot / 9;
-                    if (col == 7 && row == t.melodyRow && t.melodyLime == t.melodyTarget) {
+                    if (col == 7 && row == t.melodyRow && t.melodyLime == t.melodyTarget && t.melodyAdvanceAt < 0) {
                         t.melodyDoneCol.put(t.melodyRow, t.melodyLime);
                         if (t.melodyTargets != null && t.melodyRow < t.melodyTargets.length) {
                             t.melodyTarget = t.melodyTargets[t.melodyRow];
                         } else if (!t.melodyKeepTarget) {
                             t.melodyTarget = 1 + t.rng.nextInt(5);
                         }
-                        t.melodyRow++;
                         correct = true;
-                        if (t.melodyRow <= t.melodyBandRows) {
-                            t.drawMelody(server, menu);
+                        if (t.melodyRowDelay > 0 && t.melodyRow < t.melodyBandRows) {
+                            t.melodyAdvanceAt = tick + t.melodyRowDelay;
+                        } else {
+                            t.melodyRow++;
+                            if (t.melodyRow <= t.melodyBandRows) {
+                                t.drawMelody(server, menu);
+                            }
                         }
                     }
                 }
