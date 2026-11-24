@@ -54,6 +54,19 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
             SimRoomCycleTests.openCycleMenu(ctx);
             check(failures, SimRoomCycleTests.buttonLabels(ctx).stream().anyMatch(l -> l.startsWith("Weak Rooms (")),
                     "no Weak Rooms button on " + SimRoomCycleTests.buttonLabels(ctx));
+            // ---- mobs on (the Map Designer's remembered Mobs choice, which it re-applies each time it opens): without
+            // ---- them the sim clears a room on entry and a load is not timed
+            ctx.runOnClient(mc -> {
+                try {
+                    Object prefs = ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMenuPrefs", "load");
+                    prefs.getClass().getField("mobs").setBoolean(prefs, true);
+                    ModUnderTest.call(prefs, "save", new Class<?>[]{}, new Object[]{});
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobFloor", "setEnabled",
+                        new Class<?>[]{boolean.class}, new Object[]{true});
+            });
             // ---- time five rooms from All Rooms ----------------------------------------------------------
             long before = Scenario.simBuildCount(ctx);
             SimRoomCycleTests.press(ctx, l -> l.startsWith("All Rooms (") && Character.isDigit(l.charAt(11)), "All Rooms");
