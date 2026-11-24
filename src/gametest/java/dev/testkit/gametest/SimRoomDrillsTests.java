@@ -219,7 +219,7 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
             try {
                 ctx.waitFor(mc -> stats(mc).contains("finished=true"), 100);
             } catch (AssertionError ae) {
-                System.out.println("[" + NAME + "] " + room + ": NO CLEAR, stats " + stats(ctx) + " state=" + ctx.computeOnClient(mc -> ModUnderTest.staticCall(STATE, "stateFor", new Class<?>[]{String.class}, new Object[]{room})));
+                System.out.println("[" + NAME + "] " + room + ": NO CLEAR, stats " + stats(ctx) + " sizes=" + sizes() + " state=" + ctx.computeOnClient(mc -> ModUnderTest.staticCall(STATE, "stateFor", new Class<?>[]{String.class}, new Object[]{room})));
                 throw ae;
             }
         } else {
@@ -228,6 +228,21 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
                     new Object[]{room}));
             ctx.waitTicks(6);
         }
+    }
+
+    private static String sizes() {
+        StringBuilder b = new StringBuilder();
+        for (String n : new String[]{"STARRED", "STARRED_AT", "STARRED_DEAD", "KILLED"}) {
+            try {
+                var f = Class.forName("com.killer560.hub.roomsim.SimMobs").getDeclaredField(n);
+                f.setAccessible(true);
+                Object o = f.get(null);
+                b.append(n).append("=").append(o instanceof java.util.Map<?, ?> m ? m.size() : ((java.util.Collection<?>) o).size()).append(" ");
+            } catch (ReflectiveOperationException e) {
+                b.append(n).append("=?").append(e).append(" ");
+            }
+        }
+        return b.toString();
     }
 
     private static Object field(String cls, String name) {
