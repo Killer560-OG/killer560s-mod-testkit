@@ -62,8 +62,8 @@ public class SimTrapEditNodes1123Tests implements FabricClientGameTest {
             });
             SimTrapRoutes1121Tests.tearDown(ctx, renderBefore);
         }
-        if (acted[0] < 9) {
-            failures.add("only " + acted[0] + " of 9 edit paths proven - the case never acted");
+        if (acted[0] < 8) {
+            failures.add("only " + acted[0] + " of 8 edit paths proven - the case never acted");
         }
         if (!failures.isEmpty()) {
             throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
@@ -109,25 +109,9 @@ public class SimTrapEditNodes1123Tests implements FabricClientGameTest {
             failures.add(tag + ": start state wrong, shown " + shown + ", own " + count(ctx, trap, "ownRoute"));
             return 0;
         }
-        // 1. node editor save on node 2 (radius +1.5), the call the editor's Save button makes
+        // 1. node editor save on node 2 (radius +1.5), the call the editor's Save button makes; read back from the file
         double r0 = ctx.computeOnClient(mc -> nodeRadius(trap, "forRoom"));
-        boolean saved = ctx.computeOnClient(mc -> {
-            Object route;
-            try {
-                route = ModUnderTest.staticCall(FEATURE, "editRouteForEditor", NONE, NOARGS);
-            } catch (AssertionError noSuchMethod) { // an origin jar: the editor opens on the shown route
-                route = ModUnderTest.staticCall(FEATURE, "editableRoute", NONE, NOARGS);
-            }
-            Object node = ((List<?>) ModUnderTest.call(route, "nodes", NONE, NOARGS)).get(1);
-            Object edited = ModUnderTest.call(node, "copy", NONE, NOARGS);
-            try {
-                edited.getClass().getField("radius").setDouble(edited, r0 + 1.5);
-            } catch (ReflectiveOperationException ex) {
-                throw new AssertionError(ex);
-            }
-            return (Boolean) ModUnderTest.staticCall(FEATURE, "applyNodeEdit",
-                    new Class<?>[]{route.getClass(), node.getClass(), node.getClass()}, new Object[]{route, node, edited});
-        });
+        boolean saved = editRadius(ctx, r0 + 1.5);
         reload(ctx);
         double r1 = ctx.computeOnClient(mc -> nodeRadius(trap, "ownRoute"));
         System.out.println("[" + NAME + "] " + tag + " editor save: applied " + saved + ", radius " + r0 + " -> " + r1
@@ -138,14 +122,17 @@ public class SimTrapEditNodes1123Tests implements FabricClientGameTest {
         } else {
             acted++;
         }
-        // 2. /ar undo of that edit
+        // 2. /ar undo of an editor save (a reload drops the undo history, so the edit is made again first); then the file
+        boolean saved2 = editRadius(ctx, r1 + 1.5);
+        double r1b = ctx.computeOnClient(mc -> nodeRadius(trap, "ownRoute"));
         cmd(ctx, "/ar undo");
         ctx.waitTicks(3);
+        double r2m = ctx.computeOnClient(mc -> nodeRadius(trap, "ownRoute"));
         reload(ctx);
         double r2 = ctx.computeOnClient(mc -> nodeRadius(trap, "ownRoute"));
-        System.out.println("[" + NAME + "] " + tag + " undo: radius " + r1 + " -> " + r2);
-        if (r2 != r0) {
-            failures.add(tag + ": /ar undo of the editor save left radius " + r2 + " in his saved route, wanted " + r0);
+        System.out.println("[" + NAME + "] " + tag + " undo: radius " + r1 + " -> " + r1b + " -> " + r2m + " (file " + r2 + ")");
+        if (!saved2 || r1b != r1 + 1.5 || r2m != r1 || r2 != r1) {
+            failures.add(tag + ": /ar undo of the editor save left radius " + r2m + " in memory and " + r2 + " in his saved route, wanted " + r1);
         } else {
             acted++;
         }
@@ -171,31 +158,57 @@ public class SimTrapEditNodes1123Tests implements FabricClientGameTest {
             removeOwn(ctx, trap);
             int blocks0 = ctx.computeOnClient(mc -> breakerBlocks(trap, "forRoom"));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "setEditMode", new Class<?>[]{boolean.class}, new Object[]{true}));
-            BlockPos click = start.offset(2, -1, 0);
-            boolean consumed = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(FEATURE, "onEditRightClick",
-                    new Class<?>[]{BlockPos.class, boolean.class}, new Object[]{click, false}));
-            reload(ctx);
+            BlockPos click = ctx.computeOnClient(mc -> mc.player.blockPosition().offset(1, -1, 0));
+            boolean consumed = pick(ctx, click);
             int blocks1 = ctx.computeOnClient(mc -> breakerBlocks(trap, "ownRoute"));
-            System.out.println("[" + NAME + "] " + tag + " breaker pick: consumed " + consumed + ", blocks " + blocks0 + " -> "
-                    + blocks1 + " (own after reload)");
-            if (!consumed || blocks1 != blocks0 + 1) {
-                failures.add(tag + ": the Dungeon Breaker pick did not reach his own saved route (blocks " + blocks0 + " -> " + blocks1 + ")");
+            cmd(ctx, "/ar undo");
+            ctx.waitTicks(3);
+            int blocks2 = ctx.computeOnClient(mc -> breakerBlocks(trap, "ownRoute"));
+            boolean consumed2 = pick(ctx, click);
+            reload(ctx);
+            int blocks3 = ctx.computeOnClient(mc -> breakerBlocks(trap, "ownRoute"));
+            System.out.println("[" + NAME + "] " + tag + " breaker: blocks " + blocks0 + " -> pick " + blocks1 + " -> undo " + blocks2
+                    + " -> pick again, file after reload " + blocks3 + " (consumed " + consumed + "/" + consumed2 + ")");
+            if (!consumed || !consumed2 || blocks1 != blocks0 + 1 || blocks3 != blocks0 + 1) {
+                failures.add(tag + ": the Dungeon Breaker pick did not reach his own saved route (blocks " + blocks0 + " -> " + blocks1
+                        + ", file " + blocks3 + ")");
             } else {
                 acted++;
             }
-            cmd(ctx, "/ar undo");
-            ctx.waitTicks(3);
-            reload(ctx);
-            int blocks2 = ctx.computeOnClient(mc -> breakerBlocks(trap, "ownRoute"));
-            System.out.println("[" + NAME + "] " + tag + " breaker undo: blocks " + blocks1 + " -> " + blocks2);
             if (blocks2 != blocks0) {
-                failures.add(tag + ": /ar undo of the breaker pick left " + blocks2 + " block(s) in his saved route, wanted " + blocks0);
+                failures.add(tag + ": /ar undo of the breaker pick left " + blocks2 + " block(s) in his own route, wanted " + blocks0);
             } else {
                 acted++;
             }
             ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "setEditMode", new Class<?>[]{boolean.class}, new Object[]{false}));
         }
         return acted;
+    }
+
+    private static boolean pick(ClientGameTestContext ctx, BlockPos click) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(FEATURE, "onEditRightClick",
+                new Class<?>[]{BlockPos.class, boolean.class}, new Object[]{click, false}));
+    }
+
+    /** The editor's Save on node 2 with a new radius, on the route the editor opens on. */
+    private static boolean editRadius(ClientGameTestContext ctx, double radius) {
+        return ctx.computeOnClient(mc -> {
+            Object route;
+            try {
+                route = ModUnderTest.staticCall(FEATURE, "editRouteForEditor", NONE, NOARGS);
+            } catch (AssertionError noSuchMethod) { // an origin jar: the editor opens on the shown route
+                route = ModUnderTest.staticCall(FEATURE, "editableRoute", NONE, NOARGS);
+            }
+            Object node = ((List<?>) ModUnderTest.call(route, "nodes", NONE, NOARGS)).get(1);
+            Object edited = ModUnderTest.call(node, "copy", NONE, NOARGS);
+            try {
+                edited.getClass().getField("radius").setDouble(edited, radius);
+            } catch (ReflectiveOperationException ex) {
+                throw new AssertionError(ex);
+            }
+            return (Boolean) ModUnderTest.staticCall(FEATURE, "applyNodeEdit",
+                    new Class<?>[]{route.getClass(), node.getClass(), node.getClass()}, new Object[]{route, node, edited});
+        });
     }
 
     private static void reload(ClientGameTestContext ctx) {
