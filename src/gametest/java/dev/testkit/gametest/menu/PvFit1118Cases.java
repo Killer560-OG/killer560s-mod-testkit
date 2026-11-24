@@ -49,6 +49,7 @@ final class PvFit1118Cases {
         MenuSuite.test(s, "1118-menu-pvfit-layout", PvFit1118Cases::layout);
         MenuSuite.test(s, "1118-menu-pvfit-search", PvFit1118Cases::search);
         MenuSuite.test(s, "1118-menu-pvfit-status", PvFit1118Cases::status);
+        MenuSuite.test(s, "1124-menu-pv-status-place", PvFit1118Cases::statusPlace);
         MenuSuite.test(s, "1118-logic-pvfit-pet", PvFit1118Cases::pet);
         MenuSuite.test(s, "1118-menu-pvfit-collections", PvFit1118Cases::collections);
     }
@@ -69,10 +70,15 @@ final class PvFit1118Cases {
      *  chest, a diamond in backpack 0 and arrows in the quiver. */
     @SuppressWarnings("unchecked")
     private static Screen open(Session c, List<AutoCloseable> close) {
+        return open(c, close, PROFILE);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Screen open(Session c, List<AutoCloseable> close, String json) {
         Screen s = c.onClient(mc -> {
             try {
                 List<Object> parsed = (List<Object>) Mod.staticCall("profileviewer.data.SbProfile", "parseAll",
-                        JsonParser.parseString(PROFILE).getAsJsonObject(), ID);
+                        JsonParser.parseString(json).getAsJsonObject(), ID);
                 Class<?> bpCls = Mod.cls("profileviewer.data.SbProfile$Backpack");
                 Object bp = bpCls.getDeclaredConstructors()[0].newInstance(0, new ItemStack(Items.CHEST),
                         grid(54, new ItemStack(Items.DIAMOND)));
@@ -236,6 +242,54 @@ final class PvFit1118Cases {
             c.check(String.valueOf(bad).contains("Status unavailable"), "404 line: " + bad);
         } finally {
             closeAll(close);
+        }
+    }
+
+    /** pv-status-under-joined-1124: where the Status control sits on the Basic page in each Style. */
+    static void statusPlace(Session c) throws Exception {
+        String json = PROFILE.replace("\"currencies\"", "\"profile\":{\"first_join\":1600000000000},\"currencies\"");
+        String cfg = PvStyle1104Cases.PVCFG;
+        Object old = c.onClient(mc -> Mod.call(Mod.cfg(cfg), "getStyle"));
+        try (SocialCases.Env env = new SocialCases.Env(c)) {
+            c.ctx().runOnClient(mc -> Mod.staticCall(API, "setStatusSourceForTest", (java.util.function.Function<UUID, CompletableFuture<JsonObject>>) u ->
+                    CompletableFuture.completedFuture(JsonParser.parseString("{\"session\":{\"online\":true,\"gameType\":\"SKYBLOCK\",\"mode\":\"dungeon_hub\"}}").getAsJsonObject())));
+            BazaarV3Cases.setWindow(c, 1600, 900, 2);
+            for (String st : PvStyle1104Cases.ORDER) {
+                List<AutoCloseable> close = new ArrayList<>();
+                try {
+                    c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(cfg), "setStyle", Mod.enumValue(cfg + "$Style", st)));
+                    Screen s = open(c, close, json);
+                    c.ctx().waitTicks(6);
+                    int[] b = c.onClient(mc -> ((int[]) Mod.field(s, "statusButton")).clone());
+                    int px = c.onClient(mc -> PvStyle1104Cases.i(s, "panelX")), py = c.onClient(mc -> PvStyle1104Cases.i(s, "panelY"));
+                    int pw = c.onClient(mc -> PvStyle1104Cases.i(s, "panelW")), ph = c.onClient(mc -> PvStyle1104Cases.i(s, "panelH"));
+                    int cx = c.onClient(mc -> PvStyle1104Cases.i(s, "contentX")), cy = c.onClient(mc -> PvStyle1104Cases.i(s, "contentY"));
+                    c.note(st + " status box " + java.util.Arrays.toString(b) + " panel " + px + "," + py + " " + pw + "x" + ph + " content " + cx + "," + cy);
+                    c.check(b[0] >= px && b[0] + b[2] <= px + pw && b[1] >= py && b[1] + b[3] <= py + ph, st + ": the status control is outside the window");
+                    if (st.equals("DEFAULT")) {
+                        c.check(b[1] >= cy + 72, "DEFAULT: Status is not below the Joined row (y " + b[1] + ", content y " + cy + ")");
+                        c.check(b[0] >= cx && b[0] + b[2] <= cx + 118, "DEFAULT: Status is outside the left panel");
+                    } else if (st.equals("NEU")) {
+                        c.check(b[1] >= py + 152 && b[0] >= px + 23 && b[0] + b[2] <= px + 23 + 81, "NEU: Status is not under the model box " + java.util.Arrays.toString(b));
+                    } else {
+                        c.check(b[3] == 20 && b[2] == (int) (pw * 0.2), st + ": Status is not the player's box " + java.util.Arrays.toString(b));
+                    }
+                    c.ctx().runOnClient(mc -> Mod.call(s, "toggleStatus"));
+                    c.waitUntil("the status answer", mc -> ((List<?>) Mod.call(s, "statusLines")).toString().contains("Online"), 60);
+                    c.ctx().waitTicks(4);
+                    c.check(b[1] + b[3] >= cy || st.startsWith("SBPV"), st + ": Status sits over the tab row");
+                    if (st.equals("DEFAULT") || st.equals("NEU") || st.equals("SBPV_LIGHT")) {
+                        BazaarReskinCases.shot(c, "pv-status-" + st.toLowerCase());
+                    }
+                } finally {
+                    closeAll(close);
+                }
+            }
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall(API, "setStatusSourceForTest", (Object) null);
+                Mod.call(Mod.cfg(cfg), "setStyle", old);
+            });
         }
     }
 

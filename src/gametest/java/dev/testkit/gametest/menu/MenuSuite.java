@@ -198,6 +198,7 @@ public class MenuSuite implements FabricClientGameTest {
                     Pv0273Cases.register(s); // 1117-menu-pv0273-* (pv0273-1117)
                     PvFit1118Cases.register(s); // 1118-*-pvfit-* (pvfit-1118)
                     PvStyle1104Cases.register(s); // 1104-menu-pvstyle: the Profile Viewer's Styles (pvstyle-1104)
+                    PvExact1124Cases.register(s); // 1124-menu-pvexact-*: each PV Style against its original (pv-styles-exact-1124)
                     HotmTree1118Cases.register(s); // 1118-menu-hotmtree: the HOTM perk tree (hotmtree-1118)
                     AnvilCases.register(s);
                     BazaarReskinCases.register(s);
