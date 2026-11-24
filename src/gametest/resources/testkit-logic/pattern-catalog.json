@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
  "generatedAt": "2026-11-24T11:07:37",
- "modSource": "lane-queueleap-ticksplit-1124",
- "modGitSha": "a598dbd771c232c21e1b17da034aeeee6c68feab",
+ "modSource": "lane-idea-roomdrills-1124",
+ "modGitSha": "93e583a2fb34e4b3749374d6610d5df3a37a06d8",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {

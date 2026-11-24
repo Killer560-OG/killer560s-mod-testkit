@@ -519,7 +519,7 @@ public class SimRoomCycleTests implements FabricClientGameTest {
 
     // =========================================================================================== menu
 
-    private static void openCycleMenu(ClientGameTestContext ctx) {
+    static void openCycleMenu(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> mc.execute(() -> {
             try {
                 Screen s = (Screen) Class.forName(MENU).getConstructor(Screen.class).newInstance((Object) null);
@@ -547,14 +547,14 @@ public class SimRoomCycleTests implements FabricClientGameTest {
         ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
     }
 
-    private static void awaitLoaded(ClientGameTestContext ctx, String room) {
+    static void awaitLoaded(ClientGameTestContext ctx, String room) {
         for (int i = 0; i < 200 && !room.equals(soloRoom(ctx)); i++) {
             ctx.waitTicks(2);
         }
         ctx.waitTicks(20);
     }
 
-    private static void press(ClientGameTestContext ctx, Predicate<String> which, String what) {
+    static void press(ClientGameTestContext ctx, Predicate<String> which, String what) {
         String result = ctx.computeOnClient(mc -> {
             Screen s = McCompat.screen(mc);
             if (s == null) {
@@ -587,7 +587,7 @@ public class SimRoomCycleTests implements FabricClientGameTest {
         ctx.waitTicks(3);
     }
 
-    private static List<String> buttonLabels(ClientGameTestContext ctx) {
+    static List<String> buttonLabels(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> {
             List<String> out = new ArrayList<>();
             Screen s = McCompat.screen(mc);
@@ -604,7 +604,7 @@ public class SimRoomCycleTests implements FabricClientGameTest {
 
     // =========================================================================================== reads
 
-    private static String soloRoom(ClientGameTestContext ctx) {
+    static String soloRoom(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(ROUTES, "currentSoloRoom"));
     }
 
@@ -667,7 +667,7 @@ public class SimRoomCycleTests implements FabricClientGameTest {
         }
     }
 
-    private static String strip(String s) {
+    static String strip(String s) {
         String t = net.minecraft.ChatFormatting.stripFormatting(s);
         return t == null ? s : t;
     }
@@ -744,7 +744,7 @@ public class SimRoomCycleTests implements FabricClientGameTest {
         });
     }
 
-    private static void teardown(ClientGameTestContext ctx) {
+    static void teardown(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_STATE, "leave");
