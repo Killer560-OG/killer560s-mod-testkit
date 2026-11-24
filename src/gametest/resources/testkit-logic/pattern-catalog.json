@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T02:11:12",
- "modSource": "lane-treeregen-broken-1124",
- "modGitSha": "cc3cb1039e6d82bbab36808000fa47b6eb7641ea",
+ "generatedAt": "2026-11-24T02:23:27",
+ "modSource": "lane-roompredictor-1123-fix4",
+ "modGitSha": "e3ce774fd7753bdc0560da7a9102aa357cb1dcd9",
  "modSourceDirty": false,
  "count": 987,
  "byKind": {
