@@ -955,6 +955,8 @@ final class ExperimentCases {
             return;
         }
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
+            // The Guardian swap (on by default) holds all navigation until it has run (as in 226): off, or no tier is ever clicked.
+            cfg.set(CONFIG, "AutoSwapGuardianPet", false);
             String[] open = new String[6];
             String r = stakesRun(c, "", open);
             c.check(r.startsWith("10|") && r.contains("picked Metaphysical"), "all open: " + r);
