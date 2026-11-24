@@ -33,8 +33,21 @@ final class MelodyStall1123Cases {
         MenuSuite.test(s, "1123-menu-term-melody-rowdelay", MelodyStall1123Cases::rowDelay);
     }
 
+    /** The mod keeps the row delay it learned across boards (the server's); other cases' sim shows rows at once. Origin has no such field. */
+    private static void forgetRowDelay() {
+        try {
+            Mod.setField(FEATURE, "melodyRowShowDelayMs", 0L);
+        } catch (AssertionError e) {
+            // origin jar: nothing learned
+        }
+    }
+
     static void rowDelay(Session c) throws Exception {
         MenuKit.reset(c);
+        c.onClient(mc -> {
+            forgetRowDelay();
+            return null;
+        });
         if (!MenuKit.cheat()) {
             c.note("legit jar: Auto Melody is cheat-only");
             return;
@@ -116,6 +129,7 @@ final class MelodyStall1123Cases {
         } finally {
             c.onClient(mc -> {
                 Latency.remove();
+                forgetRowDelay();
                 return null;
             });
             MenuKit.reset(c);
