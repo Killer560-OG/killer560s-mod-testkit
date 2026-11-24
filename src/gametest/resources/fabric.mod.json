@@ -126,6 +126,7 @@
 			"dev.testkit.gametest.SimAutoClearEtaTests",
 			"dev.testkit.gametest.SimAutoClear1020Tests",
 			"dev.testkit.gametest.SimAcChaser1123Tests",
+			"dev.testkit.gametest.SimAcTagLag1123Tests",
 			"dev.testkit.gametest.SimPathLandTests",
 			"dev.testkit.gametest.SimIcePathShoveTests",
 			"dev.testkit.gametest.SimSmoothTeleportTests",

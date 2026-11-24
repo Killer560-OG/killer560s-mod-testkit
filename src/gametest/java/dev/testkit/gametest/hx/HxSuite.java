@@ -155,6 +155,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxPowderGrind1103Cases.register(s);
                     // Chat Hider mining/sack hides and Hide Treasure Chest Uncovered (1104-chattidy-*, mod chattidy-1104).
                     HxChatTidy1104Cases.register(s);
+                    // Auto Dialogue answers a prompt whose option is nested (1122-autodialogue-*, mod autodialogue-1122).
+                    HxAutoDialogue1122Cases.register(s);
                     // Treasure chest hide / tracer / countdown and the Golden Goblin (1104-chestgoblin-*, mod chestgoblin-1104).
                     HxChestGoblin1104Cases.register(s);
                     // Crystal Hollows Map HUD (1104-chmap-hud, mod chhud-1104).
@@ -224,6 +226,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Hide Ghost Mobs: a silent starred mob in a map-cleared room is hidden, idle, unstarred or later-heard ones never (1109-ghostmob-hide, 1118-ghostmob-*, mod ghostmob-redo-1118).
                     HxGhostMob1109Cases.register(s);
                     HxArrowParticles1117Cases.register(s);
+                    // mod invisibug-1122: Invisibug Highlight.
+                    HxInvisibug1122Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);
                     // mod featG-1109: Carry Tracker.
