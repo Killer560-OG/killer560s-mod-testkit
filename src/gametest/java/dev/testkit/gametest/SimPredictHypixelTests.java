@@ -66,6 +66,12 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             {"MC2:CxUIRW50cmFuY2UMR29sZGVuIE9hc2lzBUZhaXJ5BU1pbmVzBUZsYWdzBk11c2V1bQVCbG9vZARab2RkBU1vc3N5BUF0bGFzCU92ZXJncm93bg1UZWxlcG9ydCBNYXplCEljZSBQYXRoCE9sZCBUcmFwCEFuZGVzaXRlDEhpZ2hlciBCbGF6ZQxCaWcgUmVkIEZsYWcLTG9ja2VkIEF3YXkHUmFjY29vbgxUaHJlZSBGbG9vcnMMUmFyZSBQaWxsYXJzABUDAQAAABMAAAAAAA8BAQAAABAAAAAAAAEABAAAAAIAAAAAAAAAAQAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAABEBAQAAABICAAAAAAoBAAoBAAoBAAAAABQAAAAAAAMCAQAAAAAAAAAAAAAAAAoBAAoBAAoBAAAAAQAAAAAAAQAAAAsCAAAAAAwCAAAAAAoBAAoBAAoBAAAAAAQBAAQBAAQBAQAAAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAQBAAQBAAQBAAkCAAkCAAkCAAkCAAkCAAkCAAkCAAAAAAQBAAQBAAQBAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAQAAAAAAAQAAAAgCAQAAAAYCAAYCAAYCAAAAAAUBAAUBAAUBAAAAAA4DAAAAAAAAAAYCAAYCAAYCAAAAAAUBAAUBAAUBAAAAAAAAAAcCAwAAAAYCAAYCAAYCAQAAAAUBAAUBAAUBAQAAAA0B,MC2:CxUIRW50cmFuY2UFTWluZXMFRmFpcnkKQmxhY2sgRmxhZwZLbmlnaHQLU2NhZmZvbGRpbmcFQmxvb2QISWNlIFBhdGgGR3JhdmVsCE9sZCBUcmFwCVdhdGVyZmFsbA5Mb3RzIE9mIEZsb29ycw1UZWxlcG9ydCBNYXplDVF1YXJ0eiBLbmlnaHQLTG93ZXIgQmxhemUFQ3J5cHQJT3Zlcmdyb3duA1BpdBBPdmVyZ3Jvd24gQ2hhaW5zB0RlZmF1bHQDRGlwAAEBAAAAAAkBAAkBAAkBAAkBAAkBAQAAAAsBAQAAAAwCBAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAsBAAAAAAAAAAIBAAIBAAIBAQAAAAgBAAAAABIBAAAAAAsBAAAAAA8BAAIBAAIBAAIBAAAAAAAAAAAAABIBAAAAAAsBAAAAAQAAAAIBAAIBAAIBAQAAAAoCAAAAABIBAAAAAAsBAAAAAA4AAQAAAAAAAAAAAAAAAAAAAAAAABIBAAAAAAsBAAAAAA4AAAMCAAAAAAYBAwAAAAcAAAAAABIBAAAAAAsBAQAAAA4AAQAAAAAAAQAAAAAAAAAAAAAAABIBAAAAAQAAAAAAAA4AAAQBAQAAAAUDAAAAABUBAAAAABIBAAAAAA0AAAAAAA4AAAAAAAAAAAAAAAAAAQAAAAAAAQAAAAAAAAAAAAAAAA4AABQCAQAAABMCAQAAABEBAQAAABACABACABACAQAAAA4A,MC2:CxUIRW50cmFuY2UGRHVuY2FuCVN1cGVydGFsbAdCdXR0b25zBUZhaXJ5A0VuZAVCbG9vZAVBdGxhcwhJY2UgRmlsbARRdWl6CE9sZCBUcmFwCU92ZXJncm93bgVTdGVwcwtMb3dlciBCbGF6ZQlXYXRlcmZhbGwGRHVlY2VzBlNwaWtlcw1RdWFydHogS25pZ2h0BVNsb3RoBkxlYXZlcwpSYWlsIFRyYWNrAAIDAQAAAAMBAAMBAAMBAQAAAAQCAAQCAAQCAQAAAAoABAAAAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAAAAAAAEDAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAABMBAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAQAAAA4BAAAAAAgBAAgBAAgBAAAAABUDAAAAAAUAAAAAABIAAQAAAAAAAAgBAAgBAAgBAAAAAQAAAAAAAQAAAAAAABIAAAwCAQAAAAgBAAgBAAgBAAAAABQDAAAAAAYBAAAAABIAAQAAAAAAAQAAAAAAAQAAAAAAAQAAAAAAAwAAAAAAABIAAA0BAAAAAAsDAAAAAAkDAAAAABADAAAAAAcBAAAAABIAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAABIAAA8AAA8AAA8AAA8AAA8AAA8AAA8AAQAAABEDAQAAABIA", "*", "*"},
     };
     private static final int SWEEP_FLOORS = Integer.getInteger("testkit.sweep.floors", 6);
+    /**
+     * A floor built over another in the same world: every grid chunk his client holds right after the landing must hold
+     * the new floor's blocks, not a copy of the old floor kept by the Chunk Cache (roompredictor-1123-fix3: the first
+     * glance of a floor ruled out the true room on the old floor's blocks).
+     */
+    private static final String REBUILD = "1123-predict-sim-rebuild-chunks";
 
     /** A glance into a room from its entrance: half a second. */
     private static final int GLANCE_TICKS = 10;
@@ -91,7 +97,8 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        mode = !Scenario.skip(NAME) ? NAME : !Scenario.skip(PINNED) ? PINNED : !Scenario.skip(SWEEP) ? SWEEP : null;
+        mode = !Scenario.skip(NAME) ? NAME : !Scenario.skip(PINNED) ? PINNED : !Scenario.skip(SWEEP) ? SWEEP
+                : !Scenario.skip(REBUILD) ? REBUILD : null;
         if (System.getProperty("testkit.scenario", "").isBlank() || mode == null) {
             return;
         }
@@ -117,6 +124,8 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 body(ctx);
             } else if (mode.equals(PINNED)) {
                 pinned(ctx);
+            } else if (mode.equals(REBUILD)) {
+                rebuild(ctx);
             } else {
                 sweep(ctx);
             }
@@ -292,6 +301,130 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         Report.caseStarted(SWEEP);
         row(SWEEP, bad.isEmpty() && glances > 0, SWEEP_FLOORS + " floor(s), " + glances + " corridor glance(s), "
                 + bad.size() + " failing: " + bad);
+    }
+
+    /**
+     * Floor A, stood in on every room tile (his client gets, and the Chunk Cache keeps, every grid chunk), then floor B
+     * built in the same world. From the landing on, every grid chunk his client holds is compared with the sim server's
+     * (4 columns a chunk, every 4th block from the bottom of the world to the top) over 40 ticks; a chunk with 3 or more
+     * differing blocks is the old floor still on his screen.
+     */
+    private void rebuild(ClientGameTestContext ctx) {
+        Floor a = openFloor(ctx, "");
+        int visits = 0;
+        for (int[] tiles : a.tiles) {
+            for (int tile : tiles) {
+                BlockPos c = a.cellCenter(tile).atY(a.doorY);
+                double[] at = new double[]{c.getX() + 0.5, a.doorY + 0.2, c.getZ() + 0.5};
+                place(ctx, at, new double[]{at[0] + 5, at[1] + 1.6, at[2]});
+                ctx.waitFor(mc -> mc.level.isLoaded(c), 200);
+                visits++;
+            }
+        }
+        BlockPos lo = a.cellCenter(0);
+        BlockPos hi = a.cellCenter(120);
+        int cx0 = (Math.min(lo.getX(), hi.getX()) - 16) >> 4;
+        int cx1 = (Math.max(lo.getX(), hi.getX()) + 16) >> 4;
+        int cz0 = (Math.min(lo.getZ(), hi.getZ()) - 16) >> 4;
+        int cz1 = (Math.max(lo.getZ(), hi.getZ()) + 16) >> 4;
+        int heldBefore = ctx.computeOnClient(mc -> {
+            int n = 0;
+            for (int x = cx0; x <= cx1; x++) for (int z = cz0; z <= cz1; z++) if (mc.level.getChunkSource().hasChunk(x, z)) n++;
+            return n;
+        });
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(FLOOR_GEN, "generate",
+                new Class<?>[]{Minecraft.class, ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7").getClass(), int.class, int.class},
+                new Object[]{mc, ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7"), 3, 4})));
+        ctx.waitFor(mc -> mc.player.getX() > 4000, 1200);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> mc.player.getX() < 4000, 1200);
+        var server = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+        var dim = ctx.computeOnClient(mc -> mc.level.dimension());
+        java.util.Set<Long> compared = new java.util.HashSet<>();
+        java.util.Set<Long> stale = new java.util.HashSet<>();
+        List<String> examples = new ArrayList<>();
+        int cacheOnlyStale = 0;
+        for (int round = 0; round < 20; round++) {
+            // Client first, in one go: the chunk he has NOW, block by block.
+            Map<Long, String[]> seen = ctx.computeOnClient(mc -> {
+                Map<Long, String[]> out = new LinkedHashMap<>();
+                for (int x = cx0; x <= cx1; x++) {
+                    for (int z = cz0; z <= cz1; z++) {
+                        if (!mc.level.getChunkSource().hasChunk(x, z)) continue;
+                        out.put(packXZ(x, z), column(mc.level, x, z));
+                    }
+                }
+                return out;
+            });
+            Map<Long, Boolean> cacheOnly = ctx.computeOnClient(mc -> {
+                Map<Long, Boolean> out = new LinkedHashMap<>();
+                for (long k : seen.keySet()) {
+                    var ch = mc.level.getChunk((int) (long) k, (int) ((long) k >> 32));
+                    out.put(k, Boolean.TRUE.equals(ModUnderTest.staticCall("com.killer560.hub.chunkcache.ChunkCacheManager",
+                            "isCacheOnly", new Class<?>[]{net.minecraft.world.level.chunk.LevelChunk.class}, new Object[]{ch})));
+                }
+                return out;
+            });
+            var job = server.submit(() -> {
+                var lvl = server.getLevel(dim);
+                Map<Long, String[]> out = new LinkedHashMap<>();
+                for (long k : seen.keySet()) {
+                    int x = (int) (long) k;
+                    int z = (int) ((long) k >> 32);
+                    if (lvl != null && lvl.getChunkSource().getChunkNow(x, z) != null) out.put(k, column(lvl, x, z));
+                }
+                return out;
+            });
+            ctx.waitFor(mc -> job.isDone(), 200);
+            Map<Long, String[]> truth = job.getNow(Map.of());
+            for (var e : seen.entrySet()) {
+                String[] s = truth.get(e.getKey());
+                if (s == null) continue;
+                compared.add(e.getKey());
+                int diff = 0;
+                String first = null;
+                for (int i = 0; i < s.length; i++) {
+                    if (!s[i].equals(e.getValue()[i])) {
+                        diff++;
+                        if (first == null) first = "client " + e.getValue()[i] + " server " + s[i] + " at " + i;
+                    }
+                }
+                if (diff >= 3 && stale.add(e.getKey())) {
+                    if (Boolean.TRUE.equals(cacheOnly.get(e.getKey()))) cacheOnlyStale++;
+                    if (examples.size() < 6) {
+                        examples.add("chunk " + (int) (long) e.getKey() + ","
+                                + (int) ((long) e.getKey() >> 32) + " round " + round + " " + diff
+                                + " differ, cache-only " + cacheOnly.get(e.getKey()) + " (" + first + ")");
+                    }
+                }
+            }
+            ctx.waitTicks(2);
+        }
+        boolean premise = visits > 0 && heldBefore > 20 && compared.size() > 20;
+        Report.caseStarted(REBUILD);
+        row(REBUILD, premise && stale.isEmpty(), "floor A stood in on " + visits + " tile(s), " + heldBefore
+                + " grid chunk(s) on his client before floor B; after the landing " + compared.size()
+                + " grid chunk(s) compared with the server, " + stale.size() + " showing the old floor (" + cacheOnlyStale
+                + " of them Chunk Cache copies)" + (examples.isEmpty() ? "" : ": " + examples)
+                + (premise ? "" : " - premise not met"));
+    }
+
+    private static long packXZ(int x, int z) {
+        return (x & 0xFFFFFFFFL) | ((long) z << 32);
+    }
+
+    /** Four columns of chunk {@code cx,cz}, every 4th block over the whole height, as block ids. */
+    private static String[] column(net.minecraft.world.level.Level level, int cx, int cz) {
+        List<String> out = new ArrayList<>();
+        for (int c = 0; c < 4; c++) {
+            int x = (cx << 4) + 2 + (c % 2) * 10;
+            int z = (cz << 4) + 2 + (c / 2) * 10;
+            for (int y = level.getMinY(); y < level.getMaxY(); y += 4) {
+                out.add(id(level.getBlockState(new BlockPos(x, y, z))));
+            }
+        }
+        return out.toArray(new String[0]);
     }
 
     /** Every turn and anchor of room {@code into}'s own tiles as a placement, with what it disagrees with (a failed glance's evidence). */
