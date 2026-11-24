@@ -235,7 +235,8 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         }));
         Scenario.awaitSimBuild(ctx, before);
         ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
-        ctx.waitFor(mc -> mc.player.onGround() && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
+        ctx.waitFor(mc -> (mc.player.onGround() || mc.player.getAbilities().flying)
+                && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
         ctx.waitTicks(40);
         // Every case is a moment of a run in progress, so wait for GO: during the countdown the sim has no held map
         // (HeldMap.emulated() is false, as on Hypixel before Mort), no room counts as opened, and a walk that starts
@@ -280,7 +281,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 glances++;
                 Glance g = corridorGlance(ctx, f, t);
                 if (!g.pass()) {
-                    println("SWEEP FAIL MAP CODE: " + f.code + " | " + g);
+                    println("SWEEP FAIL MAP CODE: " + f.code + " | " + g + " | " + rays(ctx));
                     bad.add(f.names.get(t[1]) + " into " + f.names.get(t[2]) + " on " + f.code);
                 }
             }
@@ -288,6 +289,27 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         Report.caseStarted(SWEEP);
         row(SWEEP, bad.isEmpty() && glances > 0, SWEEP_FLOORS + " floor(s), " + glances + " corridor glance(s), "
                 + bad.size() + " failing: " + bad);
+    }
+
+    /** Where nine rays through the doorway end, from where he stands now (a failed glance's geometry). */
+    private String rays(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            StringBuilder sb = new StringBuilder("rays");
+            var eye = mc.player.getEyePosition();
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    var look = net.minecraft.world.phys.Vec3.directionFromRotation(mc.player.getXRot() + dy * 4,
+                            mc.player.getYRot() + dx * 4);
+                    var hit = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(look.scale(40)),
+                            net.minecraft.world.level.ClipContext.Block.VISUAL,
+                            net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+                    sb.append(' ').append(Math.round(hit.getLocation().distanceTo(eye))).append(':')
+                            .append(mc.level.getBlockState(hit.getBlockPos()).getBlock().getDescriptionId()
+                                    .replace("block.minecraft.", ""));
+                }
+            }
+            return sb.toString();
+        });
     }
 
     /** Each pinned floor rebuilt from its map code and glanced at from the doorway between the two named rooms. */
