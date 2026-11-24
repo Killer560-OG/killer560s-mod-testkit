@@ -24,6 +24,7 @@ final class BeaconCases {
         MenuSuite.test(s, "1122-menu-beacon-tuner", BeaconCases::tuner);
         MenuSuite.test(s, "1123-menu-beacon-upgrade", BeaconCases::upgrade);
         MenuSuite.test(s, "1123-menu-beacon-tune2", BeaconCases::tune2);
+        MenuSuite.test(s, "1123-menu-beacon-pause", BeaconCases::pause);
     }
 
     private static void ready(Session c) throws Exception {
@@ -68,7 +69,7 @@ final class BeaconCases {
                 .getValue(net.minecraft.resources.Identifier.withDefaultNamespace(path)));
         if (!lore.isEmpty()) {
             st.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(
-                    java.util.Arrays.stream(lore.split("\|", -1)).map(l -> (net.minecraft.network.chat.Component) net.minecraft.network.chat.Component.literal(l)).toList()));
+                    java.util.Arrays.stream(lore.split("[|]", -1)).map(l -> (net.minecraft.network.chat.Component) net.minecraft.network.chat.Component.literal(l)).toList()));
         }
         return st;
     }
@@ -138,6 +139,20 @@ final class BeaconCases {
                 "yellow beacon beat read from the replay: " + a);
         String p = r.get(1415);
         c.check(p != null && p.contains("(beacon: yellow, speed 4, high)"), "still reading the beacon while paused: " + p);
+    }
+
+    /**
+     * The recorded Pause (scan 1): once the speeds matched and you had paused, the tuner counts the beacon's steps onto your slot
+     * (3 at tick 10930) and says to unpause at tick 11093, the step where the beacon reached it (the player unpaused at 11097
+     * and both panes stepped to the same next slot together at 11149).
+     */
+    private static void pause(Session c) throws Exception {
+        java.util.Map<Integer, String> r = replay(c, "beacon-tune-1123.tsv", false, 10930, 11093);
+        String a = r.get(10930);
+        String b = r.get(11093);
+        c.note("pause replay: 10930 " + a + " ## 11093 " + b);
+        c.check(a != null && a.contains("paused: unpause when the beacon steps onto your slot (3 steps)") && a.endsWith("52:U"), "paused three slots short read " + a);
+        c.check(b != null && b.contains("in line: unpause now") && b.endsWith("52:U"), "paused on the beacon's slot read " + b);
     }
 
     /** The recorded Upgrade Signal Strength menu with its real button lore (6:53 PM scan): both beacon beats measured, both of your beats readable. */
