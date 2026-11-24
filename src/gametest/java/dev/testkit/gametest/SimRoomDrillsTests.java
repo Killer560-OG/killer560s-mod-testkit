@@ -3,6 +3,8 @@ package dev.testkit.gametest;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
+import dev.testkit.compat.McCompat;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,17 +54,6 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
             SimRoomCycleTests.openCycleMenu(ctx);
             check(failures, SimRoomCycleTests.buttonLabels(ctx).stream().anyMatch(l -> l.startsWith("Weak Rooms (")),
                     "no Weak Rooms button on " + SimRoomCycleTests.buttonLabels(ctx));
-            long builds = Scenario.simBuildCount(ctx);
-            long m0 = LogTap.mark();
-            SimRoomCycleTests.press(ctx, l -> l.startsWith("Weak Rooms ("), "Weak Rooms");
-            ctx.waitTicks(20);
-            check(failures, LogTap.since(m0).stream().anyMatch(l -> l.contains("not enough data yet")),
-                    "Weak Rooms with no times did not say 'not enough data yet': " + LogTap.since(m0));
-            check(failures, Scenario.simBuildCount(ctx) == builds, "Weak Rooms with no times built a room");
-
-            // ---- mobs on: without them the sim clears a room on entry and a load is not timed ------------------
-            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobFloor", "setEnabled",
-                    new Class<?>[]{boolean.class}, new Object[]{true}));
             // ---- time five rooms from All Rooms ----------------------------------------------------------
             long before = Scenario.simBuildCount(ctx);
             SimRoomCycleTests.press(ctx, l -> l.startsWith("All Rooms (") && Character.isDigit(l.charAt(11)), "All Rooms");
@@ -88,6 +79,19 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
                 System.out.println("[" + NAME + "] " + room + ": starred mobs placed " + placedMobs);
                 if (i == 0) {
                     check(failures, placedMobs > 0, "no mobs were placed in " + room + " by the timer start");
+                }
+                if (i == 0) {
+                    // no times saved yet: Weak Rooms says so and builds nothing (chat needs a world, so in the sim)
+                    SimRoomCycleTests.openCycleMenu(ctx);
+                    long nb = Scenario.simBuildCount(ctx);
+                    long m0 = LogTap.mark();
+                    SimRoomCycleTests.press(ctx, l -> l.startsWith("Weak Rooms ("), "Weak Rooms");
+                    ctx.waitTicks(20);
+                    check(failures, LogTap.since(m0).stream().anyMatch(l -> l.contains("not enough data yet")),
+                            "Weak Rooms with no times did not say 'not enough data yet': " + LogTap.since(m0));
+                    check(failures, Scenario.simBuildCount(ctx) == nb, "Weak Rooms with no times built a room");
+                    ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc, null)));
+                    ctx.waitTicks(5);
                 }
                 check(failures, stats(ctx).contains("finished=false") && stats(ctx).contains("room=" + room),
                         "timer not running for " + room + ": " + stats(ctx));
@@ -176,24 +180,27 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
      *  (Entity.kill on the server thread), then the sim's own poll paints the clear. Without mobs it marks the room. */
     private static void clear(ClientGameTestContext ctx, String room, boolean real, List<String> failures) {
         if (real) {
-            int killed = ctx.computeOnClient(mc -> {
+            java.util.concurrent.atomic.AtomicInteger n = new java.util.concurrent.atomic.AtomicInteger();
+            ctx.runOnClient(mc -> {
                 var server = mc.getSingleplayerServer();
-                java.util.concurrent.atomic.AtomicInteger n = new java.util.concurrent.atomic.AtomicInteger();
-                try {
-                    var f = Class.forName("com.killer560.hub.roomsim.SimMobs").getDeclaredField("STARRED");
-                    f.setAccessible(true);
-                    for (Object id : new ArrayList<>((List<?>) f.get(null))) {
-                        var e = server.overworld().getEntity((java.util.UUID) id);
-                        if (e != null && e.isAlive()) {
-                            server.submit(() -> e.kill(server.overworld())).join();
-                            n.incrementAndGet();
+                server.execute(() -> {
+                    try {
+                        var f = Class.forName("com.killer560.hub.roomsim.SimMobs").getDeclaredField("STARRED");
+                        f.setAccessible(true);
+                        for (Object id : new ArrayList<>((List<?>) f.get(null))) {
+                            var e = server.overworld().getEntity((java.util.UUID) id);
+                            if (e != null && e.isAlive()) {
+                                e.kill(server.overworld());
+                                n.incrementAndGet();
+                            }
                         }
+                    } catch (ReflectiveOperationException ex) {
+                        throw new AssertionError(ex);
                     }
-                } catch (ReflectiveOperationException ex) {
-                    throw new AssertionError(ex);
-                }
-                return n.get();
+                });
             });
+            ctx.waitTicks(4);
+            int killed = n.get();
             System.out.println("[" + NAME + "] " + room + ": killed " + killed + " starred mob(s)");
             check(failures, killed > 0, "no live starred mob to kill in " + room);
             ctx.waitFor(mc -> stats(mc).contains("finished=true"), 100);
