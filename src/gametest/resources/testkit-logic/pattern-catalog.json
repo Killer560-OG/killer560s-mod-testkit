@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T04:46:59",
- "modSource": "lane-leap-p3-labels-i3-1124",
- "modGitSha": "2d6f4476ec541e173c16a0d3ed02e4542e8bea55",
+ "generatedAt": "2026-11-24T05:05:01",
+ "modSource": "lane-leappicks-1123",
+ "modGitSha": "790aedf7ce9a3072920c35ec41be314feb1f0a3d",
  "modSourceDirty": false,
  "count": 988,
  "byKind": {
