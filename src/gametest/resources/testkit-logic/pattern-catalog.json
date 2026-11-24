@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T03:48:50",
- "modSource": "lane-idea-rerollev-1124",
- "modGitSha": "c16b1613e0ce49c6893bb466c2b6a4c86a16f846",
+ "generatedAt": "2026-11-24T03:56:25",
+ "modSource": "lane-foragetab-audit-1124",
+ "modGitSha": "024a984b407f08efb805323a93fa851dc47f636b",
  "modSourceDirty": false,
  "count": 987,
  "byKind": {
