@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T07:04:50",
- "modSource": "lane-idea-deathpatterns-1124",
- "modGitSha": "831bc56416f38c46d7a3f0504882d985f2386216",
+ "generatedAt": "2026-11-24T08:36:49",
+ "modSource": "lane-arrowdev-p3only-1124",
+ "modGitSha": "5bffd88e375dfcfef09c2a4fbcbb391f0129a190",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
