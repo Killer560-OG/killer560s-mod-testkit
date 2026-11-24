@@ -401,9 +401,33 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             }
             ctx.waitTicks(2);
         }
-        boolean premise = visits > 0 && heldBefore > 20 && compared.size() > 20;
+        // A HOLE: a chunk the server counts as his (tracked, so it never sends it again) that his client does not have.
+        // Dropping the old floor on the client while the server still tracked it left the landing chunk out for good.
+        ctx.waitTicks(40);
+        var tracked = server.submit(() -> {
+            var lvl = server.getLevel(dim);
+            List<Long> out = new ArrayList<>();
+            if (lvl == null || server.getPlayerList().getPlayers().isEmpty()) return out;
+            var sp = server.getPlayerList().getPlayers().get(0);
+            for (int x = cx0; x <= cx1; x++) for (int z = cz0; z <= cz1; z++) {
+                if (lvl.getChunkSource().chunkMap.isChunkTracked(sp, x, z)) out.add(packXZ(x, z));
+            }
+            return out;
+        });
+        ctx.waitFor(mc -> tracked.isDone(), 200);
+        List<Long> trackedNow = tracked.getNow(List.of());
+        List<String> holes = ctx.computeOnClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (long k : trackedNow) {
+                if (!mc.level.getChunkSource().hasChunk((int) k, (int) (k >> 32))) out.add((int) k + "," + (int) (k >> 32));
+            }
+            return out;
+        });
+        boolean premise = visits > 0 && heldBefore > 20 && compared.size() > 20 && !trackedNow.isEmpty();
         Report.caseStarted(REBUILD);
-        row(REBUILD, premise && stale.isEmpty(), "floor A stood in on " + visits + " tile(s), " + heldBefore
+        row(REBUILD, premise && stale.isEmpty() && holes.isEmpty(), trackedNow.size() + " grid chunk(s) tracked for him"
+                + " 80 ticks after the landing, " + holes.size() + " of them missing on his client"
+                + (holes.isEmpty() ? "" : " " + holes.subList(0, Math.min(6, holes.size()))) + "; floor A stood in on " + visits + " tile(s), " + heldBefore
                 + " grid chunk(s) on his client before floor B; after the landing " + compared.size()
                 + " grid chunk(s) compared with the server, " + stale.size() + " showing the old floor (" + cacheOnlyStale
                 + " of them Chunk Cache copies)" + (examples.isEmpty() ? "" : ": " + examples)
