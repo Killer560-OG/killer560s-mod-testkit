@@ -630,15 +630,50 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         return (String) ModUnderTest.call(planned, "code", new Class<?>[0], new Object[0]);
     }
 
-    /** Feet on the Dragon pocket's block (-63,-23,-175 under him; Hypixel's and the sim's landing is 1.05 over it). */
+    /**
+     * Feet in the Dragon pocket system as the sim builds this floor (testkit block dump, 11-23): everything south of the
+     * barrier row at z -177 from x -71 to -54 (the zombie's cavity, the one-block slit row z -176, the pocket over
+     * -64..-60 x -175..-173 and the corridor z -172), closed by walls; no warp, walk or warp chain leads from it back out.
+     */
     private static boolean inPocket(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> mc.player != null && Math.abs(mc.player.getX() + 62.5) < 1.0
-                && Math.abs(mc.player.getZ() + 174.5) < 1.0 && mc.player.getY() > -22.6 && mc.player.getY() < -21.0);
+        return ctx.computeOnClient(mc -> mc.player != null && mc.player.getX() > -71.0 && mc.player.getX() < -54.0
+                && mc.player.getZ() > -176.99 && mc.player.getZ() < -171.0 && mc.player.getY() > -25.0 && mc.player.getY() < -18.0);
     }
 
     private static void pocket(ClientGameTestContext ctx, List<String> failures) {
         SimMobFloorTests.teleport(ctx, -69.5, -23, -180.5);
         ctx.waitTicks(40);
+        // The Hyperion alone (sim bats blast through walls, and whether one lands near enough is chance) with hops off: the
+        // only way to a mob is an etherwarp onto a block within the blast. A second starred zombie in the cavity at
+        // -62,-22,-173 (the pocket's north side) is more than a blast from every block outside the pocket system, so only its blocks reach it: the
+        // origin jar's plan lands him in there (the 11-23 trip did, for the cavity zombie its bats missed).
+        java.util.concurrent.atomic.AtomicBoolean given = new java.util.concurrent.atomic.AtomicBoolean();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            java.util.UUID uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var inv = server.getPlayerList().getPlayer(uuid).getInventory();
+                for (int i = 0; i < 36; i++) {
+                    inv.setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+                }
+                String[] ids = {"ASPECT_OF_THE_VOID", "HYPERION"};
+                for (int i = 0; i < ids.length; i++) {
+                    inv.setItem(i, (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimItems",
+                            "build", new Class<?>[]{String.class}, new Object[]{ids[i]}));
+                }
+                given.set(true);
+            });
+        });
+        ctx.waitFor(mc -> given.get(), 200);
+        ctx.waitTicks(10);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", false));
+        SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
+        ctx.runOnClient(mc -> {
+            Object k = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimMobs$Kind", "ZOMBIE");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobs", "spawnStarred", new Class<?>[]{Minecraft.class,
+                    net.minecraft.core.BlockPos.class, k.getClass()}, new Object[]{mc, new net.minecraft.core.BlockPos(-62, -22, -173), k});
+        });
+        ctx.waitTicks(10);
         long mark = LogTap.mark();
         java.util.concurrent.atomic.AtomicReference<String> end = new java.util.concurrent.atomic.AtomicReference<>();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "clearRoom",
@@ -655,8 +690,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
         List<String> log = LogTap.since(mark);
         long acted = log.stream().filter(l -> l.contains("[Bat] decision for") || l.contains("[AutoClear] etherwarp toward")).count();
-        boolean weighed = log.stream().anyMatch(l -> l.contains("no way out of -63, -23, -175"));
-        boolean landed = in || log.stream().anyMatch(l -> l.contains("confirmed the last landing (-62.50, -21.95, -174.50)"));
+        boolean weighed = log.stream().anyMatch(l -> l.contains("[AutoClear] no way out of"));
+        boolean landed = in;
         for (String l : log) {
             if (l.contains("way out of") || l.contains("no way back out")) {
                 println(POCKET, "  " + l.substring(l.indexOf("[AutoClear]")));
@@ -669,9 +704,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             failures.add("Auto Clear never acted in Dragon (the case proves nothing)");
         }
         if (landed) {
-            failures.add("Auto Clear landed him in the Dragon pocket -63,-22,-175, which no warp or walk leaves");
+            failures.add("Auto Clear landed him in the Dragon pocket (south of the barrier row, x -71..-54), which no warp or walk leaves");
         } else if (!weighed) {
-            failures.add("the pocket block was never weighed (no 'no way out of -63, -23, -175' line): the case proves nothing");
+            failures.add("no block was found with no way out (no 'no way out of' line): the case proves nothing");
         }
     }
 
