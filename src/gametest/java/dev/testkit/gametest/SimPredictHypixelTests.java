@@ -345,6 +345,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         java.util.Set<Long> stale = new java.util.HashSet<>();
         List<String> examples = new ArrayList<>();
         int cacheOnlyStale = 0;
+        int[] perRound = new int[20];
         for (int round = 0; round < 20; round++) {
             // Client first, in one go: the chunk he has NOW, block by block.
             Map<Long, String[]> seen = ctx.computeOnClient(mc -> {
@@ -390,6 +391,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                         if (first == null) first = "client " + e.getValue()[i] + " server " + s[i] + " at " + i;
                     }
                 }
+                if (diff >= 3) perRound[round]++;
                 if (diff >= 3 && stale.add(e.getKey())) {
                     if (Boolean.TRUE.equals(cacheOnly.get(e.getKey()))) cacheOnlyStale++;
                     if (examples.size() < 6) {
@@ -430,7 +432,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 + (holes.isEmpty() ? "" : " " + holes.subList(0, Math.min(6, holes.size()))) + "; floor A stood in on " + visits + " tile(s), " + heldBefore
                 + " grid chunk(s) on his client before floor B; after the landing " + compared.size()
                 + " grid chunk(s) compared with the server, " + stale.size() + " showing the old floor (" + cacheOnlyStale
-                + " of them Chunk Cache copies)" + (examples.isEmpty() ? "" : ": " + examples)
+                + " of them Chunk Cache copies; per round " + java.util.Arrays.toString(perRound) + ")" + (examples.isEmpty() ? "" : ": " + examples)
                 + (premise ? "" : " - premise not met"));
     }
 
