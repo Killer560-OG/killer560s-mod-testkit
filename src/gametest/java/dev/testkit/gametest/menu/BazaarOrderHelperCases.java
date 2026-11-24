@@ -79,6 +79,12 @@ final class BazaarOrderHelperCases {
         // Owner 2026-11-03: an expired order is red (its own Expired Color), never the outbid one.
         slots.add("16", order("minecraft:wheat", "§a§lBUY §fWheat", "§7Order amount: §a500§7x", null, "1.5",
                 "", "§cExpired!"));
+        // killer560 2026-11-23: partly filled with items to claim = a % mark and no green; 17 is at the top of its
+        // side (no color), 18 is undercut (yellow); 14 and 13 are the same orders unfilled, the controls.
+        slots.add("17", order("minecraft:paper", "§a§lBUY §fRough Ruby Gemstone", "§7Order amount: §a640§7x",
+                "§7Filled: §6320§7/640 §e(50%)", "50.0", "", "§7You have §a320 §7items to claim!"));
+        slots.add("18", order("minecraft:gold_ingot", "§6§lSELL §aEnchanted Gold Ingot", "§7Offer amount: §a64§7x",
+                "§7Filled: §632§7/64 §e(50%)", "900.0", "", "§7You have §632,000 §7coins to claim!"));
         JsonObject back = new JsonObject();
         back.addProperty("item", "minecraft:arrow");
         back.addProperty("name", "§aGo Back");
@@ -194,6 +200,7 @@ final class BazaarOrderHelperCases {
     /** Checks that exactly {@code filled} slots show the Filled outline and exactly {@code outbid} the Outbid one. */
     static void expect(Session c, String label, List<Integer> filled, List<Integer> outbid) {
         Map<Integer, String> got = outlines(c, label);
+        got.remove(18); // its % mark can cover a corner pixel; helper() judges it by contains
         String f = String.format("%06X", FILLED);
         String o = String.format("%06X", OUTBID);
         List<Integer> gotFilled = new ArrayList<>();
@@ -214,6 +221,40 @@ final class BazaarOrderHelperCases {
         c.check(gotFilled.equals(filled), label + ": filled outline on " + gotFilled + ", want " + filled);
         c.check(gotOutbid.equals(outbid), label + ": outbid outline on " + gotOutbid + ", want " + outbid);
         c.check(mixed.isEmpty(), label + ": partly drawn outlines " + mixed);
+    }
+
+    /** White pixels in a slot's top-left 6x8 (where the % mark goes), per slot, from one fresh shot. */
+    static Map<Integer, Integer> whiteTopLeft(Session c, String label) {
+        c.ctx().getInput().setCursorPos(2, 2);
+        c.ctx().waitTicks(2);
+        BufferedImage img = BazaarReskinCases.shot(c, label);
+        double[] g = c.onClient(mc -> new double[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()});
+        List<int[]> slots = c.onClient(mc -> {
+            AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
+            int left = ((Number) Mod.field(s, "leftPos")).intValue();
+            int top = ((Number) Mod.field(s, "topPos")).intValue();
+            List<int[]> out = new ArrayList<>();
+            for (int i : new int[]{13, 14, 17, 18}) {
+                Slot sl = s.getMenu().slots.get(i);
+                out.add(new int[]{i, left + sl.x, top + sl.y});
+            }
+            return out;
+        });
+        double rx = img.getWidth() / g[0];
+        double ry = img.getHeight() / g[1];
+        Map<Integer, Integer> out = new LinkedHashMap<>();
+        for (int[] s : slots) {
+            int n = 0;
+            for (int py = (int) (s[2] * ry); py < (int) ((s[2] + 8) * ry); py++) {
+                for (int px = (int) (s[1] * rx); px < (int) ((s[1] + 6) * rx); px++) {
+                    if ((img.getRGB(px, py) & 0xFFFFFF) == 0xFFFFFF) {
+                        n++;
+                    }
+                }
+            }
+            out.put(s[0], n);
+        }
+        return out;
     }
 
     static String tooltip(Session c, int slot) {
@@ -326,6 +367,16 @@ final class BazaarOrderHelperCases {
                     + String.format("%06X", EXPIRED));
             String tExpired = tooltip(c, 16);
             c.check(tExpired.contains("Order Helper: Expired"), "expired tooltip: " + tExpired);
+
+            // Partly filled with items to claim: no green (17 top of side = bare, 18 undercut = yellow) and a % mark.
+            Map<Integer, String> part = outlines(c, "partial");
+            c.check(part.get(17).equals(part.get(14)) && !part.get(17).equals(String.format("%06X", FILLED)),
+                    "partly filled order 17 outline " + part.get(17) + " (control 14 " + part.get(14) + ")");
+            c.check(part.get(18).contains(String.format("%06X", OUTBID)), "partly filled undercut order 18 outline " + part.get(18));
+            Map<Integer, Integer> white = whiteTopLeft(c, "partial-mark");
+            c.note("white pixels top-left: " + white);
+            c.check(white.get(17) > white.get(14) && white.get(18) > white.get(13),
+                    "no % mark on the partly filled orders: " + white);
 
             String tWheat = tooltip(c, 12);
             String tGold = tooltip(c, 13);
