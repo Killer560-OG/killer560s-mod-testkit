@@ -203,7 +203,8 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
                         for (Object id : new ArrayList<>((List<?>) f.get(null))) {
                             var e = server.overworld().getEntity((java.util.UUID) id);
                             if (e != null && e.isAlive()) {
-                                e.hurtServer(server.overworld(), server.overworld().damageSources().playerAttack(server.getPlayerList().getPlayers().get(0)), 1000f);
+                                boolean hit = e.hurtServer(server.overworld(), server.overworld().damageSources().playerAttack(server.getPlayerList().getPlayers().get(0)), 1000f);
+                                System.out.println("[" + NAME + "] hit " + e.getClass().getSimpleName() + " " + hit + " alive=" + e.isAlive() + " inv=" + e.isInvulnerable());
                                 n.incrementAndGet();
                             }
                         }
