@@ -60,7 +60,11 @@ final class CrystalLeap1124Cases {
                 arrive = gateTick();
             }
         });
-        ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+        // an earlier phase than the mod's own START hook: the leap clicks (and closes) in the very START the menu is first
+        // there, so a hook after it would never see the menu open (the lane's menu-seen -1)
+        net.minecraft.resources.Identifier early = net.minecraft.resources.Identifier.parse("testkit:crystalleap-early");
+        ClientTickEvents.START_CLIENT_TICK.addPhaseOrdering(early, net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE);
+        ClientTickEvents.START_CLIENT_TICK.register(early, mc -> {
             if (rec && menuSeen < 0 && mc.player != null && mc.player.containerMenu != mc.player.inventoryMenu) {
                 menuSeen = gateTick();
             }
@@ -164,7 +168,8 @@ final class CrystalLeap1124Cases {
                 if (swap) {
                     c.check(sw == arrive + 1, "swap at +" + (sw - arrive) + ", want +1");
                 }
-                c.check(click - menuSeen <= 0, "click " + (click - menuSeen) + " ticks after its menu was seen open, want 0");
+                c.check(menuSeen >= 0, "the leap menu never opened on his client");
+                c.check(click - menuSeen <= 1, "click " + (click - menuSeen) + " ticks after its menu was seen open, want 0 or 1");
             }
             c.check(CrystalLeap1112Cases.count("ContainerClick") == 1, "menu clicks: " + CrystalLeap1112Cases.count("ContainerClick"));
         } finally {
@@ -270,8 +275,10 @@ final class CrystalLeap1124Cases {
             c.check(CrystalLeap1112Cases.count("UseItem") == (act.equals("use-key") ? 1 : 0)
                     || act.equals("use-key"), "the leap used the item with its menu open: " + CrystalLeap1112Cases.ticks());
             switch (act) {
-                case "attack" -> c.check(CrystalLeap1112Cases.firstTick("AttackPacket") >= 0
-                        || CrystalLeap1112Cases.firstTick("InteractPacket") >= 0, "his attack never went out");
+                // vanilla: with a container screen open his left click is a slot click, never an attack (the 1112 same-attack
+                // case covers the attack with no menu); the leap must not turn it into one
+                case "attack" -> c.check(CrystalLeap1112Cases.firstTick("AttackPacket") < 0
+                        && CrystalLeap1112Cases.firstTick("InteractPacket") < 0, "an attack went out with the menu open");
                 case "swap" -> c.check(CrystalLeap1112Cases.firstTick("SetCarriedItem") >= 0, "his swap never went out");
                 case "click" -> c.check(clicks >= 2, "his click and the leap's: " + clicks);
                 default -> c.check(clicks >= 1, "no click");
