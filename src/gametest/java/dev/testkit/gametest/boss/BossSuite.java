@@ -40,6 +40,7 @@ public class BossSuite implements FabricClientGameTest {
                     DungeonFixBossCases.register(s);
                     // Per-trigger-bot delays (786-788, 799, branch nt-trigger-delays), own block.
                     BossTriggerDelayCases.register(s);
+                    ArrowDevP3Only1124Cases.register(s);
                     // Frame-to-tick clicks proven clean on GrimAC (831-835, branch nt-grim-post), own block.
                     GrimTickCases.register(s);
                     // Lever Aura CPS (846, branch nt-aura-2), own block.
