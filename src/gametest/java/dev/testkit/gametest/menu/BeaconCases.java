@@ -140,13 +140,13 @@ final class BeaconCases {
         c.check(p != null && p.contains("(beacon: yellow, speed 4, high)"), "still reading the beacon while paused: " + p);
     }
 
-    /** The recorded Upgrade Signal Strength menu (two beats; its buttons' lore was not recorded): both beacon beats measured. */
+    /** The recorded Upgrade Signal Strength menu with its real button lore (6:53 PM scan): both beacon beats measured, both of your beats readable. */
     private static void upgrade(Session c) throws Exception {
-        java.util.Map<Integer, String> r = replay(c, "beacon-upgrade-1123.tsv", true, 11700);
-        String s = r.get(11700);
+        java.util.Map<Integer, String> r = replay(c, "beacon-upgrade2-1123.tsv", true, 569);
+        String s = r.get(569);
         c.note("upgrade replay: " + s);
-        c.check(s != null && s.contains("speed 3") && s.contains("speed 2") && s.contains("purple") && s.contains("light blue"),
-                "both beacon beats (purple speed 3, light blue speed 2) measured: " + s);
-        c.check(s != null && s.contains("Beat 1: ") && s.contains("Beat 2: "), "two player beats listed: " + s);
+        c.check(s != null && s.contains("(beacon: green, speed 4, normal)") && s.contains("(beacon: magenta, speed 1, high)"),
+                "both beacon beats (green speed 4 Normal, magenta speed 1 High) measured: " + s);
+        c.check(s != null && s.contains("Beat 1: ") && s.contains("Beat 2: ") && !s.contains("not readable"), "two player beats listed and readable from the lore: " + s);
     }
 }
