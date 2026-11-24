@@ -34,6 +34,13 @@ final class GardenCopper1124Cases {
             Mod.call(Mod.cfg(SB), "setNumberFormat", Mod.enumValue(SB + "$NumberFormat", "LONG"));
             return null;
         });
+        // AGreenMan's own Garden report (bug report 1574654495651004417): the sidebar has no Copper or Sowdust, the tab lists them indented
+        List<String> hisSidebar = List.of("§711/24/26 §8m119M", "", " Late Winter 5th", " §711:30pm §b☽", " §7 §aThe Garden §4§l§7 x2",
+                "   §aPlot §7- §b4 §4§l§7 x2", "", "Purse: §63,572,551", "Bits: §b4,680", "", "Objective", "§eTalk to the Carpenter", "", "§ewww.hypixel.net");
+        List<String> hisTab = List.of("Area: Garden", " Server: mini119M", " Gems: 140", " Blooming: in 20m ", " Garden Level: IX (96.7%)",
+                " Copper: 63", " Sowdust: 6,518", "Profile: Lemon ♲", " SB Level: [35] 80/100 XP", " Bank: 0");
+        check(c, "his report: Copper only in the indented tab line", hisSidebar, "Area: Garden", hisTab, "Copper: 63");
+        check(c, "his report: Sowdust only in the indented tab line", hisSidebar, "Area: Garden", hisTab, "Sowdust", "Sowdust: 6,518");
         // Hypixel's own Garden shape (color codes, red value) with the label behind a symbol and an abbreviated value
         String sym = " §7❖ §fCopper: §c1.2k";
         check(c, "symbol before the label, 1.2k, tab says Garden", List.of("§7Purse: §6100", sym), "Area: Garden", null, "Copper: 1,200");
@@ -62,6 +69,10 @@ final class GardenCopper1124Cases {
 
     /** Sets the sidebar and the tab, lets the mod read them, and checks the Copper line it would draw ("none" = no line). */
     private static void check(UiCase c, String label, List<String> sidebar, String area, List<String> tabLines, String want) {
+        check(c, label, sidebar, area, tabLines, "Copper", want);
+    }
+
+    private static void check(UiCase c, String label, List<String> sidebar, String area, List<String> tabLines, String entry, String want) {
         board(c, sidebar);
         String got = c.onClient(mc -> {
             try {
@@ -75,7 +86,7 @@ final class GardenCopper1124Cases {
                 Mod.staticCall("scoreboard.ScoreboardData", "sidebarNow", mc);
                 Object cfg = Mod.cfg(SB);
                 Class<?> entryCls = Mod.cls("scoreboard.ScoreboardEntry");
-                Object copper = Mod.enumValue("scoreboard.ScoreboardEntry", "COPPER");
+                Object copper = Mod.enumValue("scoreboard.ScoreboardEntry", entry.toUpperCase(java.util.Locale.ROOT));
                 Method visible = entryCls.getDeclaredMethod("visible", Mod.cls(SB));
                 visible.setAccessible(true);
                 Method lines = entryCls.getDeclaredMethod("lines", Mod.cls(SB));
