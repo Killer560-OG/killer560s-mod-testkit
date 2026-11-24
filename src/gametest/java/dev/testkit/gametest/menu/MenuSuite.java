@@ -179,6 +179,7 @@ public class MenuSuite implements FabricClientGameTest {
                     Melody1111Cases.register(s); // 1111-menu-term-melody-gamble: lookahead gamble vs. live clicks under 50 ms ping
                     MelodyStall1123Cases.register(s); // 1123-menu-term-melody-rowdelay: Hypixel's row delay vs. lookahead and the stall net
                     TermFeatACases.register(s); // 1108: terminal sounds, click path, click order, queue terms
+                    TermAutoNoSolver1124Cases.register(s); // 1124: Auto Terminals with the solver off
                     TermBurst1111Cases.register(s); // 1111-menu-term-burst-*: Auto Terminals Burst Finish (termburst-1111)
                     TermPlus1112Cases.register(s); // 1112-term-*: loaded gate, stall net, Burst Size sweep (termplus-1112)
                     TermBurstMode1116Cases.register(s); // 1116-term-bmode-*: Auto Terminals Mode: Burst (termburstonly-1116)
@@ -226,6 +227,7 @@ public class MenuSuite implements FabricClientGameTest {
                     ChocolateCases.register(s);
                     // ---- 731-736 trackers (profit scopes, red reset, Experiments tab, Superpairs Escape, RNG), 2026-10-11 ----
                     TrackerCases.register(s);
+                    BestFloorCases.register(s);
                     // ---- 1640-1644 profit by account / mod profile (profit-accounts-1015, 2026-10-15) ----
                     ProfitAccountCases.register(s);
                     // ---- 761-767 bz-croesus (2026-10-11): Bazaar flipper cycle, Auto Croesus key revisit ----
@@ -294,6 +296,7 @@ public class MenuSuite implements FabricClientGameTest {
                     TooltipBar1103Cases.register(s);
                     // ---- 1104-menu-friends-* friendsfilter-1104: area drop-down and /pv on the friends list ----
                     Friends1104Cases.register(s);
+                    DeathPatternsCases.register(s);
                 });
     }
 }
