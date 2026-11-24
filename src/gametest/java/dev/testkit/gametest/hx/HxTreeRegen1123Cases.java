@@ -44,8 +44,10 @@ final class HxTreeRegen1123Cases {
             c.check(tracked(c) == 0, "placing a log tracked something: " + tracked(c));
             set(c, a, Blocks.AIR.defaultBlockState());
             c.check(tracked(c) == 1, "a chopped log was not tracked: " + tracked(c));
-            c.waitUntil("a box drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 1
-                    && (Integer) Mod.staticCall(T, "boxFrames") > 0, 120);
+            c.ctx().waitTicks(40);
+            int drawn = c.onClient(mc -> (Integer) Mod.staticCall(T, "drawnBoxes"));
+            int frames = c.onClient(mc -> (Integer) Mod.staticCall(T, "boxFrames"));
+            c.check(drawn == 1 && frames > 0, "boxes built " + drawn + ", drawn frames " + frames + ", tracked " + tracked(c));
             // A non-log going to air is ignored.
             set(c, b, Blocks.STONE.defaultBlockState());
             set(c, b, Blocks.AIR.defaultBlockState());
