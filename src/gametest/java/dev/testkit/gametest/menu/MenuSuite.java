@@ -292,6 +292,7 @@ public class MenuSuite implements FabricClientGameTest {
                     TooltipBar1103Cases.register(s);
                     // ---- 1104-menu-friends-* friendsfilter-1104: area drop-down and /pv on the friends list ----
                     Friends1104Cases.register(s);
+                    DeathPatternsCases.register(s);
                 });
     }
 }
