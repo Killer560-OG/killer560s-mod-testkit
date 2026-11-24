@@ -33,6 +33,7 @@ final class CroesusRerollCases {
         MenuSuite.test(s, "1092-menu-croesus-reroll-protect", CroesusRerollCases::protect);
         MenuSuite.test(s, "1093-menu-croesus-kismet-count", CroesusRerollCases::kismets);
         MenuSuite.test(s, "1094-menu-croesus-chests-hud", CroesusRerollCases::chestsHud);
+        MenuSuite.test(s, "1124-menu-croesus-reroll-advice", CroesusRerollCases::advice);
     }
 
     static final String CFG = "croesus.CroesusConfig";
@@ -234,6 +235,91 @@ final class CroesusRerollCases {
             c.check(hud(c).stream().anyMatch(l -> l.startsWith("§6Kismets: ")), "no Kismets line: " + hud(c));
         } finally {
             c.hx().tabClear();
+        }
+    }
+
+    static final String ADVICE = "croesus.RerollAdvice";
+    static final String FLOOR = "T9";
+
+    /** The first line Reroll Advice drew on a freshly opened chest screen (null if it drew nothing within 40 ticks). */
+    static String drawn(Session c, String chestRelicPrice) {
+        c.ctx().runOnClient(mc -> {
+            Mod.call(Mod.field("rngmeter.RngMeterEngine", "PRICES"), "putBazaarPriceForTest", "TESTKIT_RELIC",
+                    Long.parseLong(chestRelicPrice), Long.parseLong(chestRelicPrice));
+            Mod.setField(Mod.ROOT + ADVICE, "lastDrawn", null);
+        });
+        open(c, chestScreen("§eClick to reroll this chest!"));
+        c.ctx().waitTicks(40);
+        return c.onClient(mc -> (String) Mod.staticCall(ADVICE, "lastDrawn"));
+    }
+
+    static Object chestValue(Session c) {
+        return c.onClient(mc -> {
+            var s = (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) dev.testkit.compat.McCompat.screen(mc);
+            return Mod.staticCall("croesus.DungeonChestValuer", "fromChestScreen",
+                    Mod.staticCall("croesus.DungeonChestValuer$ChestType", "fromName", TITLE),
+                    Mod.staticCall("croesus.ChestProfitFeature", "containerStacks", s));
+        });
+    }
+
+    /** 1124: Reroll Advice reads his own claim log. Ten 20M claims on a made-up floor, a 1M Kismet: an 8M chest says reroll
+     *  (+11M expected), a 25M chest says keep, a floor with no claims says not enough data, off draws nothing, and the
+     *  verdict maths (average, median) and Auto Croesus's verdict follow the same numbers. */
+    static void advice(Session c) throws Exception {
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable p = prices(c)) {
+            cfg.set(CFG, "PriceMode", Mod.enumValue("croesus.CroesusConfig$PriceMode", "INSTA_SELL"))
+                    .set(CFG, "RerollAdvice", true);
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.field("rngmeter.RngMeterEngine", "PRICES"), "putBazaarPriceForTest", "KISMET_FEATHER", 1_000_000L, 1_000_000L);
+                Mod.staticCall("croesus.ChestProfitFeature", "rememberRunFloor", FLOOR);
+            });
+            // Ten claims worth 20M each, logged the way a real claim is.
+            drawn(c, "20000000");
+            long v20 = (Long) Mod.call(chestValue(c), "value");
+            c.check(v20 == 20_000_000L, "the fixture chest is worth " + v20 + ", want 20M");
+            Object chest20 = chestValue(c);
+            for (int i = 0; i < 10; i++) {
+                c.ctx().runOnClient(mc -> Mod.staticCall("croesus.CroesusProfitLog", "record", FLOOR, chest20, "testkit"));
+            }
+            String reroll = drawn(c, "8000000");
+            c.note("8M chest, ten 20M claims, 1M Kismet: \"" + reroll + "\"");
+            c.check(reroll != null && reroll.startsWith("Reroll: +11"), "8M chest drew \"" + reroll + "\", want Reroll: +11M expected");
+            String keep = drawn(c, "25000000");
+            c.note("25M chest: \"" + keep + "\"");
+            c.check(keep != null && keep.startsWith("Keep"), "25M chest drew \"" + keep + "\", want Keep");
+            // Auto Croesus uses the same verdict; null without enough claims.
+
+            drawn(c, "8000000");
+            Object c8 = chestValue(c);
+            Boolean auto = c.onClient(mc -> (Boolean) Mod.staticCall(ADVICE, "autoVerdict", FLOOR, c8));
+            Object none = c.onClient(mc -> Mod.staticCall(ADVICE, "autoVerdict", "T8", c8));
+            c.check(Boolean.TRUE.equals(auto), "Auto Croesus verdict for the 8M chest was " + auto + ", want true");
+            c.check(none == null, "Auto Croesus verdict with no claims was " + none + ", want null (fixed Reroll Below applies)");
+            // A floor with no claims.
+            c.ctx().runOnClient(mc -> Mod.staticCall("croesus.ChestProfitFeature", "rememberRunFloor", "T8"));
+            String few = drawn(c, "8000000");
+            c.note("floor without claims: \"" + few + "\"");
+            c.check(few != null && few.contains("not enough data yet (0/10"), "no-claims floor drew \"" + few + "\"");
+            c.ctx().runOnClient(mc -> Mod.staticCall("croesus.ChestProfitFeature", "rememberRunFloor", FLOOR));
+            // The maths: nine 1M chests and one 100M: average 10.9M, median 1M; an 8M chest with a 1M Kismet is a reroll on
+            // the average (+1.9M) but the median says keep.
+            long[] vals = {1_000_000L, 1_000_000L, 1_000_000L, 1_000_000L, 1_000_000L, 1_000_000L, 1_000_000L, 1_000_000L,
+                    1_000_000L, 100_000_000L};
+            Object adv = c.onClient(mc -> Mod.staticCall(ADVICE, "advise", 8_000_000L, 1_000_000L, vals));
+            long gain = (Long) Mod.call(adv, "gain");
+            long median = (Long) Mod.call(adv, "median");
+            boolean keeps = (Boolean) Mod.call(adv, "medianKeeps");
+            c.note("skewed log: gain " + gain + ", median " + median + ", medianKeeps " + keeps);
+            c.check(gain == 1_900_000L && median == 1_000_000L && keeps, "skewed-log verdict wrong: " + gain + "/" + median + "/" + keeps);
+            Object few9 = c.onClient(mc -> Mod.staticCall(ADVICE, "advise", 8_000_000L, 1_000_000L, new long[9]));
+            c.check(!(Boolean) Mod.call(few9, "enough"), "nine claims counted as enough");
+            // Off: nothing drawn.
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setRerollAdvice", false));
+            String off = drawn(c, "8000000");
+            c.check(off == null, "with Reroll Advice off it drew \"" + off + "\"");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(Mod.field("rngmeter.RngMeterEngine", "PRICES"), "removeBazaarPriceForTest", "KISMET_FEATHER"));
+            MenuKit.reset(c);
         }
     }
 }
