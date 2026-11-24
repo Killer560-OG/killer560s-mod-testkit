@@ -27,11 +27,12 @@ final class HxAutoDialogue1122Cases {
 
     static void register(Session s) {
         s.test("1122-autodialogue-nested", c -> run(c, "Quick! Trivia question! Do you know what §cMob Types §fare?", true));
-        s.test("1122-autodialogue-unsafe", c -> run(c, "I can sell you a map for 5k coins, deal?", false));
         // Real captures of 11-23 (logger chatclick lines): the Trapper's YES/NO, Vincent's custom-click give button, a look-alike.
         s.test("1123-autodialogue-trapper", c -> real(c, "trapper", true));
         s.test("1123-autodialogue-giveitem", c -> real(c, "giveitem", false));
         s.test("1123-autodialogue-playerfake", c -> real(c, "playerfake", false));
+        // Last: its "sell" NPC line stays in the feature's 10 s NPC context and would block the Trapper case that follows.
+        s.test("1122-autodialogue-unsafe", c -> run(c, "I can sell you a map for 5k coins, deal?", false));
     }
 
     private static JsonObject option(String text, String command) {
