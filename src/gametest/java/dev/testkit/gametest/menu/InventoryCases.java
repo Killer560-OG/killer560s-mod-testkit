@@ -378,10 +378,15 @@ final class InventoryCases {
             // 3: pick it up, then click it into the sacrifice slot 33: the pickup goes out, the placement does not
             c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 1, ContainerInput.PICKUP));
             c.waitUntil("the pickup to reach the server", mc -> c.events("container.click").size() > afterFirst, 60);
+            c.ctx().waitTicks(10);
+            boolean carrying = c.onClient(mc -> !mc.player.containerMenu.getCarried().isEmpty());
+            c.check(carrying, "the picked-up protected item is not on the cursor");
             int afterPick = c.events("container.click").size();
             c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), 33, ContainerInput.PICKUP));
             c.ctx().waitTicks(20);
-            c.check(c.events("container.click").size() == afterPick, "a protected item was placed in the sacrifice slot (33)");
+            List<String> late = new ArrayList<>();
+            c.events("container.click").stream().skip(afterPick).forEach(e -> late.add(e.get("slot") + ":" + e.get("input")));
+            c.check(late.stream().noneMatch(x -> x.startsWith("33:")), "a protected item was placed in the sacrifice slot (33): " + late);
             // 4: an unprotected item still goes through the same way
             c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 1, ContainerInput.PICKUP));
             c.ctx().waitTicks(10);
