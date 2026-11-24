@@ -186,6 +186,7 @@
 			"dev.testkit.gametest.SimRoomFloorTests",
 			"dev.testkit.gametest.SimRoomPickTests",
 			"dev.testkit.gametest.SimRoomCycleTests",
+			"dev.testkit.gametest.SimRoomDrillsTests",
 			"dev.testkit.gametest.SimPagesTests",
 			"dev.testkit.gametest.SimMenuTidyTests",
 			"dev.testkit.gametest.SimDesignerGridTests",
