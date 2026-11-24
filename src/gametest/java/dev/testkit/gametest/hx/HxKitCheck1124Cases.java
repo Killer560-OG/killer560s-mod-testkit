@@ -42,7 +42,7 @@ final class HxKitCheck1124Cases {
             c.hx().give(i, i < leaps ? LEAP : i >= 4 && i < 4 + boom ? BOOM : "minecraft:air");
         }
         c.hx().tab(List.of("§r§b§lArea: §r§7Catacombs"), null, footer);
-        c.ctx().waitTicks(5);
+        c.ctx().waitTicks(15);
     }
 
     /** One countdown line through the real chat path; waits for the check (or, when {@code expect} is false, for nothing). */
