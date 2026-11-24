@@ -25,6 +25,7 @@ final class BeaconCases {
         MenuSuite.test(s, "1123-menu-beacon-upgrade", BeaconCases::upgrade);
         MenuSuite.test(s, "1123-menu-beacon-tune2", BeaconCases::tune2);
         MenuSuite.test(s, "1123-menu-beacon-pause", BeaconCases::pause);
+        MenuSuite.test(s, "1124-menu-beacon-samecolor", BeaconCases::sameColor);
         BeaconAutoCases.register(s);
     }
 
@@ -77,7 +78,7 @@ final class BeaconCases {
 
     /**
      * Replays a recorded window through the tuner tick by tick and returns what it said at each requested tick:
-     * "lines || hints" (the tuner reads the same slots and sounds the real client got).
+     * "beats || hints" (the tuner reads the same slots and sounds the real client got).
      */
     private static java.util.Map<Integer, String> replay(Session c, String file, boolean upgrade, int... at) throws Exception {
         List<String[]> rows = fixture(file);
@@ -105,7 +106,7 @@ final class BeaconCases {
                 }
                 java.util.function.IntFunction<ItemStack> item = k -> items[k];
                 Mod.staticCall(TUNER, "step", item, upgrade, (long) tick);
-                last = String.join(" // ", (String[]) Mod.staticCall(TUNER, "lines")) + " || " + String.join(",", (String[]) Mod.staticCall(TUNER, "hints"));
+                last = Mod.staticCall(TUNER, "beats") + " || " + String.join(",", (String[]) Mod.staticCall(TUNER, "hints"));
                 for (int t : at) {
                     if (t == tick) {
                         out.put(t, last);
@@ -126,12 +127,12 @@ final class BeaconCases {
         java.util.Map<Integer, String> r = replay(c, "beacon-tune-1123.tsv", false, 10823, 10873, 11149);
         c.note("tune replay: first " + r.get(10823) + " ## second step " + r.get(10873) + " ## last " + r.get(11149));
         String a = r.get(10823);
-        c.check(a != null && a.startsWith("Color: left x6 | Speed: waiting for a beat | Pitch: waiting for a beat"), "start (lime vs the green beat, nothing measured yet) read " + a);
+        c.check(a != null && a.startsWith("beacon green, speed ?, ?") && a.endsWith("|| 46:L6"), "start (lime vs the green beat, nothing measured yet) read " + a);
         String b = r.get(10873);
-        c.check(b != null && b.startsWith("Color: left x6 | Speed: left x1 | Pitch: right x1") && b.contains("(beacon: green, speed 1, high)"), "after one beacon step read " + b);
+        c.check(b != null && b.startsWith("beacon green, speed 1, high") && b.endsWith("|| 46:L6,48:L1,50:R1"), "after one beacon step read " + b);
         String z = r.get(11149);
-        c.check(z != null && z.startsWith("Color: matched | Speed: matched | Pitch: left x1 | in step (beacon: green, speed 1, high) || 50:L1"),
-                "the moment before the working click (Pitch left, as the player did) read " + z);
+        c.check(z != null && z.startsWith("beacon green, speed 1, high") && z.endsWith("|| 50:L1"),
+                "the moment before the working click (Pitch left, as the player did; panes in line, so no Pause hint) read " + z);
     }
 
     /**
@@ -143,24 +144,23 @@ final class BeaconCases {
         java.util.Map<Integer, String> r = replay(c, "beacon-tune2-1123.tsv", false, 1348, 1415);
         String a = r.get(1348);
         c.note("tune2 replay: Low " + a + " ## paused " + r.get(1415));
-        c.check(a != null && a.startsWith("Color: left x2 | Speed: left x1 | Pitch: right x1") && a.contains("(beacon: yellow, speed 4, high)") && a.endsWith("|| 46:L2,48:L1,50:R1"),
+        c.check(a != null && a.startsWith("beacon yellow, speed 4, high") && a.endsWith("|| 46:L2,48:L1,50:R1"),
                 "yellow beacon beat read from the replay: " + a);
         String p = r.get(1415);
-        c.check(p != null && p.contains("(beacon: yellow, speed 4, high)"), "still reading the beacon while paused: " + p);
+        c.check(p != null && p.startsWith("beacon yellow, speed 4, high"), "still reading the beacon while paused: " + p);
     }
 
     /**
-     * The recorded Pause (scan 1): once the speeds matched and you had paused, the tuner counts the beacon's steps onto your slot
-     * (3 at tick 10930) and says to unpause at tick 11093, the step where the beacon reached it (the player unpaused at 11097
-     * and both panes stepped to the same next slot together at 11149).
+     * The recorded Pause (scan 1): paused with the speeds matched, the Pause button carries no hint while the beacon's pane is
+     * still 3 slots away (tick 10930) and U from tick 11093, the step where the beacon reached it (the player unpaused at 11097).
      */
     private static void pause(Session c) throws Exception {
         java.util.Map<Integer, String> r = replay(c, "beacon-tune-1123.tsv", false, 10930, 11093);
         String a = r.get(10930);
         String b = r.get(11093);
         c.note("pause replay: 10930 " + a + " ## 11093 " + b);
-        c.check(a != null && a.contains("paused: unpause when the beacon steps onto your slot (3 steps)") && a.endsWith("52:U"), "paused three slots short read " + a);
-        c.check(b != null && b.contains("in line: unpause now") && b.endsWith("52:U"), "paused on the beacon's slot read " + b);
+        c.check(a != null && !a.contains("52:"), "paused three slots short read " + a);
+        c.check(b != null && b.endsWith("52:U"), "paused on the beacon's slot read " + b);
     }
 
     /** The recorded Upgrade Signal Strength menu with its real button lore (6:53 PM scan): both beacon beats measured, both of your beats readable. */
@@ -168,8 +168,31 @@ final class BeaconCases {
         java.util.Map<Integer, String> r = replay(c, "beacon-upgrade2-1123.tsv", true, 569);
         String s = r.get(569);
         c.note("upgrade replay: " + s);
-        c.check(s != null && s.contains("(beacon: green, speed 4, normal)") && s.contains("(beacon: magenta, speed 1, high)"),
+        c.check(s != null && s.contains("green, speed 4, normal") && s.contains("magenta, speed 1, high"),
                 "both beacon beats (green speed 4 Normal, magenta speed 1 High) measured: " + s);
-        c.check(s != null && s.contains("Beat 1: ") && s.contains("Beat 2: ") && !s.contains("not readable"), "two player beats listed and readable from the lore: " + s);
+        String yours = s == null ? "" : s.substring(s.indexOf("| yours"));
+        c.check(yours.contains(";") && !yours.contains("?"), "two player beats readable from the lore: " + s);
+    }
+
+    /**
+     * His upgrade of 11-24 (12:39 PM, logger session 20261124-123431-54376, fixture beacon-upgrade3-1124.tsv): BOTH beacon beats
+     * were brown (speed 5 Low and speed 4 High) and his two beats ended brown too. Keyed by color, the tuner saw one brown beat
+     * jumping between the two panes. Followed by pane, both beats are measured, his are told apart, and the hints pair beat 1
+     * (brown speed 5 Normal at 5160) with the speed 5 Low beat (Pitch R1) and beat 2 (speed 1 High) with the speed 4 High one
+     * (Speed R2).
+     */
+    private static void sameColor(Session c) throws Exception {
+        java.util.Map<Integer, String> r = replay(c, "beacon-upgrade3-1124.tsv", true, 5160, 5303, 6599);
+        c.note("same-color replay: 5160 " + r.get(5160) + " ## 5303 " + r.get(5303) + " ## 6599 " + r.get(6599));
+        for (int t : new int[]{5160, 5303, 6599}) {
+            String s = r.get(t);
+            c.check(s != null && s.contains("brown, speed 5, low") && s.contains("brown, speed 4, high"), "both brown beacon beats measured apart at " + t + ": " + s);
+        }
+        String a = r.get(5160);
+        c.check(a != null && a.contains("41:R1") && a.contains("48:R2") && !a.contains("39:") && !a.contains("37:") && !a.contains("46:"),
+                "beat 1 Pitch R1 and beat 2 Speed R2 at 5160: " + a);
+        String z = r.get(6599);
+        c.check(z != null && z.contains("| yours brown, speed 5, low @") && z.contains("; brown, speed 4, high @") && !z.contains("@-1"),
+                "both of his brown beats followed to the end: " + z);
     }
 }
