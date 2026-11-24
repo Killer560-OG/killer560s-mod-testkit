@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T11:11:08",
- "modSource": "lane-treeregen-present-1124",
- "modGitSha": "1e7807ee55c95f0782dfa75a8e4b9cf6460ad94a",
+ "generatedAt": "2026-11-24T13:05:20",
+ "modSource": "lane-queueleap-ticksplit-1124",
+ "modGitSha": "caf1ecf3a460566921e248f314edd7ea7a45764f",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
