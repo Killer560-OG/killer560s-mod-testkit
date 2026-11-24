@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T23:13:08",
- "modSource": "lane-acquizlate3-1123",
- "modGitSha": "93060d38b7336c3e9f2cd12649f930c88f36f9c4",
+ "generatedAt": "2026-11-24T01:50:05",
+ "modSource": "lane-idea-roomcosts-1124",
+ "modGitSha": "7d6ce10fbe8a1e44ed460ee0eac976ffce3818ac",
  "modSourceDirty": false,
  "count": 985,
  "byKind": {
