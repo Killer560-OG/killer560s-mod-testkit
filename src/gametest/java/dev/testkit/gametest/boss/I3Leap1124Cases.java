@@ -58,6 +58,24 @@ final class I3Leap1124Cases {
         s.test("1124-i3leap-auto-before-p3", c -> auto(c, "AUTO", true, BEFORE, false));
         s.test("1124-i3leap-auto-other-player", c -> auto(c, "AUTO", false, ACTIVE, false));
         s.test("1124-i3leap-fast-mode-no-auto", c -> auto(c, "FAST", true, ACTIVE, false));
+        // leap-p3-rowswitch-1124: each P3 row has its own switch and its own Fast/Auto
+        double[][] at = {{100, 60}, {50, 130}, {10, 100}, {40, 40}};
+        for (int i = 0; i < 4; i++) {
+            String sec = "S" + (i + 1);
+            double x = at[i][0], z = at[i][1];
+            s.test("1124-rowsw-fast-" + sec.toLowerCase(Locale.ROOT) + "-alone", c -> rowFast(c, sec + ":FAST", x, z, DONE, sec, true));
+            s.test("1124-rowsw-fast-" + sec.toLowerCase(Locale.ROOT) + "-off", c -> rowFast(c,
+                    all("FAST").replace(sec + ":FAST", "").replace(",,", ",").replaceAll("^,|,$", ""), x, z, DONE, sec, false));
+        }
+        s.test("1124-rowsw-fast-all-off", c -> rowFast(c, "", X, Z, ACTIVE, "I3", false));
+        s.test("1124-rowsw-fast-i3-alone", c -> rowFast(c, "I3:FAST", X, Z, ACTIVE, "I3", true));
+        s.test("1124-rowsw-fast-i3-off-s3-on", c -> rowFast(c, "S3:FAST", X, Z, ACTIVE, "I3", false));
+        s.test("1124-rowsw-fast-i3-on-no-pick-s3-off", c -> rowFast(c, "I3:FAST", X, Z, ACTIVE, "S3-noi3", true));
+        s.test("1124-rowsw-fast-i3-auto-s3-fast", c -> rowFast(c, "I3:AUTO,S3:FAST", X, Z, ACTIVE, "I3", false));
+        s.test("1124-rowsw-auto-i3-auto-s3-fast", c -> rowAuto(c, "I3:AUTO,S3:FAST", true));
+        s.test("1124-rowsw-auto-i3-fast-s3-auto", c -> rowAuto(c, "I3:FAST,S3:AUTO", false));
+        s.test("1124-rowsw-auto-all-off", c -> rowAuto(c, "", false));
+        s.test("1124-rowsw-migrate-old-p3", I3Leap1124Cases::migrate);
         for (String act : new String[] {"use-key", "attack", "swap", "click"}) {
             s.test("1124-same-i3leap-" + act, c -> sameTick(c, act));
         }
@@ -73,6 +91,16 @@ final class I3Leap1124Cases {
 
     /** F7 boss in section 3's area (x/z), the leap in slot 0 with a menu offering MATE; I3 -> MATE, S3 and S2 -> nobody. */
     private static AutoCloseable setUp(Session c, String mode, double x, double z, String p3, boolean foe) {
+        return setUp(c, all(mode), x, z, p3, foe, "I3");
+    }
+
+    /** Every P3 row ON in {@code mode} (FAST / AUTO), or every row OFF for "OFF". */
+    private static String all(String mode) {
+        return mode.equals("OFF") ? "" : "I3:" + mode + ",S1:" + mode + ",S2:" + mode + ",S3:" + mode + ",S4:" + mode;
+    }
+
+    /** {@code rows}: the rows that are ON, as "ROW:MODE" pairs (rest OFF). {@code mate}: the row whose pick is MATE ("S3-noi3": S3's, with I3 unset). */
+    private static AutoCloseable setUp(Session c, String rows, double x, double z, String p3, boolean foe, String mate) {
         c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
         c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
         DungeonFixBossCases.floor(c, (int) x, Y, (int) z);
@@ -92,9 +120,9 @@ final class I3Leap1124Cases {
             Mod.call(cfg, "setUseClassTargets", false);
             for (String t : new String[] {"I3", "S1", "S2", "S3", "S4"}) {
                 Mod.call(cfg, "setTargetMode", target(t), Mod.enumValue(FLC + "$TargetMode", "PER_LEAP"));
-                pick(cfg, t, t.equals("I3") ? MATE : NOBODY);
+                pick(cfg, t, t.equals(mate.substring(0, 2)) ? MATE : mate.endsWith("-noi3") && t.equals("I3") ? "" : NOBODY);
             }
-            Mod.call(cfg, "setLeapMode", Mod.enumValue(FLC + "$LeapGroup", "P3"), Mod.enumValue(FLC + "$LeapMode", mode));
+            setRows(cfg, rows);
             Mod.staticCall(TRACKER, "resetRun");
             if (!p3.equals(BEFORE)) {
                 Mod.staticCall(TRACKER, "onChat", GOLDOR);
@@ -112,9 +140,22 @@ final class I3Leap1124Cases {
         return on;
     }
 
+    private static void setRows(Object cfg, String rows) {
+        for (String t : new String[] {"I3", "S1", "S2", "S3", "S4"}) {
+            String mode = null;
+            for (String r : rows.split(",")) {
+                if (r.startsWith(t + ":")) {
+                    mode = r.substring(3);
+                }
+            }
+            Mod.call(cfg, "setRowOn", target(t), mode != null);
+            Mod.call(cfg, "setRowMode", target(t), Mod.enumValue(FLC + "$LeapMode", mode == null ? "FAST" : mode));
+        }
+    }
+
     private static void tearDown(Session c, AutoCloseable on) throws Exception {
         c.ctx().runOnClient(mc -> {
-            Mod.call(Mod.cfg(FLC), "setLeapMode", Mod.enumValue(FLC + "$LeapGroup", "P3"), Mod.enumValue(FLC + "$LeapMode", "OFF"));
+            setRows(Mod.cfg(FLC), "");
             Mod.staticCall(TRACKER, "resetRun");
         });
         CrystalLeap1112Cases.tearDown(c, on);
@@ -143,6 +184,111 @@ final class I3Leap1124Cases {
             WireCapture.stop();
             tearDown(c, on);
         }
+    }
+
+    /** A Fast Leap press in {@code sec}'s area with {@code rows} ON; the pick MATE is on {@code mate} (the row that must be used). */
+    private static void rowFast(Session c, String rows, double x, double z, String p3, String mate, boolean expectLeap) throws Exception {
+        if (!cheat()) {
+            c.note("legit jar: Fast Leap is cheat-only");
+            return;
+        }
+        AutoCloseable on = setUp(c, rows, x, z, p3, false, mate);
+        try {
+            WireCapture.start();
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
+            c.ctx().waitTicks(expectLeap ? 40 : 60);
+            WireCapture.stop();
+            c.note("rows [" + rows + "] wire: " + ticks());
+            if (expectLeap) {
+                c.check(count("UseItem") >= 1 && count("ContainerClick") == 1,
+                        "rows [" + rows + "]: " + count("UseItem") + " uses, " + count("ContainerClick") + " menu clicks, want a leap (1 click): " + ticks());
+            } else {
+                c.check(count("UseItem") == 0 && count("ContainerClick") == 0,
+                        "rows [" + rows + "]: a row that is OFF (or Auto) leaped on a Fast press: " + ticks());
+            }
+        } finally {
+            WireCapture.stop();
+            tearDown(c, on);
+        }
+    }
+
+    /** His own device line in section 3 while section 1 is active, with {@code rows} ON. */
+    private static void rowAuto(Session c, String rows, boolean expectLeap) throws Exception {
+        if (!cheat()) {
+            c.note("legit jar: Fast Leap is cheat-only");
+            return;
+        }
+        AutoCloseable on = setUp(c, rows, X, Z, ACTIVE, false, "I3");
+        try {
+            String me = self(c);
+            WireCapture.start();
+            c.ctx().runOnClient(mc -> Mod.staticCall(TRACKER, "onChat", device(me)));
+            c.ctx().waitTicks(expectLeap ? 40 : 60);
+            WireCapture.stop();
+            c.note("rows [" + rows + "] wire: " + ticks());
+            if (expectLeap) {
+                c.check(count("UseItem") == 1 && count("ContainerClick") == 1,
+                        "rows [" + rows + "]: " + count("UseItem") + " uses, " + count("ContainerClick") + " clicks, want 1 and 1");
+            } else {
+                c.check(count("UseItem") == 0 && count("ContainerClick") == 0,
+                        "rows [" + rows + "]: a row that is OFF (or Fast) leaped on the device line: " + ticks());
+            }
+        } finally {
+            WireCapture.stop();
+            tearDown(c, on);
+        }
+    }
+
+    /** An old config's one P3 value (Off / Fast / Auto) becomes every row OFF / ON Fast / ON Auto; a row's own keys override and survive a save and reload. */
+    private static void migrate(Session c) throws Exception {
+        java.nio.file.Path file = (java.nio.file.Path) c.onClient(mc -> Mod.field(FLC, "CONFIG_PATH"));
+        String[][] old = {{"{\"fast\":false,\"auto\":false}", "OFF"}, {"{\"fast\":true,\"auto\":false}", "FAST"},
+                {"{\"fast\":false,\"auto\":true}", "AUTO"}, {"{\"fast\":true,\"auto\":true}", "AUTO"}};
+        java.util.List<String> bad = new java.util.ArrayList<>();
+        for (String[] k : old) {
+            java.nio.file.Files.writeString(file, "{\"enabled\":true,\"groups\":{\"P3\":" + k[0] + "}}");
+            String got = c.onClient(mc -> {
+                Mod.staticCall(FLC, "load");
+                Object cfg = Mod.cfg(FLC);
+                Mod.call(cfg, "save");
+                Mod.staticCall(FLC, "load");
+                Object cfg2 = Mod.cfg(FLC);
+                StringBuilder sb = new StringBuilder();
+                for (String t : new String[] {"I3", "S1", "S2", "S3", "S4"}) {
+                    sb.append(Mod.call(cfg2, "isRowOn", target(t))).append('/').append(Mod.call(cfg2, "getRowMode", target(t))).append(' ');
+                }
+                return sb.toString().trim();
+            });
+            String m = k[1].equals("AUTO") ? "AUTO" : "FAST";
+            String want = k[1].equals("OFF") ? "false/FAST" : "true/" + m;
+            String all = (want + " ").repeat(5).trim();
+            c.note("old P3 " + k[0] + " -> " + got);
+            if (!got.equals(all)) {
+                bad.add(k[0] + " -> " + got + ", want " + all);
+            }
+        }
+        // new keys: one row on in Auto, the rest off, kept over a save and reload
+        java.nio.file.Files.writeString(file, "{\"enabled\":true,\"groups\":{\"P3\":{\"fast\":false,\"auto\":true}},"
+                + "\"targets\":{\"S2\":{\"leapOn\":true,\"leapMode\":\"AUTO\"},\"S1\":{\"leapOn\":false,\"leapMode\":\"AUTO\"}}}");
+        String got = c.onClient(mc -> {
+            Mod.staticCall(FLC, "load");
+            Mod.call(Mod.cfg(FLC), "setRowOn", target("S4"), false);
+            Mod.call(Mod.cfg(FLC), "save");
+            Mod.staticCall(FLC, "load");
+            Object cfg = Mod.cfg(FLC);
+            StringBuilder sb = new StringBuilder();
+            for (String t : new String[] {"I3", "S1", "S2", "S3", "S4"}) {
+                sb.append(Mod.call(cfg, "isRowOn", target(t))).append('/').append(Mod.call(cfg, "getRowMode", target(t))).append(' ');
+            }
+            return sb.toString().trim();
+        });
+        c.note("row keys -> " + got);
+        if (!got.equals("true/AUTO false/AUTO true/AUTO true/AUTO false/AUTO")) {
+            bad.add("row keys -> " + got);
+        }
+        java.nio.file.Files.writeString(file, "{\"enabled\":false}");
+        c.onClient(mc -> Mod.staticCall(FLC, "load"));
+        c.check(bad.isEmpty(), "P3 row migration / persistence wrong: " + bad);
     }
 
     private static void auto(Session c, String mode, boolean own, String p3, boolean expectLeap) throws Exception {

@@ -71,7 +71,11 @@ final class LeapMenuCases {
                         Mod.enumValue("dungeonclass.DungeonClass", "HEALER"));
                 Mod.call(cfg, "setTargetPickName", Mod.enumValue(FLC + "$LeapTarget", "STORM_DEATH"), "LeapMate");
                 Mod.call(cfg, "setLeapFast", Mod.enumValue(FLC + "$LeapGroup", "P1"), true);
-                Mod.call(cfg, "setLeapAuto", Mod.enumValue(FLC + "$LeapGroup", "P3"), true);
+                for (String row : new String[]{"I3", "S1", "S2", "S3", "S4"}) {
+                    Object t = Mod.enumValue(FLC + "$LeapTarget", row);
+                    Mod.call(cfg, "setRowOn", t, true);
+                    Mod.call(cfg, "setRowMode", t, Mod.enumValue(FLC + "$LeapMode", "AUTO"));
+                }
                 for (Object t : Mod.cls(FLC + "$LeapTarget").getEnumConstants()) {
                     for (Object k : Mod.cls("dungeonclass.DungeonClass").getEnumConstants()) {
                         Mod.call(cfg, "clearClassTarget", t, k);
@@ -366,8 +370,9 @@ final class LeapMenuCases {
                 // the per-leap rows live on the Universal page now (untestbugs-1109)
                 press(c, d, uni);
                 List<String> uls = labels(rows(c, d));
-                c.check(uls.contains("Crystal Leap: Fast") && uls.contains("P3 Leap: Auto") && uls.contains("Relic Leap: Off"),
-                        "Crystal (set Fast), P3 (set Auto) and Relic (unset, Off) read wrong: " + uls);
+                c.check(uls.contains("Crystal Leap: Fast") && uls.contains("S1 to S2 Switch: ON") && uls.contains("S4 to Core Fast/Auto: Auto")
+                        && uls.contains("Relic Leap: Off"),
+                        "Crystal (set Fast), P3 rows (each ON, Auto) and Relic (unset, Off) read wrong: " + uls);
                 List<String> walk = new ArrayList<>();
                 for (int i = 0; i < 3; i++) {
                     press(c, d, find(rows(c, d), "Door Opener Leap:"));
@@ -863,7 +868,7 @@ final class LeapMenuCases {
                 String l = ModScreenDriver.label(w).trim();
                 byLabel.putIfAbsent(l.contains(":") ? l.substring(0, l.indexOf(':')) : l, w);
                 boolean compact = flag(w, "isCompact");
-                if (l.matches(".+ Leap: (Off|Fast|Auto)")) {
+                if (l.matches(".+ Leap: (Off|Fast|Auto)") || l.matches(".+ Fast/Auto: (Fast|Auto)")) {
                     leaps.add(w);
                 } else if (l.matches(".+ Target: .+")) {
                     targets.add(w);
@@ -882,9 +887,9 @@ final class LeapMenuCases {
                     out.add("'" + l + "' value cut: " + mc.font.width(value) + " px in a " + cb[2] + " px pill");
                 }
             }
-            if (leaps.size() != 12 || targets.size() != 15 || modes.size() != 15) {
-                out.add(leaps.size() + " Off/Fast/Auto, " + targets.size() + " target and " + modes.size()
-                        + " mode cyclers; want 12, 15 and 15");
+            if (leaps.size() != 16 || targets.size() != 15 || modes.size() != 15) {
+                out.add(leaps.size() + " Off/Fast/Auto (11 leaps + 5 P3 rows), " + targets.size() + " target and " + modes.size()
+                        + " mode cyclers; want 16, 15 and 15");
             }
             for (List<AbstractWidget> col : List.of(leaps, targets, modes)) {
                 for (AbstractWidget w : col) {
@@ -916,7 +921,14 @@ final class LeapMenuCases {
                 }
                 boolean p3 = java.util.List.of("I3 Leap", "S1 to S2", "S2 to S3", "S3 to S4", "S4 to Core").contains(name);
                 String group = p3 ? "P3" : name;
-                if (!p3 || name.equals("I3 Leap")) {
+                if (p3) {
+                    AbstractWidget sw = byLabel.get(name + " Switch");
+                    AbstractWidget fa = byLabel.get(name + " Fast/Auto");
+                    if (sw == null || sw.getY() != t.getY() || fa == null || fa.getY() != t.getY()
+                            || sw.getX() + sw.getWidth() > fa.getX()) {
+                        out.add(name + ": its own switch and Fast/Auto are not on the row");
+                    }
+                } else {
                     AbstractWidget lp = byLabel.get(group + " Leap");
                     if (lp == null || lp.getY() != t.getY()) {
                         out.add(name + ": its Off/Fast/Auto is not on the row");
