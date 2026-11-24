@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T14:17:05",
- "modSource": "lane-sweepoptimal-allatonce-1124",
- "modGitSha": "9ba1f2a7063a48a8e679d4daac48fb81df2f1eb8",
+ "generatedAt": "2026-11-24T14:47:13",
+ "modSource": "lane-treeregen-onstart-1124",
+ "modGitSha": "d09a0bc8c691ac998308e0f185075f8617b79b1b",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
