@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T16:52:47",
- "modSource": "lane-oldtrap-r0-1123",
- "modGitSha": "5bea61b4450b9e5fac85e31a9c2ee1114cb46242",
+ "generatedAt": "2026-11-23T19:00:56",
+ "modSource": "lane-autoanvil-nextbook-1123",
+ "modGitSha": "d8066b58a0955e176f9f8d414849742ba80fa011",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
