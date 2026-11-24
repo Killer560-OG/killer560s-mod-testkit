@@ -159,6 +159,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestGoblin1104Cases.register(s);
                     // Beeheemoth Highlight and Tree Gift Messages (1123-foraging-*, mod beeheemoth-foragingtab-1123).
                     HxForaging1123Cases.register(s);
+                    HxAgatha1123Cases.register(s);
                     // Crystal Hollows Map HUD (1104-chmap-hud, mod chhud-1104).
                     HxChMapHud1104Cases.register(s);
                     // Structure Scanner: every loaded chunk once, named waypoints (1104-chscan-scan, mod chscan-1104).
