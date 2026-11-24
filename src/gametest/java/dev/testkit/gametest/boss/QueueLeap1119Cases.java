@@ -317,6 +317,8 @@ final class QueueLeap1119Cases {
             }
             WireCapture.stop();
             List<List<String>> ticks = ticks();
+            // the split must have worked: the describe above names the tick end, so more than one tick means the tick checks read real ticks
+            c.check(ticks.size() > 1 && firstTick(ticks, "use") >= 0, "the wire never split into client ticks (" + ticks.size() + " ticks), so no tick check below proves anything");
             StringBuilder wire = new StringBuilder();
             for (int i = 0; i < ticks.size(); i++) {
                 wire.append("\n  tick ").append(i).append(": ").append(String.join(", ", ticks.get(i)));

@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T11:07:37",
- "modSource": "lane-idea-roomdrills-1124",
- "modGitSha": "93e583a2fb34e4b3749374d6610d5df3a37a06d8",
+ "generatedAt": "2026-11-24T13:19:09",
+ "modSource": "lane-treeregen-present-1124",
+ "modGitSha": "c376c13613904e57ce141db0e2fa3d02af3a7d36",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
