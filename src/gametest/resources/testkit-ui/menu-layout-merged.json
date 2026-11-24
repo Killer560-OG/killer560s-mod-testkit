@@ -42,6 +42,8 @@
     "gui.tab.InvisibugHighlightTab": "Foraging > Invisibug Highlight",
     "gui.tab.TreeGiftMessagesTab": "Foraging > Tree Gift Messages",
     "gui.tab.TreeRegenTab": "Foraging > Regenerating Trees",
+    "gui.tab.SweepOverlayTab": "Foraging > Sweep Overlay",
+    "gui.tab.SweepOptimalTab": "Foraging > Highlight Optimal Blocks",
     "gui.tab.KickRejoinTab": "Misc > Kick Rejoin Timer",
     "gui.tab.PuzzleHudTab": "Dungeons > Puzzle HUD",
     "gui.tab.AutoAcceptInvitesTab": "Social > Auto Accept Invites",
