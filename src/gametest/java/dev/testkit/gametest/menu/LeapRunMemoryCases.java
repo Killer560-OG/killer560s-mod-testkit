@@ -502,7 +502,9 @@ final class LeapRunMemoryCases {
             Map<String, String> ovr = overrides(c);
             List<String> pins = pins(c);
             c.check(ovr.size() == 1 && pinCount(pins) == 2, "in-run setup: " + ovr + " " + pins);
-            hub(c, "LrA", List.of("LrB", "LrC", "LrD"));
+            // Back to the Hub WITHOUT leaving the party: leaving resets every pick and pin (a9d0dee22, 11-19).
+            c.hx().tabClear();
+            DungeonMenuCases.leaveDungeon(c);
             enter(c);
             String out = run(c, P);
             c.check(overrides(c).equals(ovr), "in-run picks changed at the next run: " + ovr + " -> " + overrides(c) + " (" + out + ")");
