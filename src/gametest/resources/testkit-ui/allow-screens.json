@@ -24,6 +24,7 @@
     {"class": "croesus.CroesusTrackerScreen", "args": ["null", "enum:*"], "source": "croesus/CroesusTrackerScreen.java:36 View"},
     {"class": "gui.profit.ProfitHubScreen", "args": ["null"], "source": "gui/profit/ProfitHubScreen.java (/profit)"},
     {"class": "gui.profit.ExperimentsProfitScreen", "args": ["null"], "source": "gui/profit/ExperimentsProfitScreen.java (/profit etable)"},
+    {"class": "gui.profit.BestFloorProfitScreen", "args": ["null"], "source": "gui/profit/BestFloorProfitScreen.java (/profit floors)"},
     {"class": "dungeonextras.BreakerAuraConfigScreen", "args": ["null"], "source": "dungeonextras/BreakerAuraConfigScreen.java"},
     {"class": "livemap.InteractiveMapScreen", "args": ["bool:false"], "source": "livemap/InteractiveMapScreen.java"},
     {"class": "social.FriendsListScreen", "args": ["null"], "source": "social/FriendsListScreen.java"},

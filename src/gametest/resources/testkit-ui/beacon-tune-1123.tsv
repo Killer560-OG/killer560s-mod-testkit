@@ -1,0 +1,109 @@
+10818	S	0	black_stained_glass_pane		
+10818	S	1	black_stained_glass_pane		
+10818	S	2	black_stained_glass_pane		
+10818	S	3	black_stained_glass_pane		
+10818	S	4	black_stained_glass_pane		
+10818	S	5	black_stained_glass_pane		
+10818	S	6	black_stained_glass_pane		
+10818	S	7	black_stained_glass_pane		
+10818	S	8	black_stained_glass_pane		
+10818	S	9	black_stained_glass_pane		
+10818	S	10	gray_stained_glass_pane	Match the Beat	
+10818	S	11	gray_stained_glass_pane	Match the Beat	
+10818	S	12	green_stained_glass_pane	Match the Beat	
+10818	S	13	gray_stained_glass_pane	Match the Beat	
+10818	S	14	gray_stained_glass_pane	Match the Beat	
+10818	S	15	gray_stained_glass_pane	Match the Beat	
+10818	S	16	gray_stained_glass_pane	Match the Beat	
+10818	S	17	black_stained_glass_pane		
+10818	S	18	black_stained_glass_pane		
+10818	S	19	black_stained_glass_pane		
+10818	S	20	black_stained_glass_pane		
+10818	S	21	black_stained_glass_pane		
+10818	S	22	black_stained_glass_pane		
+10818	S	23	black_stained_glass_pane		
+10818	S	24	black_stained_glass_pane		
+10818	S	25	black_stained_glass_pane		
+10818	S	26	black_stained_glass_pane		
+10818	S	27	black_stained_glass_pane		
+10818	S	28	gray_stained_glass_pane	Change the Beat	
+10818	S	29	gray_stained_glass_pane	Change the Beat	
+10818	S	30	gray_stained_glass_pane	Change the Beat	
+10818	S	31	gray_stained_glass_pane	Change the Beat	
+10818	S	32	gray_stained_glass_pane	Change the Beat	
+10818	S	33	lime_stained_glass_pane	Change the Beat	
+10818	S	34	gray_stained_glass_pane	Change the Beat	
+10818	S	35	black_stained_glass_pane		
+10818	S	36	black_stained_glass_pane		
+10818	S	37	black_stained_glass_pane		
+10818	S	38	black_stained_glass_pane		
+10818	S	39	black_stained_glass_pane		
+10818	S	40	black_stained_glass_pane		
+10818	S	41	black_stained_glass_pane		
+10818	S	42	black_stained_glass_pane		
+10818	S	43	black_stained_glass_pane		
+10818	S	44	black_stained_glass_pane		
+10818	S	45	black_stained_glass_pane		
+10818	S	46	lime_dye	Color	Change your color to match the|beats.||Current color: Lime||Left-click to cycle forwards!|Right-click to cycle backwards!
+10818	S	47	black_stained_glass_pane		
+10818	S	48	sugar	Speed	Change your speed to match the|beats.||Current speed: 5||Left-click to increase speed!|Right-click to decrease speed!
+10818	S	49	black_stained_glass_pane		
+10818	S	50	note_block	Pitch	Change your pitch to match the beats.||Current pitch: Low|Sound: ENABLED||Left-click to increase pitch!|Right-click to decrease pitch!||Shift-click to toggle sound!
+10818	S	51	black_stained_glass_pane		
+10818	S	52	green_terracotta	Pause	Pause your movement to align it to|the beat.||Currently: UNPAUSED||Click to pause!
+10818	S	53	black_stained_glass_pane		
+10833	N	0.095
+10833	S	33	gray_stained_glass_pane	Change the Beat	
+10833	S	34	lime_stained_glass_pane	Change the Beat	
+10848	N	0.095
+10848	S	28	lime_stained_glass_pane	Change the Beat	
+10848	S	34	gray_stained_glass_pane	Change the Beat	
+10859	K	52
+10862	S	52	red_terracotta	Pause	Pause your movement to align it to|the beat.||Currently: PAUSED||Click to unpause!
+10872	N	1.492
+10873	S	12	gray_stained_glass_pane	Match the Beat	
+10873	S	13	green_stained_glass_pane	Match the Beat	
+10888	K	48
+10891	S	48	sugar	Speed	Change your speed to match the|beats.||Current speed: 1||Left-click to increase speed!|Right-click to decrease speed!
+10923	K	50
+10926	S	50	note_block	Pitch	Change your pitch to match the beats.||Current pitch: Normal|Sound: ENABLED||Left-click to increase pitch!|Right-click to decrease pitch!||Shift-click to toggle sound!
+10928	N	1.492
+10928	S	13	gray_stained_glass_pane	Match the Beat	
+10928	S	14	green_stained_glass_pane	Match the Beat	
+10983	N	1.492
+10983	S	14	gray_stained_glass_pane	Match the Beat	
+10983	S	15	green_stained_glass_pane	Match the Beat	
+10989	K	46
+10992	S	28	pink_stained_glass_pane	Change the Beat	
+10992	S	46	pink_dye	Color	Change your color to match the|beats.||Current color: Pink||Left-click to cycle forwards!|Right-click to cycle backwards!
+10995	K	46
+10998	S	28	cyan_stained_glass_pane	Change the Beat	
+10998	S	46	cyan_dye	Color	Change your color to match the|beats.||Current color: Cyan||Left-click to cycle forwards!|Right-click to cycle backwards!
+10998	K	46
+11000	K	46
+11001	S	28	purple_stained_glass_pane	Change the Beat	
+11001	S	46	purple_dye	Color	Change your color to match the|beats.||Current color: Purple||Left-click to cycle forwards!|Right-click to cycle backwards!
+11002	S	28	blue_stained_glass_pane	Change the Beat	
+11002	S	46	lapis_lazuli	Color	Change your color to match the|beats.||Current color: Blue||Left-click to cycle forwards!|Right-click to cycle backwards!
+11012	K	46
+11015	S	28	brown_stained_glass_pane	Change the Beat	
+11015	S	46	cocoa_beans	Color	Change your color to match the|beats.||Current color: Brown||Left-click to cycle forwards!|Right-click to cycle backwards!
+11018	K	46
+11021	S	28	green_stained_glass_pane	Change the Beat	
+11021	S	46	green_dye	Color	Change your color to match the|beats.||Current color: Green||Left-click to cycle forwards!|Right-click to cycle backwards!
+11038	N	1.492
+11038	S	15	gray_stained_glass_pane	Match the Beat	
+11038	S	16	green_stained_glass_pane	Match the Beat	
+11093	N	1.492
+11093	S	10	green_stained_glass_pane	Match the Beat	
+11093	S	16	gray_stained_glass_pane	Match the Beat	
+11097	K	52
+11100	S	52	green_terracotta	Pause	Pause your movement to align it to|the beat.||Currently: UNPAUSED||Click to pause!
+11148	N	1.492
+11149	N	0.794
+11149	S	10	gray_stained_glass_pane	Match the Beat	
+11149	S	11	green_stained_glass_pane	Match the Beat	
+11149	S	28	gray_stained_glass_pane	Change the Beat	
+11149	S	29	green_stained_glass_pane	Change the Beat	
+11155	K	50
+11158	D	

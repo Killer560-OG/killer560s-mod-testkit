@@ -55,6 +55,23 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     private static final double CORRIDOR_BACK = 10;
     private static final int CORRIDOR_TICKS = 20;
     private static final String R_LATE = "1018-predict-hypixel-late";
+    /** Every directed doorway of several random floors glanced at from the corridor distance; prints each map code that fails. */
+    private static final String SWEEP = "1123-predict-corridor-sweep";
+    /** The floors (map codes) a sweep found failing, each glanced at again from the same spot (roompredictor-1123-fix2). */
+    private static final String PINNED = "1123-predict-corridor-pinned";
+    /** {map code, room he stands in, room he looks into} of each pinned glance. */
+    private static final String[][] PINS = {
+            // sweep rp2-sweep4 (the third floor of its world): Buttons (4 tiles) ruled out through the doorway from Supertall
+            {"MC2:CxUIRW50cmFuY2UMR29sZGVuIE9hc2lzBUZhaXJ5BU1pbmVzBUZsYWdzBk11c2V1bQVCbG9vZARab2RkBU1vc3N5BUF0bGFzCU92ZXJncm93bg1UZWxlcG9ydCBNYXplCEljZSBQYXRoCE9sZCBUcmFwCEFuZGVzaXRlDEhpZ2hlciBCbGF6ZQxCaWcgUmVkIEZsYWcLTG9ja2VkIEF3YXkHUmFjY29vbgxUaHJlZSBGbG9vcnMMUmFyZSBQaWxsYXJzABUDAQAAABMAAAAAAA8BAQAAABAAAAAAAAEABAAAAAIAAAAAAAAAAQAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAABEBAQAAABICAAAAAAoBAAoBAAoBAAAAABQAAAAAAAMCAQAAAAAAAAAAAAAAAAoBAAoBAAoBAAAAAQAAAAAAAQAAAAsCAAAAAAwCAAAAAAoBAAoBAAoBAAAAAAQBAAQBAAQBAQAAAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAQBAAQBAAQBAAkCAAkCAAkCAAkCAAkCAAkCAAkCAAAAAAQBAAQBAAQBAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAQAAAAAAAQAAAAgCAQAAAAYCAAYCAAYCAAAAAAUBAAUBAAUBAAAAAA4DAAAAAAAAAAYCAAYCAAYCAAAAAAUBAAUBAAUBAAAAAAAAAAcCAwAAAAYCAAYCAAYCAQAAAAUBAAUBAAUBAQAAAA0B,MC2:CxUIRW50cmFuY2UFTWluZXMFRmFpcnkKQmxhY2sgRmxhZwZLbmlnaHQLU2NhZmZvbGRpbmcFQmxvb2QISWNlIFBhdGgGR3JhdmVsCE9sZCBUcmFwCVdhdGVyZmFsbA5Mb3RzIE9mIEZsb29ycw1UZWxlcG9ydCBNYXplDVF1YXJ0eiBLbmlnaHQLTG93ZXIgQmxhemUFQ3J5cHQJT3Zlcmdyb3duA1BpdBBPdmVyZ3Jvd24gQ2hhaW5zB0RlZmF1bHQDRGlwAAEBAAAAAAkBAAkBAAkBAAkBAAkBAQAAAAsBAQAAAAwCBAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAsBAAAAAAAAAAIBAAIBAAIBAQAAAAgBAAAAABIBAAAAAAsBAAAAAA8BAAIBAAIBAAIBAAAAAAAAAAAAABIBAAAAAAsBAAAAAQAAAAIBAAIBAAIBAQAAAAoCAAAAABIBAAAAAAsBAAAAAA4AAQAAAAAAAAAAAAAAAAAAAAAAABIBAAAAAAsBAAAAAA4AAAMCAAAAAAYBAwAAAAcAAAAAABIBAAAAAAsBAQAAAA4AAQAAAAAAAQAAAAAAAAAAAAAAABIBAAAAAQAAAAAAAA4AAAQBAQAAAAUDAAAAABUBAAAAABIBAAAAAA0AAAAAAA4AAAAAAAAAAAAAAAAAAQAAAAAAAQAAAAAAAAAAAAAAAA4AABQCAQAAABMCAQAAABEBAQAAABACABACABACAQAAAA4A,MC2:CxUIRW50cmFuY2UGRHVuY2FuCVN1cGVydGFsbAdCdXR0b25zBUZhaXJ5A0VuZAVCbG9vZAVBdGxhcwhJY2UgRmlsbARRdWl6CE9sZCBUcmFwCU92ZXJncm93bgVTdGVwcwtMb3dlciBCbGF6ZQlXYXRlcmZhbGwGRHVlY2VzBlNwaWtlcw1RdWFydHogS25pZ2h0BVNsb3RoBkxlYXZlcwpSYWlsIFRyYWNrAAIDAQAAAAMBAAMBAAMBAQAAAAQCAAQCAAQCAQAAAAoABAAAAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAAAAAAAEDAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAABMBAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAQAAAA4BAAAAAAgBAAgBAAgBAAAAABUDAAAAAAUAAAAAABIAAQAAAAAAAAgBAAgBAAgBAAAAAQAAAAAAAQAAAAAAABIAAAwCAQAAAAgBAAgBAAgBAAAAABQDAAAAAAYBAAAAABIAAQAAAAAAAQAAAAAAAQAAAAAAAQAAAAAAAwAAAAAAABIAAA0BAAAAAAsDAAAAAAkDAAAAABADAAAAAAcBAAAAABIAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAABIAAA8AAA8AAA8AAA8AAA8AAA8AAA8AAQAAABEDAQAAABIA", "Supertall", "Buttons"},
+            {"MC2:CxUIRW50cmFuY2UMR29sZGVuIE9hc2lzBUZhaXJ5BU1pbmVzBUZsYWdzBk11c2V1bQVCbG9vZARab2RkBU1vc3N5BUF0bGFzCU92ZXJncm93bg1UZWxlcG9ydCBNYXplCEljZSBQYXRoCE9sZCBUcmFwCEFuZGVzaXRlDEhpZ2hlciBCbGF6ZQxCaWcgUmVkIEZsYWcLTG9ja2VkIEF3YXkHUmFjY29vbgxUaHJlZSBGbG9vcnMMUmFyZSBQaWxsYXJzABUDAQAAABMAAAAAAA8BAQAAABAAAAAAAAEABAAAAAIAAAAAAAAAAQAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAABEBAQAAABICAAAAAAoBAAoBAAoBAAAAABQAAAAAAAMCAQAAAAAAAAAAAAAAAAoBAAoBAAoBAAAAAQAAAAAAAQAAAAsCAAAAAAwCAAAAAAoBAAoBAAoBAAAAAAQBAAQBAAQBAQAAAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAQBAAQBAAQBAAkCAAkCAAkCAAkCAAkCAAkCAAkCAAAAAAQBAAQBAAQBAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAQAAAAAAAQAAAAgCAQAAAAYCAAYCAAYCAAAAAAUBAAUBAAUBAAAAAA4DAAAAAAAAAAYCAAYCAAYCAAAAAAUBAAUBAAUBAAAAAAAAAAcCAwAAAAYCAAYCAAYCAQAAAAUBAAUBAAUBAQAAAA0B,MC2:CxUIRW50cmFuY2UFTWluZXMFRmFpcnkKQmxhY2sgRmxhZwZLbmlnaHQLU2NhZmZvbGRpbmcFQmxvb2QISWNlIFBhdGgGR3JhdmVsCE9sZCBUcmFwCVdhdGVyZmFsbA5Mb3RzIE9mIEZsb29ycw1UZWxlcG9ydCBNYXplDVF1YXJ0eiBLbmlnaHQLTG93ZXIgQmxhemUFQ3J5cHQJT3Zlcmdyb3duA1BpdBBPdmVyZ3Jvd24gQ2hhaW5zB0RlZmF1bHQDRGlwAAEBAAAAAAkBAAkBAAkBAAkBAAkBAQAAAAsBAQAAAAwCBAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAsBAAAAAAAAAAIBAAIBAAIBAQAAAAgBAAAAABIBAAAAAAsBAAAAAA8BAAIBAAIBAAIBAAAAAAAAAAAAABIBAAAAAAsBAAAAAQAAAAIBAAIBAAIBAQAAAAoCAAAAABIBAAAAAAsBAAAAAA4AAQAAAAAAAAAAAAAAAAAAAAAAABIBAAAAAAsBAAAAAA4AAAMCAAAAAAYBAwAAAAcAAAAAABIBAAAAAAsBAQAAAA4AAQAAAAAAAQAAAAAAAAAAAAAAABIBAAAAAQAAAAAAAA4AAAQBAQAAAAUDAAAAABUBAAAAABIBAAAAAA0AAAAAAA4AAAAAAAAAAAAAAAAAAQAAAAAAAQAAAAAAAAAAAAAAAA4AABQCAQAAABMCAQAAABEBAQAAABACABACABACAQAAAA4A,MC2:CxUIRW50cmFuY2UGRHVuY2FuCVN1cGVydGFsbAdCdXR0b25zBUZhaXJ5A0VuZAVCbG9vZAVBdGxhcwhJY2UgRmlsbARRdWl6CE9sZCBUcmFwCU92ZXJncm93bgVTdGVwcwtMb3dlciBCbGF6ZQlXYXRlcmZhbGwGRHVlY2VzBlNwaWtlcw1RdWFydHogS25pZ2h0BVNsb3RoBkxlYXZlcwpSYWlsIFRyYWNrAAIDAQAAAAMBAAMBAAMBAQAAAAQCAAQCAAQCAQAAAAoABAAAAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAAAAAAAEDAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAABMBAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAQAAAA4BAAAAAAgBAAgBAAgBAAAAABUDAAAAAAUAAAAAABIAAQAAAAAAAAgBAAgBAAgBAAAAAQAAAAAAAQAAAAAAABIAAAwCAQAAAAgBAAgBAAgBAAAAABQDAAAAAAYBAAAAABIAAQAAAAAAAQAAAAAAAQAAAAAAAQAAAAAAAwAAAAAAABIAAA0BAAAAAAsDAAAAAAkDAAAAABADAAAAAAcBAAAAABIAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAABIAAA8AAA8AAA8AAA8AAA8AAA8AAA8AAQAAABEDAQAAABIA", "*", "*"},
+    };
+    private static final int SWEEP_FLOORS = Integer.getInteger("testkit.sweep.floors", 6);
+    /**
+     * A floor built over another in the same world: every grid chunk his client holds right after the landing must hold
+     * the new floor's blocks, not a copy of the old floor kept by the Chunk Cache (roompredictor-1123-fix3: the first
+     * glance of a floor ruled out the true room on the old floor's blocks).
+     */
+    private static final String REBUILD = "1123-predict-sim-rebuild-chunks";
 
     /** A glance into a room from its entrance: half a second. */
     private static final int GLANCE_TICKS = 10;
@@ -75,17 +92,21 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     private static final String VARIANT = "com.killer560.hub.BuildVariant";
 
     private final List<String> all = new ArrayList<>();
+    private String mode = NAME;
+    private boolean entered;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+        mode = !Scenario.skip(NAME) ? NAME : !Scenario.skip(PINNED) ? PINNED : !Scenario.skip(SWEEP) ? SWEEP
+                : !Scenario.skip(REBUILD) ? REBUILD : null;
+        if (System.getProperty("testkit.scenario", "").isBlank() || mode == null) {
             return;
         }
         ModUnderTest.require("killer560smod");
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            Scenario.skipped(NAME, "needs real room captures and room database");
+            Scenario.skipped(mode, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -99,7 +120,15 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             throw new AssertionError(e);
         }
         try {
-            body(ctx);
+            if (mode.equals(NAME)) {
+                body(ctx);
+            } else if (mode.equals(PINNED)) {
+                pinned(ctx);
+            } else if (mode.equals(REBUILD)) {
+                rebuild(ctx);
+            } else {
+                sweep(ctx);
+            }
         } catch (Throwable t) {
             all.add("scenario threw: " + t);
             t.printStackTrace(System.out);
@@ -113,49 +142,10 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     }
 
     private void body(ClientGameTestContext ctx) {
-        ctx.runOnClient(mc -> {
-            Object p = ModUnderTest.config(PCFG);
-            ModUnderTest.set(p, "setEnabled", true);
-            mc.options.guiScale().set(2);
-        });
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
-                new Object[]{"gametest"}));
-        long before = Scenario.simBuildCount(ctx);
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
-            ModUnderTest.staticCall(FLOOR_GEN, "generate",
-                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
-                    new Object[]{mc, floor, 3, 4});
-        }));
-        Scenario.awaitSimBuild(ctx, before);
-        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
-        ctx.waitFor(mc -> mc.player.onGround() && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
-        ctx.waitTicks(40);
-        // Every case is a moment of a run in progress, so wait for GO: during the countdown the sim has no held map
-        // (HeldMap.emulated() is false, as on Hypixel before Mort), no room counts as opened, and a walk that starts
-        // there records the blocks of the room the late glance must not have seen yet (hsA4f/hsA4g, 2026-11-04).
-        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 600);
-        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(HELD, "emulated"), 200);
-        ctx.runOnClient(mc -> {
-            var server = mc.getSingleplayerServer();
-            server.execute(() -> server.getCommands().performPrefixedCommand(
-                    server.createCommandSourceStack().withSuppressedOutput(), "time set noon"));
-        });
-        Floor f = ctx.computeOnClient(SimPredictHypixelTests::readFloor);
-        println("floor: " + f.names.size() + " rooms, " + f.doorRooms.size() + " doors");
-        creativeFlying(ctx);
+        Floor f = openFloor(ctx, "");
 
         // Doorways from one room into another (not the Entrance, not Blood) with nothing in the doorway.
-        List<int[]> tries = new ArrayList<>();
-        for (Map.Entry<Integer, int[]> e : f.doorRooms.entrySet()) {
-            int a = e.getValue()[0];
-            int b = e.getValue()[1];
-            for (int[] ab : new int[][]{{a, b}, {b, a}}) {
-                if (ab[1] != f.entrance && ab[1] != f.blood && ab[0] != f.blood) {
-                    tries.add(new int[]{e.getKey(), ab[0], ab[1]});
-                }
-            }
-        }
+        List<int[]> tries = f.directedDoors();
         Collections.shuffle(tries, new Random(1018));
         List<int[]> picks = new ArrayList<>();
         for (int[] t : tries) {
@@ -165,7 +155,9 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             }
             boolean open = ctx.computeOnClient(mc -> mc.level.getBlockState(f.doorBlock(t[0])).isAir()
                     && mc.level.getBlockState(f.doorBlock(t[0]).above()).isAir());
-            if (!clash && open) {
+            // The corridor glance (third pick) needs an unobstructed line from where he stands to the doorway: a room's own
+            // scenery (Mushroom's) in the way leaves nothing to see, which no predictor can name (roompredictor-1123).
+            if (!clash && open && (picks.size() < 2 || clearLine(ctx, f, t, CORRIDOR_BACK))) {
                 picks.add(t);
             }
             if (picks.size() == 3) {
@@ -225,6 +217,438 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 + f.names.get(late[2]) + "): " + g);
     }
 
+    /** Generates a floor (the map code {@code code}, or a random one when blank), waits for GO and returns it read. */
+    private Floor openFloor(ClientGameTestContext ctx, String code) {
+        if (!entered) {
+            entered = true;
+            ctx.runOnClient(mc -> {
+                Object p = ModUnderTest.config(PCFG);
+                ModUnderTest.set(p, "setEnabled", true);
+                mc.options.guiScale().set(2);
+            });
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
+                    new Object[]{"gametest"}));
+        }
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            if (code.isBlank()) {
+                Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+                ModUnderTest.staticCall(FLOOR_GEN, "generate",
+                        new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
+                        new Object[]{mc, floor, 3, 4});
+            } else {
+                ModUnderTest.staticCall(SIM_STATE, "setFloorLabel", new Class<?>[]{String.class}, new Object[]{"F7"});
+                java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimBuilder", "build", new Class<?>[]{Minecraft.class, String.class},
+                        new Object[]{c, code});
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class,
+                        String.class, java.util.function.Consumer.class, String.class},
+                        new Object[]{mc, code, build, "Generating Floor 7"});
+            }
+        }));
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        ctx.waitFor(mc -> (mc.player.onGround() || mc.player.getAbilities().flying)
+                && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
+        ctx.waitTicks(40);
+        // Every case is a moment of a run in progress, so wait for GO: during the countdown the sim has no held map
+        // (HeldMap.emulated() is false, as on Hypixel before Mort), no room counts as opened, and a walk that starts
+        // there records the blocks of the room the late glance must not have seen yet (hsA4f/hsA4g, 2026-11-04).
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 600);
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(HELD, "emulated"), 200);
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> server.getCommands().performPrefixedCommand(
+                    server.createCommandSourceStack().withSuppressedOutput(), "time set noon"));
+        });
+        Floor f = ctx.computeOnClient(SimPredictHypixelTests::readFloor);
+        f.code = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(SIM_STATE, "mapCode")));
+        println("floor: " + f.names.size() + " rooms, " + f.doorRooms.size() + " doors, sim offset "
+                + ctx.computeOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAltitude", "offset"))
+                + ", MAP CODE: " + f.code);
+        creativeFlying(ctx);
+        return f;
+    }
+
+    /** One corridor glance from a clean predictor, as the corridor case does it. */
+    private Glance corridorGlance(ClientGameTestContext ctx, Floor f, int[] t) {
+        return glance(ctx, f, t, CORRIDOR_BACK, CORRIDOR_TICKS, true);
+    }
+
+    /** True when door {@code t[0]} has nothing in it and a clear line from {@link #CORRIDOR_BACK} short of it. */
+    private boolean corridorUsable(ClientGameTestContext ctx, Floor f, int[] t) {
+        // A chunk the client has not got reads as air everywhere, so the line would pass through walls it cannot see
+        // yet (Three Weirdos into Quartz Knight, rp3-s3: he stood with a wall one block in front, 0 blocks seen).
+        double[] dc = f.doorCentre(t[0]);
+        double[] u = f.toward(t[1], t[0]);
+        BlockPos from = BlockPos.containing(dc[0] - u[0] * CORRIDOR_BACK, dc[1] + 1, dc[2] - u[1] * CORRIDOR_BACK);
+        if (!ctx.computeOnClient(mc -> mc.level.isLoaded(from) && mc.level.isLoaded(f.doorBlock(t[0])))) {
+            place(ctx, new double[]{from.getX() + 0.5, dc[1] + 0.2, from.getZ() + 0.5}, new double[]{dc[0], dc[1] + 1.0, dc[2]});
+            ctx.waitFor(mc -> mc.level.isLoaded(from) && mc.level.isLoaded(f.doorBlock(t[0])), 400);
+            ctx.waitTicks(2);
+        }
+        return ctx.computeOnClient(mc -> mc.level.getBlockState(f.doorBlock(t[0])).isAir()
+                && mc.level.getBlockState(f.doorBlock(t[0]).above()).isAir()) && clearLine(ctx, f, t, CORRIDOR_BACK);
+    }
+
+    /** Several random floors, every doorway into a room (not the Entrance or Blood) glanced at from the corridor. */
+    private void sweep(ClientGameTestContext ctx) {
+        int glances = 0;
+        List<String> bad = new ArrayList<>();
+        for (int n = 0; n < SWEEP_FLOORS; n++) {
+            glances += sweepFloor(ctx, openFloor(ctx, ""), bad);
+        }
+        Report.caseStarted(SWEEP);
+        row(SWEEP, bad.isEmpty() && glances > 0, SWEEP_FLOORS + " floor(s), " + glances + " corridor glance(s), "
+                + bad.size() + " failing: " + bad);
+    }
+
+    /**
+     * Floor A, stood in on every room tile (his client gets, and the Chunk Cache keeps, every grid chunk), then floor B
+     * built in the same world. From the landing on, every grid chunk his client holds is compared with the sim server's
+     * (4 columns a chunk, every 4th block from the bottom of the world to the top) over 40 ticks; a chunk with 3 or more
+     * differing blocks is the old floor still on his screen.
+     */
+    private void rebuild(ClientGameTestContext ctx) {
+        Floor a = openFloor(ctx, "");
+        int visits = 0;
+        for (int[] tiles : a.tiles) {
+            for (int tile : tiles) {
+                BlockPos c = a.cellCenter(tile).atY(a.doorY);
+                double[] at = new double[]{c.getX() + 0.5, a.doorY + 0.2, c.getZ() + 0.5};
+                place(ctx, at, new double[]{at[0] + 5, at[1] + 1.6, at[2]});
+                ctx.waitFor(mc -> mc.level.isLoaded(c), 200);
+                visits++;
+            }
+        }
+        BlockPos lo = a.cellCenter(0);
+        BlockPos hi = a.cellCenter(120);
+        int cx0 = (Math.min(lo.getX(), hi.getX()) - 16) >> 4;
+        int cx1 = (Math.max(lo.getX(), hi.getX()) + 16) >> 4;
+        int cz0 = (Math.min(lo.getZ(), hi.getZ()) - 16) >> 4;
+        int cz1 = (Math.max(lo.getZ(), hi.getZ()) + 16) >> 4;
+        int heldBefore = ctx.computeOnClient(mc -> {
+            int n = 0;
+            for (int x = cx0; x <= cx1; x++) for (int z = cz0; z <= cz1; z++) if (mc.level.getChunkSource().hasChunk(x, z)) n++;
+            return n;
+        });
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(FLOOR_GEN, "generate",
+                new Class<?>[]{Minecraft.class, ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7").getClass(), int.class, int.class},
+                new Object[]{mc, ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7"), 3, 4})));
+        ctx.waitFor(mc -> mc.player.getX() > 4000, 1200);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> mc.player.getX() < 4000, 1200);
+        var server = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+        var dim = ctx.computeOnClient(mc -> mc.level.dimension());
+        java.util.Set<Long> compared = new java.util.HashSet<>();
+        java.util.Set<Long> stale = new java.util.HashSet<>();
+        List<String> examples = new ArrayList<>();
+        int cacheOnlyStale = 0;
+        int[] perRound = new int[20];
+        // Per chunk: the round it was first compared, the server's and the client's column then, and the client chunk
+        // object then - to tell a chunk that ARRIVED different from one whose server copy changed after it was sent.
+        Map<Long, Integer> firstAt = new java.util.HashMap<>();
+        Map<Long, String[]> srvFirst = new java.util.HashMap<>();
+        Map<Long, String[]> cliFirst = new java.util.HashMap<>();
+        Map<Long, Integer> idFirst = new java.util.HashMap<>();
+        for (int round = 0; round < 20; round++) {
+            // Client first, in one go: the chunk he has NOW, block by block.
+            Map<Long, String[]> seen = ctx.computeOnClient(mc -> {
+                Map<Long, String[]> out = new LinkedHashMap<>();
+                for (int x = cx0; x <= cx1; x++) {
+                    for (int z = cz0; z <= cz1; z++) {
+                        if (!mc.level.getChunkSource().hasChunk(x, z)) continue;
+                        out.put(packXZ(x, z), column(mc.level, x, z));
+                    }
+                }
+                return out;
+            });
+            Map<Long, Boolean> cacheOnly = ctx.computeOnClient(mc -> {
+                Map<Long, Boolean> out = new LinkedHashMap<>();
+                for (long k : seen.keySet()) {
+                    var ch = mc.level.getChunk((int) (long) k, (int) ((long) k >> 32));
+                    out.put(k, Boolean.TRUE.equals(ModUnderTest.staticCall("com.killer560.hub.chunkcache.ChunkCacheManager",
+                            "isCacheOnly", new Class<?>[]{net.minecraft.world.level.chunk.LevelChunk.class}, new Object[]{ch})));
+                }
+                return out;
+            });
+            Map<Long, Integer> ids = ctx.computeOnClient(mc -> {
+                Map<Long, Integer> out = new java.util.HashMap<>();
+                for (long k : seen.keySet()) out.put(k, System.identityHashCode(mc.level.getChunk((int) k, (int) (k >> 32))));
+                return out;
+            });
+            var job = server.submit(() -> {
+                var lvl = server.getLevel(dim);
+                Map<Long, String[]> out = new LinkedHashMap<>();
+                for (long k : seen.keySet()) {
+                    int x = (int) (long) k;
+                    int z = (int) ((long) k >> 32);
+                    if (lvl != null && lvl.getChunkSource().getChunkNow(x, z) != null) out.put(k, column(lvl, x, z));
+                }
+                return out;
+            });
+            ctx.waitFor(mc -> job.isDone(), 200);
+            Map<Long, String[]> truth = job.getNow(Map.of());
+            for (var e : seen.entrySet()) {
+                String[] s = truth.get(e.getKey());
+                if (s == null) continue;
+                compared.add(e.getKey());
+                firstAt.putIfAbsent(e.getKey(), round);
+                srvFirst.putIfAbsent(e.getKey(), s);
+                cliFirst.putIfAbsent(e.getKey(), e.getValue());
+                idFirst.putIfAbsent(e.getKey(), ids.get(e.getKey()));
+                int diff = 0;
+                String first = null;
+                for (int i = 0; i < s.length; i++) {
+                    if (!s[i].equals(e.getValue()[i])) {
+                        diff++;
+                        if (first == null) first = "client " + e.getValue()[i] + " server " + s[i] + " at " + i;
+                    }
+                }
+                if (diff >= 3) perRound[round]++;
+                if (diff >= 3 && stale.add(e.getKey())) {
+                    if (Boolean.TRUE.equals(cacheOnly.get(e.getKey()))) cacheOnlyStale++;
+                    if (examples.size() < 12) {
+                        long k = e.getKey();
+                        examples.add("chunk " + (int) k + "," + (int) (k >> 32) + " round " + round + " " + diff
+                                + " differ, cache-only " + cacheOnly.get(k) + " (" + first + "; first compared round "
+                                + firstAt.get(k) + ", server changed since " + !java.util.Arrays.equals(srvFirst.get(k), s)
+                                + ", client changed since " + !java.util.Arrays.equals(cliFirst.get(k), e.getValue())
+                                + ", client chunk replaced " + !java.util.Objects.equals(idFirst.get(k), ids.get(k))
+                                + ", differed at first " + (diffCount(srvFirst.get(k), cliFirst.get(k)) >= 3) + ")");
+                    }
+                }
+            }
+            ctx.waitTicks(2);
+        }
+        // A HOLE: a chunk the server counts as his (tracked, so it never sends it again) that his client does not have.
+        // Dropping the old floor on the client while the server still tracked it left the landing chunk out for good.
+        ctx.waitTicks(40);
+        var tracked = server.submit(() -> {
+            var lvl = server.getLevel(dim);
+            List<Long> out = new ArrayList<>();
+            if (lvl == null || server.getPlayerList().getPlayers().isEmpty()) return out;
+            var sp = server.getPlayerList().getPlayers().get(0);
+            for (int x = cx0; x <= cx1; x++) for (int z = cz0; z <= cz1; z++) {
+                if (lvl.getChunkSource().chunkMap.isChunkTracked(sp, x, z)) out.add(packXZ(x, z));
+            }
+            return out;
+        });
+        ctx.waitFor(mc -> tracked.isDone(), 200);
+        List<Long> trackedNow = tracked.getNow(List.of());
+        List<String> holes = ctx.computeOnClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (long k : trackedNow) {
+                if (!mc.level.getChunkSource().hasChunk((int) k, (int) (k >> 32))) out.add((int) k + "," + (int) (k >> 32));
+            }
+            return out;
+        });
+        boolean premise = visits > 0 && heldBefore > 20 && compared.size() > 20 && !trackedNow.isEmpty();
+        Report.caseStarted(REBUILD);
+        row(REBUILD, premise && stale.isEmpty() && holes.isEmpty(), trackedNow.size() + " grid chunk(s) tracked for him"
+                + " 80 ticks after the landing, " + holes.size() + " of them missing on his client"
+                + (holes.isEmpty() ? "" : " " + holes.subList(0, Math.min(6, holes.size()))) + "; floor A stood in on " + visits + " tile(s), " + heldBefore
+                + " grid chunk(s) on his client before floor B; after the landing " + compared.size()
+                + " grid chunk(s) compared with the server, " + stale.size() + " showing the old floor (" + cacheOnlyStale
+                + " of them Chunk Cache copies; per round " + java.util.Arrays.toString(perRound) + ")" + (examples.isEmpty() ? "" : ": " + examples)
+                + (premise ? "" : " - premise not met"));
+    }
+
+    private static int diffCount(String[] a, String[] b) {
+        int n = 0;
+        for (int i = 0; i < Math.min(a.length, b.length); i++) if (!a[i].equals(b[i])) n++;
+        return n;
+    }
+
+    private static long packXZ(int x, int z) {
+        return (x & 0xFFFFFFFFL) | ((long) z << 32);
+    }
+
+    /** Four columns of chunk {@code cx,cz}, every 4th block over the whole height, as block ids. */
+    private static String[] column(net.minecraft.world.level.Level level, int cx, int cz) {
+        List<String> out = new ArrayList<>();
+        for (int c = 0; c < 4; c++) {
+            int x = (cx << 4) + 2 + (c % 2) * 10;
+            int z = (cz << 4) + 2 + (c / 2) * 10;
+            for (int y = level.getMinY(); y < level.getMaxY(); y += 4) {
+                out.add(id(level.getBlockState(new BlockPos(x, y, z))));
+            }
+        }
+        return out.toArray(new String[0]);
+    }
+
+    /** Every turn and anchor of room {@code into}'s own tiles as a placement, with what it disagrees with (a failed glance's evidence). */
+    private void placements(ClientGameTestContext ctx, Floor f, int into) {
+        for (int idx : f.tiles.get(into)) {
+            for (int rot = 0; rot < 360; rot += 90) {
+                String key = f.names.get(into) + "@" + rot + "@" + (idx % 11) / 2 + "," + (idx / 11) / 2;
+                List<String> d = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(PREDICTOR,
+                        "disagreements", new Class<?>[]{String.class, int.class}, new Object[]{key, 30}));
+                if (!d.isEmpty()) {
+                    println("PLACEMENT " + key + " disagrees on " + d.size() + (d.size() >= 30 ? "+" : "") + ": "
+                            + d.subList(0, Math.min(8, d.size())));
+                    if (rot == 0) {
+                        mismatchBlocks(ctx, f, key, d);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * For each position a placement disagrees on: the client's block now, the sim server's block now, and the grid cell
+     * that owns it (room or connector, offset from the cell's middle), then the client's block again 40 ticks later. Tells
+     * a sim block the capture lacks (server = client) from a stale client view (server = capture) and from a block that
+     * changes over time (roompredictor-1123-fix3).
+     */
+    private void mismatchBlocks(ClientGameTestContext ctx, Floor f, String key, List<String> d) {
+        var server = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+        var dim = ctx.computeOnClient(mc -> mc.level.dimension());
+        int offset = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAltitude", "offset"));
+        List<BlockPos> at = new ArrayList<>();
+        for (String s : d) {
+            String[] p = s.substring(0, s.indexOf(' ')).split(",");
+            at.add(new BlockPos(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2])));
+        }
+        List<String> client = ctx.computeOnClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (BlockPos b : at) {
+                var chunk = mc.level.getChunk(b.getX() >> 4, b.getZ() >> 4);
+                out.add(id(mc.level.getBlockState(b)) + " sect" + (chunk.getSection(chunk.getSectionIndex(b.getY())).hasOnlyAir() ? "Air" : "Blocks"));
+            }
+            return out;
+        });
+        // The server runs its tasks only as the test lets ticks pass, so wait on ticks, never block on the future.
+        var job = server.submit(() -> {
+            var lvl = server.getLevel(dim);
+            List<String> out = new ArrayList<>();
+            for (BlockPos b : at) {
+                out.add(lvl == null ? "?" : id(lvl.getBlockState(b)));
+            }
+            return out;
+        });
+        ctx.waitFor(mc -> job.isDone(), 200);
+        List<String> srv = job.getNow(Collections.nCopies(at.size(), "?"));
+        ctx.waitTicks(40);
+        List<String> later = ctx.computeOnClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (BlockPos b : at) {
+                out.add(id(mc.level.getBlockState(b)));
+            }
+            return out;
+        });
+        for (int i = 0; i < at.size(); i++) {
+            BlockPos b = at.get(i);
+            int best = -1;
+            long bestD = Long.MAX_VALUE;
+            for (int c = 0; c < 121; c++) {
+                BlockPos m = f.cellCenter(c);
+                long dd = (long) (m.getX() - b.getX()) * (m.getX() - b.getX()) + (long) (m.getZ() - b.getZ()) * (m.getZ() - b.getZ());
+                if (dd < bestD) {
+                    bestD = dd;
+                    best = c;
+                }
+            }
+            BlockPos m = f.cellCenter(best);
+            int owner = f.roomOf[best];
+            println("MISMATCH " + key + " " + d.get(i) + " | client=" + client.get(i) + " server=" + srv.get(i)
+                    + " client+40t=" + later.get(i) + " | cell " + best % 11 + "," + best / 11
+                    + ((best % 11) % 2 == 1 || (best / 11) % 2 == 1 ? " (connector)" : " (room)")
+                    + " owner=" + (owner < 0 ? "none" : f.names.get(owner)) + " d=" + (b.getX() - m.getX()) + "," + (b.getZ() - m.getZ())
+                    + " simOffset=" + offset + " capY=" + (b.getY() - offset));
+        }
+    }
+
+    private static String id(net.minecraft.world.level.block.state.BlockState s) {
+        return s.getBlock().getDescriptionId().replace("block.minecraft.", "");
+    }
+
+    /** Where nine rays through the doorway end, from where he stands now (a failed glance's geometry). */
+    private String rays(ClientGameTestContext ctx, Floor f, int[] t) {
+        return ctx.computeOnClient(mc -> {
+            StringBuilder sb = new StringBuilder("into room " + t[2] + " opened in sim: "
+                    + java.util.Arrays.toString((int[]) ModUnderTest.staticCall(HELD, "simVisitedRooms"))
+                    + ", he at " + mc.player.blockPosition().toShortString() + " facing " + mc.player.getYRot()
+                    + "/" + mc.player.getXRot() + ", door " + f.doorBlock(t[0]).toShortString() + ", rays");
+            var eye = mc.player.getEyePosition();
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    var look = net.minecraft.world.phys.Vec3.directionFromRotation(mc.player.getXRot() + dy * 4,
+                            mc.player.getYRot() + dx * 4);
+                    var hit = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(look.scale(40)),
+                            net.minecraft.world.level.ClipContext.Block.VISUAL,
+                            net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+                    sb.append(' ').append(Math.round(hit.getLocation().distanceTo(eye))).append(':')
+                            .append(mc.level.getBlockState(hit.getBlockPos()).getBlock().getDescriptionId()
+                                    .replace("block.minecraft.", ""));
+                }
+            }
+            return sb.toString();
+        });
+    }
+
+    /** Every usable directed doorway of {@code f} glanced at in turn; failures go in {@code bad}. Returns the glances made. */
+    private int sweepFloor(ClientGameTestContext ctx, Floor f, List<String> bad) {
+        int glances = 0;
+        for (int[] t : f.directedDoors()) {
+            if (!corridorUsable(ctx, f, t)) {
+                continue;
+            }
+            glances++;
+            Glance g = corridorGlance(ctx, f, t);
+            if (!g.pass()) {
+                println("SWEEP FAIL MAP CODE: " + f.code + " | " + g + " | " + rays(ctx, f, t));
+                placements(ctx, f, t[2]);
+                bad.add(f.names.get(t[1]) + " into " + f.names.get(t[2]) + " on " + f.code);
+            }
+        }
+        return glances;
+    }
+
+    /** Each pinned floor rebuilt from its map code and glanced at from the doorway between the two named rooms. */
+    private void pinned(ClientGameTestContext ctx) {
+        if (PINS.length == 0) {
+            row(PINNED, false, "premise: no pinned floors");
+            return;
+        }
+        for (int i = 0; i < PINS.length; i++) {
+            String name = PINNED + "-" + (i + 1);
+            Report.caseStarted(name);
+            // "a,b,c": the floors built in that order in the one world; the last is the one glanced at. A floor built over
+            // an earlier one is what the corridor case always meets (1720 builds the first of the run).
+            String[] chain = PINS[i][0].split(",");
+            Floor f = null;
+            for (String code : chain) {
+                f = openFloor(ctx, code);
+            }
+            if (PINS[i][1].equals("*")) {
+                List<String> bad = new ArrayList<>();
+                int glances = sweepFloor(ctx, f, bad);
+                row(name, glances > 0 && bad.isEmpty(), "every doorway of the floor, in order: " + glances + " glance(s), "
+                        + bad.size() + " failing " + bad);
+                continue;
+            }
+            int[] pick = null;
+            for (int[] t : f.directedDoors()) {
+                if (f.names.get(t[1]).equalsIgnoreCase(PINS[i][1]) && f.names.get(t[2]).equalsIgnoreCase(PINS[i][2])
+                        && corridorUsable(ctx, f, t)) {
+                    pick = t;
+                    break;
+                }
+            }
+            if (pick == null) {
+                row(name, false, "premise: no usable doorway from " + PINS[i][1] + " into " + PINS[i][2] + " on " + f.code);
+                continue;
+            }
+            Glance g = corridorGlance(ctx, f, pick);
+            if (!g.pass()) {
+                placements(ctx, f, pick[2]);
+            }
+            row(name, g.pass(), "pinned " + PINS[i][1] + " into " + PINS[i][2] + ": " + g);
+        }
+    }
+
     // ------------------------------------------------------------------------------------------------- the glance
 
     private final class Glance {
@@ -259,6 +683,21 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         }
     }
 
+    /** True when nothing solid lies between his eyes {@code back} blocks short of door {@code t[0]} and the doorway. */
+    private boolean clearLine(ClientGameTestContext ctx, Floor f, int[] t, double back) {
+        double[] dc = f.doorCentre(t[0]);
+        double[] u = f.toward(t[1], t[0]);
+        return ctx.computeOnClient(mc -> {
+            for (double s = 0; s < back; s += 0.25) {
+                BlockPos p = BlockPos.containing(dc[0] - u[0] * (back - s), dc[1] + 0.2 + 1.62 - 0.6 * s / back, dc[2] - u[1] * (back - s));
+                if (!mc.level.getBlockState(p).isAir()) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
     /** Stands two blocks short of door {@code t[0]} in room {@code t[1]}, looks into {@code t[2]}, and lets ticks run. */
     private Glance glance(ClientGameTestContext ctx, Floor f, int[] t) {
         return glance(ctx, f, t, 2, GLANCE_TICKS);
@@ -266,6 +705,16 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     /** The same from {@code back} blocks short of the doorway; the room must be named within {@code limit} ticks. */
     private Glance glance(ClientGameTestContext ctx, Floor f, int[] t, double back, int limit) {
+        return glance(ctx, f, t, back, limit, false);
+    }
+
+    /**
+     * {@code cleanStart}: the sim's opened rooms and the predictor are reset once he stands in the glance's room, not
+     * before he is placed. The sim opens the room he stands in on every tick, so a reset made while he still stands
+     * where the last glance left him re-opens that room and, with glances that share rooms (a sweep), the room being
+     * looked into: nothing in it is a target and 0 blocks are seen (roompredictor-1123-fix2).
+     */
+    private Glance glance(ClientGameTestContext ctx, Floor f, int[] t, double back, int limit, boolean cleanStart) {
         int d = t[0];
         int from = t[1];
         int into = t[2];
@@ -284,6 +733,11 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         // The client chunks of the room he looks into are in before the clock starts (on Hypixel they are long since).
         place(ctx, at, target);
         ctx.waitFor(mc -> mc.level.isLoaded(BlockPos.containing(target[0], target[1], target[2])), 400);
+        if (cleanStart) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "reset"));
+            g.obsAtStart = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(PREDICTOR, "observationCount"));
+        }
         int[] intoTiles = f.tiles.get(into);
         for (int tick = 1; tick <= limit + WATCH_TICKS; tick++) {
             ctx.waitTick();
@@ -451,6 +905,22 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         int entrance = -1;
         int blood = -1;
         int doorY;
+        String code = "";
+
+        /** {door, room he stands in, room he looks into} for every doorway into a room that is not the Entrance or Blood. */
+        List<int[]> directedDoors() {
+            List<int[]> out = new ArrayList<>();
+            for (Map.Entry<Integer, int[]> e : doorRooms.entrySet()) {
+                int a = e.getValue()[0];
+                int b = e.getValue()[1];
+                for (int[] ab : new int[][]{{a, b}, {b, a}}) {
+                    if (ab[1] != entrance && ab[1] != blood && ab[0] != blood) {
+                        out.add(new int[]{e.getKey(), ab[0], ab[1]});
+                    }
+                }
+            }
+            return out;
+        }
 
         int roomAt(int tile) {
             return tile >= 0 && tile < 121 ? roomOf[tile] : -1;
