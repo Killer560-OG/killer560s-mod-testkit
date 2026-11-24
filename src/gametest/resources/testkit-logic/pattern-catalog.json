@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T21:19:38",
- "modSource": "lane-bazaarhl-colors-1123",
- "modGitSha": "e36dd3a9215c6f76a9bb643bf46aece1cf574d96",
+ "generatedAt": "2026-11-23T21:36:35",
+ "modSource": "lane-autoanvil-wiki-1123",
+ "modGitSha": "b22dfd7ddd84d891f55a752f088644972c641d0d",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
