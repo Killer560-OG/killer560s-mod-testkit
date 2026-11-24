@@ -257,9 +257,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     /** One corridor glance from a clean predictor, as the corridor case does it. */
     private Glance corridorGlance(ClientGameTestContext ctx, Floor f, int[] t) {
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "reset"));
-        return glance(ctx, f, t, CORRIDOR_BACK, CORRIDOR_TICKS);
+        return glance(ctx, f, t, CORRIDOR_BACK, CORRIDOR_TICKS, true);
     }
 
     /** True when door {@code t[0]} has nothing in it and a clear line from {@link #CORRIDOR_BACK} short of it. */
@@ -397,6 +395,16 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     /** The same from {@code back} blocks short of the doorway; the room must be named within {@code limit} ticks. */
     private Glance glance(ClientGameTestContext ctx, Floor f, int[] t, double back, int limit) {
+        return glance(ctx, f, t, back, limit, false);
+    }
+
+    /**
+     * {@code cleanStart}: the sim's opened rooms and the predictor are reset once he stands in the glance's room, not
+     * before he is placed. The sim opens the room he stands in on every tick, so a reset made while he still stands
+     * where the last glance left him re-opens that room and, with glances that share rooms (a sweep), the room being
+     * looked into: nothing in it is a target and 0 blocks are seen (roompredictor-1123-fix2).
+     */
+    private Glance glance(ClientGameTestContext ctx, Floor f, int[] t, double back, int limit, boolean cleanStart) {
         int d = t[0];
         int from = t[1];
         int into = t[2];
@@ -415,6 +423,11 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         // The client chunks of the room he looks into are in before the clock starts (on Hypixel they are long since).
         place(ctx, at, target);
         ctx.waitFor(mc -> mc.level.isLoaded(BlockPos.containing(target[0], target[1], target[2])), 400);
+        if (cleanStart) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "reset"));
+            g.obsAtStart = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(PREDICTOR, "observationCount"));
+        }
         int[] intoTiles = f.tiles.get(into);
         for (int tick = 1; tick <= limit + WATCH_TICKS; tick++) {
             ctx.waitTick();
