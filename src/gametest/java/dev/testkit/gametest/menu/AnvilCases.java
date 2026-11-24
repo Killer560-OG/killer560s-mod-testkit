@@ -48,6 +48,7 @@ final class AnvilCases {
         MenuSuite.test(s, "296-menu-anvil-close-stops", AnvilCases::closeStops);
         MenuSuite.test(s, "297-menu-anvil-off-and-legit", AnvilCases::offAndLegit);
         MenuSuite.test(s, "1123-menu-anvil-nextbook", AnvilCases::nextBook);
+        MenuSuite.test(s, "1123-menu-anvil-table-complete", AnvilCases::tableComplete);
         AnvilStart1118Cases.register(s);
         AutoHarpCases.register(s);
         HarpHelperCases.register(s);
@@ -356,7 +357,7 @@ final class AnvilCases {
         }
     }
 
-    /** 1123: three book types (Karma and Petalfall were missing from the anvil table) each end as their own V. */
+    /** 1123: five book types (Karma, Petalfall, Feast, Respite were missing from the anvil table) each end as their own V. */
     static void nextBook(Session c) throws Exception {
         MenuKit.reset(c);
         InventoryCases.clearInv(c);
@@ -366,23 +367,49 @@ final class AnvilCases {
         }
         try (MenuKit.Cfg cfg = on(c)) {
             int s = 0;
-            for (String id : new String[]{"karma", "sharpness", "petalfall"}) {
+            for (String id : new String[]{"karma", "sharpness", "petalfall", "feast", "respite"}) {
                 for (int i = 0; i < 4; i++) {
                     give(c, s++, book(id + ":3"));
                 }
             }
             c.ctx().waitTicks(5);
             openAnvil(c, "{}");
-            awaitCombines(c, 9, 1800);
+            awaitCombines(c, 15, 2400);
             List<String> inv = booksInInventory(c);
-            c.check(inv.equals(List.of("karma5", "petalfall5", "sharpness5")), "left " + inv + ", expected one V of each type");
-            c.check(c.events("anvil.combine").size() == 9 && c.events("anvil.claim").size() == 9,
-                    "combines " + c.events("anvil.combine").size() + ", claims " + c.events("anvil.claim").size() + ", expected 9 each");
+            c.check(inv.equals(List.of("feast5", "karma5", "petalfall5", "respite5", "sharpness5")), "left " + inv + ", expected one V of each type");
+            c.check(c.events("anvil.combine").size() == 15 && c.events("anvil.claim").size() == 15,
+                    "combines " + c.events("anvil.combine").size() + ", claims " + c.events("anvil.claim").size() + ", expected 15 each");
             c.note("three types: " + combines(c) + " -> " + inv);
         } finally {
             MenuKit.reset(c);
             InventoryCases.clearInv(c);
         }
+    }
+
+    /** 1123: every enchant id in the bundled Bazaar list is in Auto Anvil's table or its NO_COMBINE set. */
+    static void tableComplete(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: covered by 297");
+            return;
+        }
+        List<String> missing = new ArrayList<>();
+        int[] seen = {0};
+        c.onClient(mc -> {
+            for (Object o : (java.util.Set<?>) Mod.staticCall("auction.BazaarCatalog", "ids")) {
+                var m = java.util.regex.Pattern.compile("ENCHANTMENT_(.+)_\\d+").matcher((String) o);
+                if (m.matches()) {
+                    seen[0]++;
+                    String id = m.group(1).toLowerCase(java.util.Locale.ROOT);
+                    if (!(Boolean) Mod.staticCall("autoanvil.AnvilBooks", "known", id) && !missing.contains(id)) {
+                        missing.add(id);
+                    }
+                }
+            }
+            return null;
+        });
+        c.check(seen[0] > 100, "only " + seen[0] + " enchant products read from the bundled Bazaar list");
+        c.check(missing.isEmpty(), "enchants with no Auto Anvil rule (add to ANVIL_RESULTS or NO_COMBINE): " + missing);
+        c.note(seen[0] + " enchant products checked");
     }
 
     static void offAndLegit(Session c) throws Exception {
