@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T01:45:13",
- "modSource": "lane-foragebeacon-auto-1123",
- "modGitSha": "343649df428f7e03ca7741a99eab26acf3905c68",
+ "generatedAt": "2026-11-24T02:23:27",
+ "modSource": "lane-roompredictor-1123-fix4",
+ "modGitSha": "e3ce774fd7753bdc0560da7a9102aa357cb1dcd9",
  "modSourceDirty": false,
  "count": 987,
  "byKind": {
