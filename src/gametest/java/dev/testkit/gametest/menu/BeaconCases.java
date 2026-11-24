@@ -22,6 +22,7 @@ final class BeaconCases {
     static void register(Session s) {
         MenuSuite.test(s, "1122-menu-beacon-ready", BeaconCases::ready);
         MenuSuite.test(s, "1122-menu-beacon-tuner", BeaconCases::tuner);
+        MenuSuite.test(s, "1123-menu-beacon-upgrade", BeaconCases::upgrade);
     }
 
     private static void ready(Session c) throws Exception {
@@ -50,30 +51,86 @@ final class BeaconCases {
         c.check(n[3] == 2, "still ready after Repeat After did not alert again");
     }
 
-    private static String solve(Session c, List<ItemStack> cur, List<ItemStack> tgt) throws Exception {
-        String[] r = c.onClient(mc -> (String[]) Mod.staticCall("foraging.BeaconTuneSolver", "describeStacks", cur, tgt));
-        return String.join(" | ", r);
+    private static final String TUNER = "foraging.BeaconTuner";
+    private static final String SOLVER = "foraging.BeaconTuneSolver";
+
+    /** The recorded menu as rows: tick, kind (S slot item name lore, N note pitch, K click, D done), fields. */
+    private static List<String[]> fixture(String name) throws Exception {
+        try (java.io.InputStream in = BeaconCases.class.getResourceAsStream("/testkit-ui/" + name)) {
+            return new java.io.BufferedReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)).lines()
+                    .map(l -> l.split("\t", -1)).toList();
+        }
     }
 
-    private static net.minecraft.world.item.Item pane(String color) {
-        return net.minecraft.core.registries.BuiltInRegistries.ITEM
-                .getValue(net.minecraft.resources.Identifier.withDefaultNamespace(color + "_stained_glass_pane"));
+    private static ItemStack stack(String path, String name, String lore) {
+        ItemStack st = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM
+                .getValue(net.minecraft.resources.Identifier.withDefaultNamespace(path)));
+        if (!lore.isEmpty()) {
+            st.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(
+                    java.util.Arrays.stream(lore.split("\|", -1)).map(l -> (net.minecraft.network.chat.Component) net.minecraft.network.chat.Component.literal(l)).toList()));
+        }
+        return st;
     }
 
-    private static List<ItemStack> dials(net.minecraft.world.item.Item color, int speed, int pitch) {
-        return List.of(new ItemStack(color), new ItemStack(Items.REDSTONE_BLOCK, speed), new ItemStack(Items.NOTE_BLOCK, pitch));
+    /**
+     * Replays a recorded window through the tuner tick by tick and returns what it said at each requested tick:
+     * "lines || hints" (the tuner reads the same slots and sounds the real client got).
+     */
+    private static java.util.Map<Integer, String> replay(Session c, String file, boolean upgrade, int... at) throws Exception {
+        List<String[]> rows = fixture(file);
+        return c.onClient(mc -> {
+            ItemStack[] items = new ItemStack[54];
+            java.util.Arrays.fill(items, ItemStack.EMPTY);
+            Mod.staticCall(TUNER, "reset");
+            java.util.Map<Integer, String> out = new java.util.HashMap<>();
+            int i = 0;
+            while (i < rows.size()) {
+                int tick = Integer.parseInt(rows.get(i)[0]);
+                for (; i < rows.size() && Integer.parseInt(rows.get(i)[0]) == tick; i++) {
+                    String[] r = rows.get(i);
+                    if (r[1].equals("S")) {
+                        items[Integer.parseInt(r[2])] = stack(r[3], r[4], r[5]);
+                    } else if (r[1].equals("N")) {
+                        Mod.staticCall(TUNER, "sound", Float.parseFloat(r[2]), (long) tick);
+                    }
+                }
+                java.util.function.IntFunction<ItemStack> item = k -> items[k];
+                Mod.staticCall(TUNER, "step", item, upgrade, (long) tick);
+                for (int t : at) {
+                    if (t == tick) {
+                        out.put(t, String.join(" // ", (String[]) Mod.staticCall(TUNER, "lines")) + " || " + String.join(",", (String[]) Mod.staticCall(TUNER, "hints")));
+                    }
+                }
+            }
+            return out;
+        });
     }
 
-    /** The tuner's presses for the dial items of four menu states: off by some, wrapping color, off everywhere, matched. */
+    /** The arithmetic, then the real recorded Tune Frequency menu replayed: what the tuner said before the tune that worked. */
     private static void tuner(Session c) throws Exception {
-        String a = solve(c, dials(pane("red"), 3, 4), dials(pane("blue"), 5, 4));
-        String b = solve(c, dials(pane("white"), 5, 1), dials(pane("black"), 2, 7));
-        String m = solve(c, dials(pane("lime"), 3, 3), dials(pane("lime"), 3, 3));
-        String u = solve(c, dials(Items.STONE, 3, 3), dials(pane("lime"), 3, 3));
-        c.note("tuner states: " + a + " // " + b + " // " + m + " // " + u);
-        c.check("Color: down x3 | Speed: up x2 | Pitch: matched".equals(a), "state 1 read " + a);
-        c.check("Color: down x1 | Speed: down x3 | Pitch: up x6".equals(b), "state 2 (white to black wraps one way) read " + b);
-        c.check("Color: matched | Speed: matched | Pitch: matched".equals(m), "already matched read " + m);
-        c.check(u.startsWith("Color: not readable"), "a non-pane color dial read " + u);
+        Object[] u = c.onClient(mc -> new Object[]{Mod.staticCall(SOLVER, "speedFromPeriod", 15), Mod.staticCall(SOLVER, "speedFromPeriod", 55),
+                Mod.staticCall(SOLVER, "speedFromPeriod", 35), Mod.staticCall(SOLVER, "pitchLevel", 0.095f), Mod.staticCall(SOLVER, "pitchLevel", 0.794f),
+                Mod.staticCall(SOLVER, "pitchLevel", 1.492f), Mod.staticCall(SOLVER, "presses", 5, 1, 5), Mod.staticCall(SOLVER, "presses", 0, 2, 3),
+                Mod.staticCall(SOLVER, "presses", 11, 12, 13), Mod.staticCall(SOLVER, "presses", 12, 0, 13)});
+        c.check(java.util.Arrays.equals(u, new Object[]{5, 1, 3, 0, 1, 2, 1, -1, 1, 1}), "arithmetic read " + java.util.Arrays.toString(u));
+        java.util.Map<Integer, String> r = replay(c, "beacon-tune-1123.tsv", false, 10823, 10873, 11149);
+        c.note("tune replay: first " + r.get(10823) + " ## second step " + r.get(10873) + " ## last " + r.get(11149));
+        String a = r.get(10823);
+        c.check(a != null && a.startsWith("Color: left x6 | Speed: waiting for a beat | Pitch: waiting for a beat"), "start (lime vs the green beat, nothing measured yet) read " + a);
+        String b = r.get(10873);
+        c.check(b != null && b.startsWith("Color: left x6 | Speed: left x1 | Pitch: right x1") && b.contains("(beacon: green, speed 1, high)"), "after one beacon step read " + b);
+        String z = r.get(11149);
+        c.check(z != null && z.startsWith("Color: matched | Speed: matched | Pitch: left x1 | in step (beacon: green, speed 1, high) || 50:L1"),
+                "the moment before the working click (Pitch left, as the player did) read " + z);
+    }
+
+    /** The recorded Upgrade Signal Strength menu (two beats; its buttons' lore was not recorded): both beacon beats measured. */
+    private static void upgrade(Session c) throws Exception {
+        java.util.Map<Integer, String> r = replay(c, "beacon-upgrade-1123.tsv", true, 11700);
+        String s = r.get(11700);
+        c.note("upgrade replay: " + s);
+        c.check(s != null && s.contains("speed 3") && s.contains("speed 2") && s.contains("purple") && s.contains("light blue"),
+                "both beacon beats (purple speed 3, light blue speed 2) measured: " + s);
+        c.check(s != null && s.contains("Beat 1: ") && s.contains("Beat 2: "), "two player beats listed: " + s);
     }
 }

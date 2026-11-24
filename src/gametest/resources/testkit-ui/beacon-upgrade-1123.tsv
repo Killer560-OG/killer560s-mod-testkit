@@ -1,0 +1,326 @@
+11194	S	0	black_stained_glass_pane		
+11194	S	1	black_stained_glass_pane		
+11194	S	2	black_stained_glass_pane		
+11194	S	3	black_stained_glass_pane		
+11194	S	4	black_stained_glass_pane		
+11194	S	5	black_stained_glass_pane		
+11194	S	6	black_stained_glass_pane		
+11194	S	7	black_stained_glass_pane		
+11194	S	8	black_stained_glass_pane		
+11194	S	9	black_stained_glass_pane		
+11194	S	10	purple_stained_glass_pane	Match these Beats	
+11194	S	11	gray_stained_glass_pane	Match these Beats	
+11194	S	12	gray_stained_glass_pane	Match these Beats	
+11194	S	13	gray_stained_glass_pane	Match these Beats	
+11194	S	14	light_blue_stained_glass_pane	Match these Beats	
+11194	S	15	gray_stained_glass_pane	Match these Beats	
+11194	S	16	gray_stained_glass_pane	Match these Beats	
+11194	S	17	black_stained_glass_pane		
+11194	S	18	black_stained_glass_pane		
+11194	S	19	black_stained_glass_pane		
+11194	S	20	black_stained_glass_pane		
+11194	S	21	black_stained_glass_pane		
+11194	S	22	black_stained_glass_pane		
+11194	S	23	black_stained_glass_pane		
+11194	S	24	black_stained_glass_pane		
+11194	S	25	black_stained_glass_pane		
+11194	S	26	black_stained_glass_pane		
+11194	S	27	black_stained_glass_pane		
+11194	S	28	orange_stained_glass_pane	Change these Beats	
+11194	S	29	gray_stained_glass_pane	Change these Beats	
+11194	S	30	gray_stained_glass_pane	Change these Beats	
+11194	S	31	red_stained_glass_pane	Change these Beats	
+11194	S	32	gray_stained_glass_pane	Change these Beats	
+11194	S	33	gray_stained_glass_pane	Change these Beats	
+11195	S	34	gray_stained_glass_pane	Change these Beats	
+11195	S	35	black_stained_glass_pane		
+11195	S	36	black_stained_glass_pane		
+11195	S	37	orange_dye	Color	
+11195	S	38	black_stained_glass_pane		
+11195	S	39	sugar	Speed	
+11195	S	40	black_stained_glass_pane		
+11195	S	41	note_block	Pitch	
+11195	S	42	black_stained_glass_pane		
+11195	S	43	green_terracotta	Pause	
+11195	S	44	black_stained_glass_pane		
+11195	S	45	black_stained_glass_pane		
+11195	S	46	red_dye	Color	
+11195	S	47	black_stained_glass_pane		
+11196	S	48	sugar	Speed	
+11196	S	49	black_stained_glass_pane		
+11196	S	50	note_block	Pitch	
+11196	S	51	black_stained_glass_pane		
+11196	S	52	green_terracotta	Pause	
+11196	S	53	black_stained_glass_pane		
+11209	N	0.794
+11209	S	31	gray_stained_glass_pane	Change these Beats	
+11209	S	32	red_stained_glass_pane	Change these Beats	
+11224	N	0.794
+11225	S	32	gray_stained_glass_pane	Change these Beats	
+11225	S	33	red_stained_glass_pane	Change these Beats	
+11229	N	0.095
+11229	S	10	gray_stained_glass_pane	Match these Beats	
+11229	S	11	purple_stained_glass_pane	Match these Beats	
+11239	N	0.794
+11239	N	0.794
+11240	S	14	gray_stained_glass_pane	Match these Beats	
+11240	S	15	light_blue_stained_glass_pane	Match these Beats	
+11240	S	33	gray_stained_glass_pane	Change these Beats	
+11240	S	34	red_stained_glass_pane	Change these Beats	
+11248	K	43
+11249	N	0.095
+11249	S	28	gray_stained_glass_pane	Change these Beats	
+11249	S	29	orange_stained_glass_pane	Change these Beats	
+11251	S	43	red_terracotta	Pause	
+11254	N	0.794
+11255	S	28	red_stained_glass_pane	Change these Beats	
+11255	S	34	gray_stained_glass_pane	Change these Beats	
+11265	N	0.095
+11265	S	11	gray_stained_glass_pane	Match these Beats	
+11265	S	12	purple_stained_glass_pane	Match these Beats	
+11269	N	0.794
+11269	S	28	gray_stained_glass_pane	Change these Beats	
+11284	N	0.794
+11285	N	0.794
+11285	S	15	gray_stained_glass_pane	Match these Beats	
+11285	S	16	light_blue_stained_glass_pane	Match these Beats	
+11285	S	30	red_stained_glass_pane	Change these Beats	
+11297	K	46
+11299	N	0.095
+11299	N	0.794
+11299	S	12	gray_stained_glass_pane	Match these Beats	
+11299	S	13	purple_stained_glass_pane	Match these Beats	
+11299	S	30	gray_stained_glass_pane	Change these Beats	
+11299	S	31	white_stained_glass_pane	Change these Beats	
+11299	S	46	bone_meal	Color	
+11304	K	46
+11306	K	46
+11307	S	31	orange_stained_glass_pane	Change these Beats	
+11307	S	46	orange_dye	Color	
+11309	S	31	magenta_stained_glass_pane	Change these Beats	
+11309	S	46	magenta_dye	Color	
+11309	K	46
+11311	S	31	light_blue_stained_glass_pane	Change these Beats	
+11311	S	46	light_blue_dye	Color	
+11314	N	0.794
+11314	S	31	gray_stained_glass_pane	Change these Beats	
+11314	S	32	light_blue_stained_glass_pane	Change these Beats	
+11323	K	46
+11325	S	32	yellow_stained_glass_pane	Change these Beats	
+11325	S	46	yellow_dye	Color	
+11329	N	0.794
+11329	N	0.794
+11329	S	10	light_blue_stained_glass_pane	Match these Beats	
+11329	S	16	gray_stained_glass_pane	Match these Beats	
+11329	S	32	gray_stained_glass_pane	Change these Beats	
+11329	S	33	yellow_stained_glass_pane	Change these Beats	
+11334	K	46
+11334	N	0.095
+11336	S	13	gray_stained_glass_pane	Match these Beats	
+11336	S	14	purple_stained_glass_pane	Match these Beats	
+11336	S	46	light_blue_dye	Color	
+11337	S	33	light_blue_stained_glass_pane	Change these Beats	
+11337	S	46	light_blue_dye	Color	
+11345	N	0.794
+11345	S	33	gray_stained_glass_pane	Change these Beats	
+11345	S	34	light_blue_stained_glass_pane	Change these Beats	
+11358	K	48
+11360	N	0.794
+11360	S	28	light_blue_stained_glass_pane	Change these Beats	
+11360	S	34	gray_stained_glass_pane	Change these Beats	
+11361	S	48	sugar	Speed	
+11361	S	48	sugar	Speed	
+11370	N	0.095
+11370	S	14	gray_stained_glass_pane	Match these Beats	
+11370	S	15	purple_stained_glass_pane	Match these Beats	
+11375	N	0.794
+11375	S	10	gray_stained_glass_pane	Match these Beats	
+11375	S	11	light_blue_stained_glass_pane	Match these Beats	
+11385	N	0.794
+11386	S	28	gray_stained_glass_pane	Change these Beats	
+11405	N	0.095
+11405	S	15	gray_stained_glass_pane	Match these Beats	
+11405	S	16	purple_stained_glass_pane	Match these Beats	
+11410	N	0.794
+11410	S	30	light_blue_stained_glass_pane	Change these Beats	
+11420	N	0.794
+11420	S	11	gray_stained_glass_pane	Match these Beats	
+11420	S	12	light_blue_stained_glass_pane	Match these Beats	
+11429	K	48
+11432	S	48	sugar	Speed	
+11432	S	48	sugar	Speed	
+11440	N	0.095
+11440	S	10	purple_stained_glass_pane	Match these Beats	
+11440	S	16	gray_stained_glass_pane	Match these Beats	
+11445	N	0.794
+11446	S	30	gray_stained_glass_pane	Change these Beats	
+11446	S	31	light_blue_stained_glass_pane	Change these Beats	
+11465	N	0.794
+11465	S	12	gray_stained_glass_pane	Match these Beats	
+11465	S	13	light_blue_stained_glass_pane	Match these Beats	
+11475	N	0.095
+11475	S	10	gray_stained_glass_pane	Match these Beats	
+11475	S	11	purple_stained_glass_pane	Match these Beats	
+11480	N	0.794
+11480	S	31	gray_stained_glass_pane	Change these Beats	
+11480	S	32	light_blue_stained_glass_pane	Change these Beats	
+11492	K	48
+11494	S	48	sugar	Speed	
+11494	S	48	sugar	Speed	
+11510	N	0.794
+11510	N	0.095
+11510	S	11	gray_stained_glass_pane	Match these Beats	
+11510	S	12	purple_stained_glass_pane	Match these Beats	
+11510	S	13	gray_stained_glass_pane	Match these Beats	
+11510	S	14	light_blue_stained_glass_pane	Match these Beats	
+11525	N	0.794
+11525	S	32	gray_stained_glass_pane	Change these Beats	
+11525	S	33	light_blue_stained_glass_pane	Change these Beats	
+11546	N	0.095
+11546	S	12	gray_stained_glass_pane	Match these Beats	
+11546	S	13	purple_stained_glass_pane	Match these Beats	
+11553	K	52
+11555	N	0.794
+11555	S	14	gray_stained_glass_pane	Match these Beats	
+11555	S	15	light_blue_stained_glass_pane	Match these Beats	
+11557	S	52	red_terracotta	Pause	
+11569	K	52
+11572	S	52	green_terracotta	Pause	
+11580	N	0.095
+11581	S	13	gray_stained_glass_pane	Match these Beats	
+11581	S	14	purple_stained_glass_pane	Match these Beats	
+11600	N	0.794
+11600	N	0.794
+11600	S	15	gray_stained_glass_pane	Match these Beats	
+11600	S	16	light_blue_stained_glass_pane	Match these Beats	
+11600	S	33	gray_stained_glass_pane	Change these Beats	
+11600	S	34	light_blue_stained_glass_pane	Change these Beats	
+11615	N	0.095
+11616	S	14	gray_stained_glass_pane	Match these Beats	
+11616	S	15	purple_stained_glass_pane	Match these Beats	
+11645	N	0.794
+11645	N	0.794
+11646	S	10	light_blue_stained_glass_pane	Match these Beats	
+11646	S	16	gray_stained_glass_pane	Match these Beats	
+11646	S	28	light_blue_stained_glass_pane	Change these Beats	
+11646	S	34	gray_stained_glass_pane	Change these Beats	
+11651	N	0.095
+11651	S	15	gray_stained_glass_pane	Match these Beats	
+11651	S	16	purple_stained_glass_pane	Match these Beats	
+11686	N	0.095
+11686	S	16	gray_stained_glass_pane	Match these Beats	
+11688	K	37
+11690	S	29	magenta_stained_glass_pane	Change these Beats	
+11690	S	37	magenta_dye	Color	
+11690	N	0.794
+11690	N	0.794
+11690	S	10	purple_stained_glass_pane	Match these Beats	
+11690	S	11	light_blue_stained_glass_pane	Match these Beats	
+11690	S	28	gray_stained_glass_pane	Change these Beats	
+11694	K	37
+11696	S	29	light_blue_stained_glass_pane	Change these Beats	
+11696	S	37	light_blue_dye	Color	
+11705	K	37
+11710	S	37	magenta_dye	Color	
+11710	S	29	magenta_stained_glass_pane	Change these Beats	
+11710	S	37	magenta_dye	Color	
+11720	N	0.095
+11720	S	10	gray_stained_glass_pane	Match these Beats	
+11729	K	43
+11731	S	43	green_terracotta	Pause	
+11736	N	0.794
+11736	N	0.794
+11736	S	11	purple_stained_glass_pane	Match these Beats	
+11736	S	12	light_blue_stained_glass_pane	Match these Beats	
+11736	S	30	light_blue_stained_glass_pane	Change these Beats	
+11756	N	0.095
+11757	S	11	gray_stained_glass_pane	Match these Beats	
+11781	N	0.794
+11782	N	0.095
+11782	N	0.794
+11782	S	12	purple_stained_glass_pane	Match these Beats	
+11782	S	13	light_blue_stained_glass_pane	Match these Beats	
+11782	S	29	gray_stained_glass_pane	Change these Beats	
+11782	S	30	magenta_stained_glass_pane	Change these Beats	
+11782	S	31	light_blue_stained_glass_pane	Change these Beats	
+11791	N	0.095
+11791	S	12	gray_stained_glass_pane	Match these Beats	
+11803	K	39
+11805	S	39	sugar	Speed	
+11805	S	39	sugar	Speed	
+11807	N	0.095
+11807	S	30	gray_stained_glass_pane	Change these Beats	
+11807	S	31	magenta_stained_glass_pane	Change these Beats	
+11821	N	0.095
+11822	S	31	light_blue_stained_glass_pane	Change these Beats	
+11822	S	32	magenta_stained_glass_pane	Change these Beats	
+11826	N	0.794
+11826	N	0.095
+11826	N	0.794
+11826	S	13	gray_stained_glass_pane	Match these Beats	
+11826	S	14	light_blue_stained_glass_pane	Match these Beats	
+11826	S	31	gray_stained_glass_pane	Change these Beats	
+11836	N	0.095
+11836	S	32	light_blue_stained_glass_pane	Change these Beats	
+11836	S	33	magenta_stained_glass_pane	Change these Beats	
+11851	N	0.095
+11852	S	33	gray_stained_glass_pane	Change these Beats	
+11852	S	34	magenta_stained_glass_pane	Change these Beats	
+11859	K	39
+11861	S	39	sugar	Speed	
+11861	N	0.095
+11861	S	15	purple_stained_glass_pane	Match these Beats	
+11861	S	39	sugar	Speed	
+11867	K	39
+11870	S	39	sugar	Speed	
+11870	S	39	sugar	Speed	
+11871	N	0.794
+11871	N	0.794
+11871	S	14	gray_stained_glass_pane	Match these Beats	
+11871	S	15	light_blue_stained_glass_pane	Match these Beats	
+11871	S	32	gray_stained_glass_pane	Change these Beats	
+11871	S	33	light_blue_stained_glass_pane	Change these Beats	
+11887	N	0.095
+11887	S	28	magenta_stained_glass_pane	Change these Beats	
+11887	S	34	gray_stained_glass_pane	Change these Beats	
+11896	N	0.095
+11896	S	16	purple_stained_glass_pane	Match these Beats	
+11909	K	43
+11911	S	43	red_terracotta	Pause	
+11917	N	0.794
+11917	N	0.794
+11917	S	15	gray_stained_glass_pane	Match these Beats	
+11917	S	16	light_blue_stained_glass_pane	Match these Beats	
+11917	S	33	gray_stained_glass_pane	Change these Beats	
+11917	S	34	light_blue_stained_glass_pane	Change these Beats	
+11927	K	37
+11930	S	28	light_blue_stained_glass_pane	Change these Beats	
+11930	S	37	light_blue_dye	Color	
+11933	N	0.095
+11933	S	10	purple_stained_glass_pane	Match these Beats	
+11936	K	37
+11940	S	28	yellow_stained_glass_pane	Change these Beats	
+11940	S	37	yellow_dye	Color	
+11945	K	37
+11948	S	28	lime_stained_glass_pane	Change these Beats	
+11948	S	37	lime_dye	Color	
+11958	K	43
+11962	S	43	green_terracotta	Pause	
+11962	N	0.794
+11962	N	0.794
+11963	S	10	light_blue_stained_glass_pane	Match these Beats	
+11963	S	16	gray_stained_glass_pane	Match these Beats	
+11963	S	34	gray_stained_glass_pane	Change these Beats	
+11967	N	0.095
+11967	N	0.095
+11967	S	11	purple_stained_glass_pane	Match these Beats	
+11967	S	28	light_blue_stained_glass_pane	Change these Beats	
+11967	S	29	lime_stained_glass_pane	Change these Beats	
+11976	K	37
+11979	S	29	pink_stained_glass_pane	Change these Beats	
+11979	S	37	pink_dye	Color	
+11987	K	37
+11990	S	29	cyan_stained_glass_pane	Change these Beats	
+11990	S	37	cyan_dye	Color	
+11996	K	37
+11998	D	
