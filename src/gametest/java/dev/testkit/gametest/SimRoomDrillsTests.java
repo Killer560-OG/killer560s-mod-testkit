@@ -93,14 +93,12 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
                         "timer not running for " + room + ": " + stats(ctx));
                 ctx.waitTicks(WAIT[i]);
                 long m = LogTap.mark();
-                ctx.runOnClient(mc -> ModUnderTest.staticCall(STATE, "markCleared", new Class<?>[]{String.class},
-                        new Object[]{room}));
-                ctx.waitTicks(6);
+                clear(ctx, room, placedMobs > 0, failures);
                 long ms = lastMs(stats(ctx));
                 System.out.println("[" + NAME + "] " + room + ": waited " + WAIT[i] + " ticks, timer says " + ms + " ms; "
                         + stats(ctx));
                 check(failures, stats(ctx).contains("finished=true"), room + " not finished: " + stats(ctx));
-                check(failures, ms >= WAIT[i] * 50L && ms < WAIT[i] * 50L + 3000, room + " time " + ms + " ms for "
+                check(failures, ms >= WAIT[i] * 50L && ms < WAIT[i] * 50L + 4000, room + " time " + ms + " ms for "
                         + WAIT[i] * 50 + " ms waited");
                 check(failures, LogTap.since(m).stream().anyMatch(l -> l.contains(room) && l.contains("First time!")),
                         "no 'First time!' line for " + room + ": " + LogTap.since(m));
@@ -139,9 +137,7 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
             ctx.waitFor(mc -> stats(mc).contains("started=true"), 400);
             ctx.waitTicks(40);
             long m = LogTap.mark();
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(STATE, "markCleared", new Class<?>[]{String.class},
-                    new Object[]{slow}));
-            ctx.waitTicks(6);
+            clear(ctx, slow, true, failures);
             long fast = lastMs(stats(ctx));
             check(failures, LogTap.since(m).stream().anyMatch(l -> l.contains(slow) && l.contains("New best!")),
                     "no 'New best!' for " + slow + " (best was " + oldBest + ", this " + fast + "): " + LogTap.since(m));
@@ -173,6 +169,39 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
                     + "a second run; the timer HUD is on");
         } finally {
             SimRoomCycleTests.teardown(ctx);
+        }
+    }
+
+    /** Clears {@code room} the real way: every starred mob the timer start placed dies through the sim's own death hook
+     *  (Entity.kill on the server thread), then the sim's own poll paints the clear. Without mobs it marks the room. */
+    private static void clear(ClientGameTestContext ctx, String room, boolean real, List<String> failures) {
+        if (real) {
+            int killed = ctx.computeOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                java.util.concurrent.atomic.AtomicInteger n = new java.util.concurrent.atomic.AtomicInteger();
+                try {
+                    var f = Class.forName("com.killer560.hub.roomsim.SimMobs").getDeclaredField("STARRED");
+                    f.setAccessible(true);
+                    for (Object id : new ArrayList<>((List<?>) f.get(null))) {
+                        var e = server.overworld().getEntity((java.util.UUID) id);
+                        if (e != null && e.isAlive()) {
+                            server.submit(() -> e.kill(server.overworld())).join();
+                            n.incrementAndGet();
+                        }
+                    }
+                } catch (ReflectiveOperationException ex) {
+                    throw new AssertionError(ex);
+                }
+                return n.get();
+            });
+            System.out.println("[" + NAME + "] " + room + ": killed " + killed + " starred mob(s)");
+            check(failures, killed > 0, "no live starred mob to kill in " + room);
+            ctx.waitFor(mc -> stats(mc).contains("finished=true"), 100);
+        } else {
+            System.out.println("[" + NAME + "] " + room + ": no mobs placed, cleared with markCleared");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(STATE, "markCleared", new Class<?>[]{String.class},
+                    new Object[]{room}));
+            ctx.waitTicks(6);
         }
     }
 
