@@ -420,7 +420,7 @@ final class LeapMenuCases {
                     "the Universal page starts " + ls.subList(0, Math.min(3, ls.size())));
             c.check(ls.stream().anyMatch(l -> l.startsWith("Universal Targets (in use)")), "the Universal page's title is not 'in use'");
             c.check(ls.contains("Crystal Target: Healer") && ls.stream().anyMatch(l -> l.startsWith("Storm Death Target: "))
-                            && ls.stream().filter(l -> l.matches("P3 S[1-4] Target: .*")).count() == 4,
+                            && ls.stream().filter(l -> l.matches("(I3 Leap|S[1-4] to (S[2-4]|Core)) Target: .*")).count() == 5,
                     "the Universal page's targets: " + ls);
             cardSwitch(c, d, "Universal");
             press(c, d, find(ws, "< Back"));
