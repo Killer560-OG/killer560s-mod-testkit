@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T05:54:33",
- "modSource": "lane-gaps-sounds-hud-1124",
- "modGitSha": "a7455eb308aee7230f6c63409e1c899f47a5548d",
+ "generatedAt": "2026-11-24T06:05:30",
+ "modSource": "lane-sweepoverlay-build-1124",
+ "modGitSha": "30a51b5a971af695e9ed092af85ade9165a8d151",
  "modSourceDirty": false,
- "count": 988,
+ "count": 989,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 868,
+  "field": 869,
   "local": 46
  },
  "unresolved": 161,
@@ -4068,6 +4068,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^(Tune Frequency|Upgrade Signal Strength)$\""
+  },
+  {
+   "id": "foraging.SweepOverlay#SWEEP",
+   "cls": "foraging.SweepOverlay",
+   "field": "SWEEP",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/foraging/SweepOverlay.java",
+   "line": 44,
+   "regex": "Sweep:\\D*?([\\d,]+(?:\\.\\d+)?)",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"Sweep:\\\\D*?([\\\\d,]+(?:\\\\.\\\\d+)?)\""
   },
   {
    "id": "foraging.TreeGiftHider#SEPARATOR",
