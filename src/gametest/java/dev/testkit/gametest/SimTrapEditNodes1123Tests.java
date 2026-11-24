@@ -112,7 +112,12 @@ public class SimTrapEditNodes1123Tests implements FabricClientGameTest {
         // 1. node editor save on node 2 (radius +1.5), the call the editor's Save button makes
         double r0 = ctx.computeOnClient(mc -> nodeRadius(trap, "forRoom"));
         boolean saved = ctx.computeOnClient(mc -> {
-            Object route = ModUnderTest.staticCall(FEATURE, "editRouteForEditor", NONE, NOARGS);
+            Object route;
+            try {
+                route = ModUnderTest.staticCall(FEATURE, "editRouteForEditor", NONE, NOARGS);
+            } catch (AssertionError noSuchMethod) { // an origin jar: the editor opens on the shown route
+                route = ModUnderTest.staticCall(FEATURE, "editableRoute", NONE, NOARGS);
+            }
             Object node = ((List<?>) ModUnderTest.call(route, "nodes", NONE, NOARGS)).get(1);
             Object edited = ModUnderTest.call(node, "copy", NONE, NOARGS);
             try {
