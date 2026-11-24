@@ -209,7 +209,7 @@ public class UiSuite implements FabricClientGameTest {
     /** Profiles carry everything, across jars (mod profiles-all, {@link ProfileDataCases}). Own block for merges. */
     static final String[] PROFILE_DATA_CASES = {"980-ui-profile-data-switch", "981-ui-profile-data-export",
             "982-ui-profile-import-robust", "983-ui-profile-old-format", "984-ui-profile-xfer-export",
-            "985-ui-profile-xfer-import", "1112-ui-profile-shared-routes"};
+            "985-ui-profile-xfer-import", "1112-ui-profile-shared-routes", "1123-ui-leaporder-profile-kept"};
     /** Screen sweep B: standalone screens in the menu theme + Screen Theme (mod sweep-b, {@link ScreenSweepBCases}).
      *  Own block for merges. */
     static final String[] SWEEP_B_CASES = {"1020-ui-sweepb-profit", "1021-ui-sweepb-storage-search",
@@ -223,7 +223,7 @@ public class UiSuite implements FabricClientGameTest {
             "864-ui-croesus-split", "865-ui-container-overlays"};
     /** killer560's 2026-10-11 leap-menu batch, the editor half ({@link LeapWizardCases}); 821-825 are in the menu
      *  suite. Own block for merges. */
-    static final String[] LEAP2_CASES = {"826-ui-leap-wizard", "827-ui-leap-settings", "828-ui-leap-shots",
+    static final String[] LEAP2_CASES = {"826-ui-leap-wizard", "1123-ui-leaporder-class-dropdown", "827-ui-leap-settings", "828-ui-leap-shots",
             // Fast/Auto Leap pages (mod leapmenu-1102, LeapMenuCases)
             "1102-ui-leapmenu-pages", "1102-ui-leapmenu-oldconfig", "1102-ui-leapmenu-search", "1102-ui-leapmenu-shots"};
     /** killer560's 2026-10-15 to-do: /class + /leaporder, Class Overrides folded into the Leap Order, the editor's layout,
@@ -724,6 +724,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "669-ui-leaporder-shots", LeapOrderCases::shots);
                     // ---- leap-menu batch, editor half (826-828) ----
                     UiCase.run(ctx, "826-ui-leap-wizard", LeapWizardCases::wizardCase);
+                    UiCase.run(ctx, "1123-ui-leaporder-class-dropdown", LeapWizardCases::classDropdown);
                     UiCase.run(ctx, "827-ui-leap-settings", LeapWizardCases::settings);
                     UiCase.run(ctx, "828-ui-leap-shots", LeapWizardCases::shots);
                     // ---- Fast/Auto Leap pages: front, Universal Targets, Set Class Targets (mod leapmenu-1102) ----
@@ -913,6 +914,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "984-ui-profile-xfer-export", ProfileDataCases::xferExport);
                     UiCase.run(ctx, "985-ui-profile-xfer-import", ProfileDataCases::xferImport);
                     UiCase.run(ctx, "1112-ui-profile-shared-routes", ProfileDataCases::sharedRoutes);
+                    UiCase.run(ctx, "1123-ui-leaporder-profile-kept", ProfileDataCases::leapOrderKept);
                     // ---- screen sweep B (1020-1025) ----
                     UiCase.run(ctx, "1020-ui-sweepb-profit", ScreenSweepBCases::profit);
                     UiCase.run(ctx, "1021-ui-sweepb-storage-search", ScreenSweepBCases::storageSearch);
