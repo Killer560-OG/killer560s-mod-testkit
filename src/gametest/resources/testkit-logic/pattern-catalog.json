@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T16:12:37",
+ "generatedAt": "2026-11-24T16:37:06",
  "modSource": "lane-autoharp-misses-1124",
- "modGitSha": "81190c8fb36962b0d617ede7572c564564c1e5b5",
+ "modGitSha": "6575528f679651d1759dfdb6406e509d8d3639b9",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
