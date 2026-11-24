@@ -25,6 +25,7 @@ final class BeaconCases {
         MenuSuite.test(s, "1123-menu-beacon-upgrade", BeaconCases::upgrade);
         MenuSuite.test(s, "1123-menu-beacon-tune2", BeaconCases::tune2);
         MenuSuite.test(s, "1123-menu-beacon-pause", BeaconCases::pause);
+        BeaconAutoCases.register(s);
     }
 
     private static void ready(Session c) throws Exception {
