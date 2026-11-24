@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T20:32:33",
- "modSource": "lane-dropaudit-acstarred",
- "modGitSha": "a4143fc6c252f779632a9784219b2ad4ab41d043",
+ "generatedAt": "2026-11-23T20:38:26",
+ "modSource": "lane-runreview-melodystall-1123",
+ "modGitSha": "708c7899b3fa5e0622c4e56492f241fbfb3e444b",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
