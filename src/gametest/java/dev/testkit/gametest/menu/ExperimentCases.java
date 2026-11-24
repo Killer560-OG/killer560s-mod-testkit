@@ -36,6 +36,7 @@ final class ExperimentCases {
         MenuSuite.test(s, "224-menu-exp-auto-ultrasequencer", c -> auto(c, "ULTRASEQUENCER"));
         MenuSuite.test(s, "225-menu-exp-auto-superpairs", c -> auto(c, "SUPERPAIRS"));
         MenuSuite.test(s, "226-menu-exp-auto-etable-loop", ExperimentCases::etableLoop);
+        MenuSuite.test(s, "1124-menu-exp-superpairs-stakes", ExperimentCases::superpairsStakes);
         MenuSuite.test(s, "227-menu-exp-profit-tracker", ExperimentCases::profit);
         MenuSuite.test(s, "228-menu-exp-guardian-swap", ExperimentCases::guardianSwap);
         MenuSuite.test(s, "229-menu-exp-superpairs-skips", ExperimentCases::superpairsSkips);
@@ -903,6 +904,69 @@ final class ExperimentCases {
             c.check(MenuKit.maxPerTick(MenuKit.clicksPerTick(c)) <= 1, "more than one click in a tick");
         } finally {
             MenuKit.reset(c);
+        }
+    }
+
+    private static final String[] TIERS = {"Metaphysical", "Transcendent", "Supreme", "Grand", "High", "Beginner"};
+    private static final int[] TIER_SLOTS = {10, 11, 12, 19, 20, 21};
+
+    private static JsonObject stakesItem(int rank, String lock) {
+        String lore = lock == null ? "[\"\u00a77Costs 5 XP Levels\"]" : "[\"" + lock + "\"]";
+        return MenuKit.obj("{\"item\":\"minecraft:lime_terracotta\",\"name\":\"§a" + TIERS[rank] + "\",\"lore\":" + lore + "}");
+    }
+
+    /** One Superpairs stakes screen, played by the autonomous run: the slot it clicks (-1: none) and its pick log line. */
+    private static String stakesRun(Session c, String late, String... locks) throws Exception {
+        MenuKit.reset(c);
+        int before = c.events("container.click").size();
+        long mark = dev.testkit.gametest.LogTap.mark();
+        JsonObject slots = new JsonObject();
+        JsonObject on = new JsonObject();
+        for (int i = 0; i < TIERS.length; i++) {
+            if (late.contains(TIERS[i])) continue;
+            slots.add(String.valueOf(TIER_SLOTS[i]), stakesItem(i, locks[i]));
+        }
+        for (int slot : TIER_SLOTS) on.add(String.valueOf(slot), MenuKit.obj("{\"close\":true}"));
+        JsonObject spec = MenuKit.obj("{\"title\":\"Superpairs ➜ Stakes\",\"rows\":6,\"fill\":true}");
+        spec.add("slots", slots);
+        spec.add("on", on);
+        MenuKit.show(c, spec);
+        c.ctx().waitTicks(5);
+        // The tiers that "arrive late" come in one by one during the first second, like a server still sending the menu.
+        for (int i = 0; i < TIERS.length; i++) {
+            if (!late.contains(TIERS[i])) continue;
+            JsonObject a = new JsonObject();
+            a.addProperty("slot", TIER_SLOTS[i]);
+            a.add("item", stakesItem(i, locks[i]));
+            c.hx().call("menu.set", a);
+            c.ctx().waitTicks(3);
+        }
+        c.waitUntil("a click on a stakes tier", mc -> c.events("container.click").size() > before, 400);
+        int slot = c.events("container.click").get(before).get("slot").getAsInt();
+        String line = dev.testkit.gametest.LogTap.since(mark).stream().filter(l -> l.contains("options [")).findFirst().orElse("(no pick line)");
+        return slot + "|" + line;
+    }
+
+    /** The stakes pick (killer560 11-24: Superpairs started on Grand): the top open tier, a late-loading menu waited for,
+     *  every tier's state written in one log line. */
+    static void superpairsStakes(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table's stakes pick is cheat-only");
+            return;
+        }
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
+            // The Guardian swap (on by default) holds all navigation until it has run (as in 226): off, or no tier is ever clicked.
+            cfg.set(CONFIG, "AutoSwapGuardianPet", false);
+            String[] open = new String[6];
+            String r = stakesRun(c, "", open);
+            c.check(r.startsWith("10|") && r.contains("picked Metaphysical"), "all open: " + r);
+            String late = stakesRun(c, "Metaphysical,Transcendent,Supreme", open);
+            c.check(late.startsWith("10|") && late.contains("picked Metaphysical"), "top three tiers arriving late: " + late);
+            String[] locked = {"§cEnchanting level too low!", "§cNot enough experience!", null, null, null, null};
+            String b = stakesRun(c, "", locked);
+            c.check(b.startsWith("12|") && b.contains("picked Supreme") && b.contains("Metaphysical: slot 10 LOCKED")
+                    && b.contains("Transcendent: slot 11 LOCKED") && b.contains("Not enough experience!"), "two locked: " + b);
+            c.note("stakes picks: " + r + " / " + late + " / " + b);
         }
     }
 

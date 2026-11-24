@@ -226,6 +226,7 @@ public class MenuSuite implements FabricClientGameTest {
                     ChocolateCases.register(s);
                     // ---- 731-736 trackers (profit scopes, red reset, Experiments tab, Superpairs Escape, RNG), 2026-10-11 ----
                     TrackerCases.register(s);
+                    BestFloorCases.register(s);
                     // ---- 1640-1644 profit by account / mod profile (profit-accounts-1015, 2026-10-15) ----
                     ProfitAccountCases.register(s);
                     // ---- 761-767 bz-croesus (2026-10-11): Bazaar flipper cycle, Auto Croesus key revisit ----
@@ -294,6 +295,7 @@ public class MenuSuite implements FabricClientGameTest {
                     TooltipBar1103Cases.register(s);
                     // ---- 1104-menu-friends-* friendsfilter-1104: area drop-down and /pv on the friends list ----
                     Friends1104Cases.register(s);
+                    DeathPatternsCases.register(s);
                 });
     }
 }
