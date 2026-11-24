@@ -2319,6 +2319,8 @@ final class HxBloodCampCases {
             s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "HudMobsLeft", true).with(BC_CFG, "HudCampLag", true)
                     .with(BC_CFG, "PartyMessage", true).with(BC_CFG, "PartyMessageAnyClass", false)
                     .with(BC_CFG, "PartyMessageLag", true);
+            // The session's default tab shows him as an Archer, who only stood there is not camping (bloodcamp-nonmage-1123): he is the Mage here.
+            showClass(c, HxKit.self(c), "Mage", "MAGE");
             watcher(c, WATCHER_IN);
             stand(c, 0f, 0f);
             taggedHusk(c, "stat1", "Revoker 1M❤", -421.0, -417.5);
