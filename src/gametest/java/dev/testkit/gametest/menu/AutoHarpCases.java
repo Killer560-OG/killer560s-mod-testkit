@@ -75,7 +75,10 @@ final class AutoHarpCases {
     /** -own adds his other kind of miss: clicks whose OWN trip spiked past the 250 ms a note stays (his notes 20, 23, 29, 45:
      *  286-430 ms, the board's timing unchanged). Clicks reaching the server in steps 11-12 take 400 ms; nothing the client
      *  has seen predicts that (the clicks before were answered in 100 ms), so their notes (j=7, j=8: one each) cannot be
-     *  saved, and the best any rule can do is lose those two, late, and play the other 15. */
+     *  saved, and the best any rule can do is lose those two, late, and play the other 15. Round 9 lost two or three more
+     *  (13-16 of 17 over runs of one jar): clicks sent a row early off a lead of 160-166 against true 100 ms trips, which
+     *  the plings' render-thread timing and the fake's tick coin flip had read long; both are gone (fix10), so the bound
+     *  stays 15 with the two lost late and none early. */
     private static final String OWN_SPIKE = "[[11,400,50],[13,100,50]]";
     private static final int OWN_LOST = 2;
 
@@ -203,7 +206,8 @@ final class AutoHarpCases {
                     + " ms into its step, earliest " + first + " ms; mod timeline early rows now " + Mod.staticCall(FEATURE, "lastEarlyRows"));
             int plings = pong == null ? 0 : modInt(c, "plingCount") - plingsBefore;
             if (pong != null) {
-                c.note("plings read " + plings + ", lead " + leadMin + "-" + leadMax + " ms while the ping read " + pong[2]);
+                c.note("plings read " + plings + ", lead " + leadMin + "-" + leadMax + " ms while the ping read " + pong[2]
+                        + ", longest pling wait network to render thread " + modInt(c, "plingWaitMax") + " ms");
             }
             c.check(done.get("ok").getAsInt() >= NOTES - allowMissed, "right clicks " + done.get("ok") + " of " + NOTES);
             c.check(done.get("wrong").getAsInt() <= allowMissed, done.get("wrong") + " wrong click(s)");

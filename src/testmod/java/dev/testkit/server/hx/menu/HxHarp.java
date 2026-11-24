@@ -62,6 +62,10 @@ final class HxHarp implements HxMenus.Ticking {
     /** [[step, ticks into it, freeze ticks], ...]: the server freezes there, then catches up BURST harp ticks a tick. */
     private int[][] freezes = new int[0][];
     private static final int BURST = 4;
+    /** Server ticks start a few ms either side of their 50 ms grid. The board and the plings both go out on a tick
+     *  downMs after theirs; without this room a tick that came 2 ms early held one a whole tick more, a coin flip per
+     *  packet that read a 100 ms trip as 150 and moved a run's score (autoharp-misses-1124 fix10: 13 to 17 of 17). */
+    private static final long TICK_JITTER_MS = 5;
     private int frozen;
     private int owed;
     private int harpTicks;
@@ -207,7 +211,7 @@ final class HxHarp implements HxMenus.Ticking {
                     Identifier.parse("minecraft:block.note_block.pling"))), SoundSource.MASTER, player.getX(), player.getY(),
                     player.getZ(), 1f, 1f, player.getRandom().nextLong()));
         }
-        int show = logicalAt(now - downMs);
+        int show = logicalAt(now - downMs + TICK_JITTER_MS);
         if (show > shownN) {
             render(server, menu, show);
             JsonObject r = new JsonObject();
@@ -226,7 +230,7 @@ final class HxHarp implements HxMenus.Ticking {
     private void harpTick(ServerPlayer player, long now, int last) {
         while (!pending.isEmpty() && pending.peekFirst()[0] <= now) {
             long[] c = pending.pollFirst();
-            judge(player, (int) c[1], logicalAt(c[0]), c[0]);
+            judge(player, (int) c[1], logicalAt(c[0]), c[0], now);
         }
         harpTicks++;
         if (n < last && harpTicks - lastAdvance >= stepTicks + extraTicks(n)) {
@@ -262,7 +266,7 @@ final class HxHarp implements HxMenus.Ticking {
         }
     }
 
-    private void judge(ServerPlayer player, int slot, int step, long at) {
+    private void judge(ServerPlayer player, int slot, int step, long at, long tickNow) {
         int col = slot - 37;
         int j = step - 4;
         boolean right = j >= 0 && j < notes.length && !played[j][col] && contains(notes[j], col);
@@ -280,7 +284,7 @@ final class HxHarp implements HxMenus.Ticking {
         e.addProperty("ms", at - stepStart(step));
         e.addProperty("rx", (at - upMs) % 100000);
         HxEvents.custom("harp.click", player, e);
-        acks.addLast(now() + downMs);
+        acks.addLast(tickNow + downMs - TICK_JITTER_MS);
     }
 
     private static boolean contains(int[] a, int v) {
