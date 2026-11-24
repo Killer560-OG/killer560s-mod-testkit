@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T03:53:38",
- "modSource": "lane-gaps-colors-1124",
- "modGitSha": "7212248c6b7aae2e425196a9a3eb840bb39d2776",
+ "generatedAt": "2026-11-24T04:07:46",
+ "modSource": "lane-idea-kitcheck-1124",
+ "modGitSha": "0172b5f5877dbeae47e1683b59d32b911d9a9f54",
  "modSourceDirty": false,
- "count": 987,
+ "count": 988,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 867,
+  "field": 868,
   "local": 46
  },
  "unresolved": 161,
@@ -4584,6 +4584,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^You are not (?:currently in a party\\\\.|in a party right now[.!])$\""
+  },
+  {
+   "id": "kitcheck.KitCheckFeature#COUNTDOWN",
+   "cls": "kitcheck.KitCheckFeature",
+   "field": "COUNTDOWN",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/kitcheck/KitCheckFeature.java",
+   "line": 27,
+   "regex": "Starting in [1-5] seconds?\\.",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"Starting in [1-5] seconds?\\\\.\""
   },
   {
    "id": "leapcounter.LeapTracker#SELF_LEAP",
