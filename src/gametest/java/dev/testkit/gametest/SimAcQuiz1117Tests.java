@@ -703,6 +703,19 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         if (acted == 0) {
             failures.add("Auto Clear never acted in Dragon (the case proves nothing)");
         }
+        // acpocket-perf-1124: the way-out search runs a slice a tick; its log line carries the slice count and longest slice.
+        java.util.regex.Matcher sl = java.util.regex.Pattern.compile("(\\d+) slice\\(s\\), longest ([\\d.]+) ms").matcher(String.join("\n", log));
+        int judged = 0;
+        while (sl.find()) {
+            judged++;
+        }
+        double maxSlice = ctx.computeOnClient(mc -> (Double) ModUnderTest.staticCall(AUTO, "exitMaxSliceMs"));
+        println(POCKET, String.format(Locale.US, "way-out searches judged in slices: %d, longest slice %.1f ms", judged, maxSlice));
+        if (judged == 0) {
+            failures.add("no way-out search ran in slices (the budget check proves nothing)");
+        } else if (maxSlice > 8.0) {
+            failures.add("a single way-out search slice took " + maxSlice + " ms (budget about 2 ms, allowed 8)");
+        }
         if (landed) {
             failures.add("Auto Clear landed him in the Dragon pocket (south of the barrier row, x -71..-54), which no warp or walk leaves");
         } else if (!weighed) {
