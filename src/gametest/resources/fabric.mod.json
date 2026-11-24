@@ -198,6 +198,7 @@
 			"dev.testkit.gametest.SimTrapStart1122Tests",
 			"dev.testkit.gametest.SimTrapSecrets1123Tests",
 			"dev.testkit.gametest.SimTrapAddNodes1123Tests",
+			"dev.testkit.gametest.SimTrapEditNodes1123Tests",
 			"dev.testkit.gametest.SimLeaveLoopTests",
 			"dev.testkit.gametest.SimThreadTests",
 			"dev.testkit.gametest.SimHeapHopTests",
