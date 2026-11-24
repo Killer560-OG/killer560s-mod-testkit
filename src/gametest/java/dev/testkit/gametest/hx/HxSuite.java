@@ -164,6 +164,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxAgatha1123Cases.register(s);
                     HxTreeRegen1123Cases.register(s);
                     HxSweepOverlay1124Cases.register(s);
+                    HxKitCheck1124Cases.register(s);
                     // Crystal Hollows Map HUD (1104-chmap-hud, mod chhud-1104).
                     HxChMapHud1104Cases.register(s);
                     // Structure Scanner: every loaded chunk once, named waypoints (1104-chscan-scan, mod chscan-1104).
