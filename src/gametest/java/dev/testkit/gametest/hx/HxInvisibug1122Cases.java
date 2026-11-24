@@ -21,6 +21,8 @@ final class HxInvisibug1122Cases {
     static void register(Session s) {
         s.test("1122-invisibug-circles", HxInvisibug1122Cases::circles);
         s.test("1122-invisibug-lookalikes", HxInvisibug1122Cases::lookalikes);
+        s.test("1124-invisibug-norange-drops", HxInvisibug1122Cases::norangeDrops);
+        s.test("1124-foraging-switches-in-category", HxInvisibug1122Cases::switchesInCategory);
     }
 
     private static void island(Session c, String area, String graph) {
@@ -98,6 +100,53 @@ final class HxInvisibug1122Cases {
                 c.check(count(c, "boxCount") == 0, "boxes with the switch off: " + count(c, "boxCount"));
             }
         }
+    }
+
+    /** 1124: a bug 60 blocks away is still boxed (no range) and its box is gone 20 ticks after its particles stop (origin: 40). */
+    private static void norangeDrops(Session c) {
+        BlockPos p = c.onClient(mc -> mc.player.blockPosition());
+        try (Settings set = on(c, true)) {
+            island(c, "Galatea", "GALATEA");
+            for (int i = 0; i < B.length / 2; i++) {
+                send(c, B, i, 118.90, p.offset(60, 0, 0));
+                c.ctx().waitTicks(5);
+            }
+            c.check(count(c, "boxCount") == 1, "a far bug was not boxed: " + count(c, "boxCount") + " (no range setting)");
+            c.ctx().waitTicks(20);
+            c.check(count(c, "boxCount") == 0, "box still drawn 20 ticks after the bug's particles stopped: " + count(c, "boxCount"));
+        }
+    }
+
+    /** 1124: every foraging config's switch is the first row of a card in the Foraging category. */
+    private static void switchesInCategory(Session c) {
+        java.util.List<String> missing = c.onClient(mc -> {
+            java.util.Set<Object> inTab = new java.util.HashSet<>();
+            Object foraging = Mod.cls("gui.tab.ForagingTab");
+            try {
+                Object tab = ((Class<?>) foraging).getDeclaredConstructor().newInstance();
+                for (Object t : (java.util.List<?>) Mod.call(tab, "subTabs")) {
+                    inTab.add(Mod.field(t, "cfg"));
+                }
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            java.util.List<String> out = new java.util.ArrayList<>();
+            int seen = 0;
+            for (Object cfg : (java.util.List<?>) Mod.staticCall("islands.IslandConfig", "all")) {
+                if (cfg.toString().isEmpty() || !String.valueOf(Mod.call(cfg, "path")).contains("killer560smod-foraging-")) {
+                    continue;
+                }
+                seen++;
+                if (!inTab.contains(cfg)) {
+                    out.add(String.valueOf(Mod.call(cfg, "name")));
+                }
+            }
+            if (seen < 6) {
+                out.add("only " + seen + " foraging configs found");
+            }
+            return out;
+        });
+        c.check(missing.isEmpty(), "foraging configs with no card in the Foraging category: " + missing);
     }
 
     private static void lookalikes(Session c) {
