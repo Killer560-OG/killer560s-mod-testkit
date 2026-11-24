@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T21:19:38",
- "modSource": "lane-bazaarhl-colors-1123",
- "modGitSha": "e36dd3a9215c6f76a9bb643bf46aece1cf574d96",
+ "generatedAt": "2026-11-23T21:27:55",
+ "modSource": "lane-trapedit-memonly-1123",
+ "modGitSha": "424b944c7df071b211353d57e3852b5621b87ce9",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
