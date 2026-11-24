@@ -346,6 +346,12 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         List<String> examples = new ArrayList<>();
         int cacheOnlyStale = 0;
         int[] perRound = new int[20];
+        // Per chunk: the round it was first compared, the server's and the client's column then, and the client chunk
+        // object then - to tell a chunk that ARRIVED different from one whose server copy changed after it was sent.
+        Map<Long, Integer> firstAt = new java.util.HashMap<>();
+        Map<Long, String[]> srvFirst = new java.util.HashMap<>();
+        Map<Long, String[]> cliFirst = new java.util.HashMap<>();
+        Map<Long, Integer> idFirst = new java.util.HashMap<>();
         for (int round = 0; round < 20; round++) {
             // Client first, in one go: the chunk he has NOW, block by block.
             Map<Long, String[]> seen = ctx.computeOnClient(mc -> {
@@ -367,6 +373,11 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 }
                 return out;
             });
+            Map<Long, Integer> ids = ctx.computeOnClient(mc -> {
+                Map<Long, Integer> out = new java.util.HashMap<>();
+                for (long k : seen.keySet()) out.put(k, System.identityHashCode(mc.level.getChunk((int) k, (int) (k >> 32))));
+                return out;
+            });
             var job = server.submit(() -> {
                 var lvl = server.getLevel(dim);
                 Map<Long, String[]> out = new LinkedHashMap<>();
@@ -383,6 +394,10 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 String[] s = truth.get(e.getKey());
                 if (s == null) continue;
                 compared.add(e.getKey());
+                firstAt.putIfAbsent(e.getKey(), round);
+                srvFirst.putIfAbsent(e.getKey(), s);
+                cliFirst.putIfAbsent(e.getKey(), e.getValue());
+                idFirst.putIfAbsent(e.getKey(), ids.get(e.getKey()));
                 int diff = 0;
                 String first = null;
                 for (int i = 0; i < s.length; i++) {
@@ -394,10 +409,14 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 if (diff >= 3) perRound[round]++;
                 if (diff >= 3 && stale.add(e.getKey())) {
                     if (Boolean.TRUE.equals(cacheOnly.get(e.getKey()))) cacheOnlyStale++;
-                    if (examples.size() < 6) {
-                        examples.add("chunk " + (int) (long) e.getKey() + ","
-                                + (int) ((long) e.getKey() >> 32) + " round " + round + " " + diff
-                                + " differ, cache-only " + cacheOnly.get(e.getKey()) + " (" + first + ")");
+                    if (examples.size() < 12) {
+                        long k = e.getKey();
+                        examples.add("chunk " + (int) k + "," + (int) (k >> 32) + " round " + round + " " + diff
+                                + " differ, cache-only " + cacheOnly.get(k) + " (" + first + "; first compared round "
+                                + firstAt.get(k) + ", server changed since " + !java.util.Arrays.equals(srvFirst.get(k), s)
+                                + ", client changed since " + !java.util.Arrays.equals(cliFirst.get(k), e.getValue())
+                                + ", client chunk replaced " + !java.util.Objects.equals(idFirst.get(k), ids.get(k))
+                                + ", differed at first " + (diffCount(srvFirst.get(k), cliFirst.get(k)) >= 3) + ")");
                     }
                 }
             }
@@ -434,6 +453,12 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 + " grid chunk(s) compared with the server, " + stale.size() + " showing the old floor (" + cacheOnlyStale
                 + " of them Chunk Cache copies; per round " + java.util.Arrays.toString(perRound) + ")" + (examples.isEmpty() ? "" : ": " + examples)
                 + (premise ? "" : " - premise not met"));
+    }
+
+    private static int diffCount(String[] a, String[] b) {
+        int n = 0;
+        for (int i = 0; i < Math.min(a.length, b.length); i++) if (!a[i].equals(b[i])) n++;
+        return n;
     }
 
     private static long packXZ(int x, int z) {
