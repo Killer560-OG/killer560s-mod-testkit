@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T06:51:40",
- "modSource": "lane-superpairs-stakes-1124",
- "modGitSha": "d660115f63ee993685f8b030b14dc03434bee712",
+ "generatedAt": "2026-11-24T07:01:11",
+ "modSource": "lane-melodyprogress-now-1124",
+ "modGitSha": "152679a13e36425f54c4653f86521b2a8ec144b7",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
