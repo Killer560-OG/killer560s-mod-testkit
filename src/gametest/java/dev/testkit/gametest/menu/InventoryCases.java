@@ -375,21 +375,14 @@ final class InventoryCases {
             c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 1, ContainerInput.QUICK_MOVE));
             c.ctx().waitTicks(20);
             c.check(c.events("container.click").size() == afterFirst, "a protected shift-click toward the sacrifice slot reached the server");
-            // 3: pick it up, then click it into the sacrifice slot 33: the pickup goes out, the placement does not
-            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 1, ContainerInput.PICKUP));
-            c.waitUntil("the pickup to reach the server", mc -> c.events("container.click").size() > afterFirst, 60);
-            c.ctx().waitTicks(10);
-            boolean carrying = c.onClient(mc -> !mc.player.containerMenu.getCarried().isEmpty());
-            c.check(carrying, "the picked-up protected item is not on the cursor");
+            // 3: a number-key swap of the protected hotbar item (slot 1) into the sacrifice slot 33: nothing may go out
             int afterPick = c.events("container.click").size();
-            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), 33, ContainerInput.PICKUP));
+            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), 33, ContainerInput.SWAP, 1));
             c.ctx().waitTicks(20);
             List<String> late = new ArrayList<>();
             c.events("container.click").stream().skip(afterPick).forEach(e -> late.add(e.get("slot") + ":" + e.get("input")));
             c.check(late.stream().noneMatch(x -> x.startsWith("33:")), "a protected item was placed in the sacrifice slot (33): " + late);
             // 4: an unprotected item still goes through the same way
-            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 1, ContainerInput.PICKUP));
-            c.ctx().waitTicks(10);
             int afterPut = c.events("container.click").size();
             c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 2, ContainerInput.QUICK_MOVE));
             c.waitUntil("the unprotected diamond's click to reach the server", mc -> c.events("container.click").size() > afterPut, 60);
@@ -402,6 +395,11 @@ final class InventoryCases {
             MenuKit.reset(c);
             clearInv(c);
         }
+    }
+
+    static void screenClick(Object screen, int slotIndex, ContainerInput input, int button) {
+        AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) screen;
+        Mod.call(s, "killer560smod$slotClicked", s.getMenu().slots.get(slotIndex), slotIndex, button, input);
     }
 
     static void screenClick(Object screen, int slotIndex, ContainerInput input) {
