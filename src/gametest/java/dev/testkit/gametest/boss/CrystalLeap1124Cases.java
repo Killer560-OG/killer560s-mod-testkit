@@ -44,10 +44,22 @@ final class CrystalLeap1124Cases {
         for (String act : new String[] {"use-key", "attack", "swap", "click"}) {
             s.test("1124-crystalleap-same-open-" + act, c -> sameOpen(c, act));
         }
+        for (String act : new String[] {"use", "use-key", "attack", "swap", "tp", "again"}) {
+            s.test("1124-crystalleap-swapflow-" + act, c -> swapFlow(c, act));
+        }
     }
 
     private static int gateTick() {
         return ((Number) Mod.staticCall(GATE, "currentTick")).intValue();
+    }
+
+    private static int indexOf(List<String> tick, String marker) {
+        for (int i = 0; i < tick.size(); i++) {
+            if (tick.get(i).contains(marker)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private static void hook() {
@@ -60,13 +72,14 @@ final class CrystalLeap1124Cases {
                 arrive = gateTick();
             }
         });
-        // an earlier phase than the mod's own START hook: the leap clicks (and closes) in the very START the menu is first
-        // there, so a hook after it would never see the menu open (the lane's menu-seen -1)
+        // an earlier phase than the mod's own START hooks: the leap clicks (and closes) in the very START the menu is first
+        // there, so a hook after it would never see the menu open (the lane's menu-seen -1). ActionGate counts its tick in
+        // the default phase, after this hook, so the START this hook runs in is gate tick + 1.
         net.minecraft.resources.Identifier early = net.minecraft.resources.Identifier.parse("testkit:crystalleap-early");
         ClientTickEvents.START_CLIENT_TICK.addPhaseOrdering(early, net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE);
         ClientTickEvents.START_CLIENT_TICK.register(early, mc -> {
             if (rec && menuSeen < 0 && mc.player != null && mc.player.containerMenu != mc.player.inventoryMenu) {
-                menuSeen = gateTick();
+                menuSeen = gateTick() + 1;
             }
         });
     }
@@ -139,6 +152,7 @@ final class CrystalLeap1124Cases {
             if (open != null) {
                 showLeapMenu(c);
             }
+            int failedBefore = CrystalLeap1112Cases.chatCount(c, "Failed to leap"); // the chat history holds earlier cases' lines
             WireCapture.start();
             arm();
             c.hx().chat(CrystalLeap1112Cases.pickup(CrystalLeap1112Cases.self(c)));
@@ -153,10 +167,12 @@ final class CrystalLeap1124Cases {
             c.note("TRACE swap=" + swap + " open=" + open + ": arrived tick " + arrive + ", steps " + st + ", menu seen tick "
                     + menuSeen + " -> swap +" + (sw < 0 ? "-" : String.valueOf(sw - arrive)) + ", use +"
                     + (use < 0 ? "-" : String.valueOf(use - arrive)) + ", click +" + (click - arrive) + ", click after menu seen "
-                    + (click - menuSeen) + "; wire " + CrystalLeap1112Cases.ticks());
+                    + (click - menuSeen) + "; wire ticks swap " + CrystalLeap1112Cases.firstTick("SetCarriedItem") + " use "
+                    + CrystalLeap1112Cases.firstTick("UseItem") + " click " + CrystalLeap1112Cases.firstTick("ContainerClick") + "; wire "
+                    + CrystalLeap1112Cases.ticks());
             c.check(arrive >= 0, "the pickup line never arrived");
             c.check(click >= 0 && CLICK_SLOT.equals(stepText(st, "click").substring(6)), "no click on the target head: " + st);
-            c.check(CrystalLeap1112Cases.chatCount(c, "Failed to leap") == 0, "a Failed to leap line appeared");
+            c.check(CrystalLeap1112Cases.chatCount(c, "Failed to leap") == failedBefore, "a Failed to leap line appeared");
             // the mod acts at the first START after the line: arrival tick + 1 (the gate tick counts at START)
             if (open != null) {
                 c.check(CrystalLeap1112Cases.count("UseItem") == 0, "an open menu still got a use packet");
@@ -168,8 +184,19 @@ final class CrystalLeap1124Cases {
                 if (swap) {
                     c.check(sw == arrive + 1, "swap at +" + (sw - arrive) + ", want +1");
                 }
-                c.check(menuSeen >= 0, "the leap menu never opened on his client");
-                c.check(click - arrive <= 3, "click at +" + (click - arrive) + ", want +3 or sooner (use +1, menu settle 2; the origin jar swap case was +5)");
+                c.check(menuSeen > use, "the leap menu never opened on his client (menu seen " + menuSeen + ", use " + use + ")");
+                // the earliest tick there is: the click goes in the first START its menu is there (origin waited one more)
+                c.check(click == menuSeen, "click " + (click - menuSeen) + " tick(s) after its menu was there, want 0");
+                int wSwap = CrystalLeap1112Cases.firstTick("SetCarriedItem");
+                int wUse = CrystalLeap1112Cases.firstTick("UseItem");
+                int wClick = CrystalLeap1112Cases.firstTick("ContainerClick");
+                c.check(wClick - wUse == click - use, "wire: click " + (wClick - wUse) + " ticks after the use, the flow says " + (click - use));
+                if (swap) {
+                    // one hand action: the hotbar key, then the use, in one tick (never use-then-swap, PacketOrderE)
+                    c.check(wSwap == wUse, "wire: swap in tick " + wSwap + ", use in tick " + wUse + ", want the same tick");
+                    List<String> t = CrystalLeap1112Cases.ticks().get(wUse);
+                    c.check(indexOf(t, "SetCarriedItem") < indexOf(t, "UseItem"), "wire: the use went before the swap: " + t);
+                }
             }
             c.check(CrystalLeap1112Cases.count("ContainerClick") == 1, "menu clicks: " + CrystalLeap1112Cases.count("ContainerClick"));
         } finally {
@@ -219,6 +246,7 @@ final class CrystalLeap1124Cases {
         AutoCloseable on = CrystalLeap1112Cases.setUp(c, "AUTO", false);
         try {
             c.hx().call("menu.onUse", "id", "SPIRIT_LEAP", "menu", null); // the use gets no answer of its own
+            int failedBefore = CrystalLeap1112Cases.chatCount(c, "Failed to leap");
             WireCapture.start();
             c.hx().chat(CrystalLeap1112Cases.pickup(CrystalLeap1112Cases.self(c)));
             c.waitUntil("the auto used the leap", mc -> CrystalLeap1112Cases.count("UseItem") >= 1, 60);
@@ -228,7 +256,7 @@ final class CrystalLeap1124Cases {
             WireCapture.stop();
             c.note("his menu between: wire " + CrystalLeap1112Cases.ticks() + ", steps " + steps(c));
             c.check(CrystalLeap1112Cases.count("ContainerClick") == 1, "clicks: " + CrystalLeap1112Cases.count("ContainerClick"));
-            c.check(CrystalLeap1112Cases.chatCount(c, "Failed to leap") == 0, "a Failed to leap line appeared");
+            c.check(CrystalLeap1112Cases.chatCount(c, "Failed to leap") == failedBefore, "a Failed to leap line appeared");
             c.check(CLICK_SLOT.equals(stepText(steps(c), "click").substring(6)), "wrong head: " + steps(c));
         } finally {
             WireCapture.stop();
@@ -284,6 +312,92 @@ final class CrystalLeap1124Cases {
                 default -> c.check(clicks >= 1, "no click");
             }
         } finally {
+            WireCapture.stop();
+            CrystalLeap1112Cases.tearDown(c, on);
+        }
+    }
+
+    /**
+     * The not-held path (swap + use in one tick, the click the tick its menu is there) with his own action put into EVERY
+     * client tick, so it lands in the swap+use tick and in the click tick (SameTick), or, for "again", a second pickup line
+     * in the same tick. GrimAC (default and experimental) judges; the leap must really happen: one use, the head clicked.
+     */
+    private static void swapFlow(Session c, String act) throws Exception {
+        if (!CrystalLeap1112Cases.cheat()) {
+            c.note("legit jar: Fast Leap is cheat-only");
+            return;
+        }
+        AutoCloseable on = CrystalLeap1112Cases.setUp(c, "AUTO", act.equals("attack"));
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            leapInSlot1(c);
+            if (act.equals("attack")) {
+                c.onClient(mc -> {
+                    mc.player.setXRot(22f);
+                    return null;
+                });
+                c.ctx().waitTicks(4);
+            }
+            dev.testkit.gametest.SameTick.Act a = switch (act) {
+                case "use" -> dev.testkit.gametest.SameTick.Act.USE;
+                case "use-key" -> dev.testkit.gametest.SameTick.Act.USE_KEY;
+                case "attack" -> dev.testkit.gametest.SameTick.Act.ATTACK;
+                case "swap" -> dev.testkit.gametest.SameTick.Act.SWAP;
+                case "tp" -> dev.testkit.gametest.SameTick.Act.TP;
+                default -> null;
+            };
+            int failedBefore = CrystalLeap1112Cases.chatCount(c, "Failed to leap");
+            WireCapture.start();
+            arm();
+            if (a != null) {
+                dev.testkit.gametest.SameTick.Act aa = a;
+                st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(aa, 1, p -> rec
+                        && (p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket
+                        || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                        || p instanceof net.minecraft.network.protocol.game.ServerboundContainerClickPacket), 0, 2));
+                c.ctx().waitTicks(3);
+            }
+            String line = CrystalLeap1112Cases.pickup(CrystalLeap1112Cases.self(c));
+            if (act.equals("again")) { // two pickup lines handled in one tick: one leap
+                c.ctx().runOnClient(mc -> {
+                    Mod.staticCall("fastleap.FastLeapFeature", "onChat", net.minecraft.network.chat.Component.literal(line));
+                    Mod.staticCall("fastleap.FastLeapFeature", "onChat", net.minecraft.network.chat.Component.literal(line));
+                });
+            } else {
+                if (act.equals("tp")) { // his teleport accept lands with the line, in the tick the leap starts
+                    c.hx().call("dungeon.tp", "x", 70.5, "y", 220.0, "z", 90.5, "yaw", 270f, "pitch", 0f);
+                }
+                c.hx().chat(line);
+            }
+            c.waitUntil("the leap finished (cooldown starts)", mc -> CrystalLeap1112Cases.cooldown(c) > 0, 80);
+            c.ctx().waitTicks(6);
+            List<String> stp = steps(c);
+            c.note(act + " (swap flow) steps " + stp + ", line tick " + arrive + ", menu seen " + menuSeen + "; wire by client tick: "
+                    + CrystalLeap1112Cases.ticks());
+            if (st != null) {
+                dev.testkit.gametest.SameTick.judge(c, st, act + " in the swap/use and click ticks",
+                        act.equals("attack") || act.equals("tp") ? dev.testkit.gametest.SameTick.Expect.ACTED
+                                : dev.testkit.gametest.SameTick.Expect.SHARE);
+            }
+            rec = false;
+            WireCapture.stop();
+            c.check(stepTick(stp, "swap") >= 0 && stepTick(stp, "use") >= 0, "the leap never swapped and used: " + stp);
+            c.check(CLICK_SLOT.equals(stepText(stp, "click").substring(6)), "the leap did not click the target: " + stp);
+            c.check(CrystalLeap1112Cases.chatCount(c, "Failed to leap") == failedBefore, "a Failed to leap line appeared");
+            if (act.equals("again")) {
+                c.check(CrystalLeap1112Cases.count("UseItem") == 1 && CrystalLeap1112Cases.count("ContainerClick") == 1,
+                        "two lines in one tick: " + CrystalLeap1112Cases.count("UseItem") + " uses, "
+                                + CrystalLeap1112Cases.count("ContainerClick") + " clicks, want one leap");
+            }
+        } finally {
+            rec = false;
+            if (st != null) {
+                dev.testkit.gametest.SameTick fst = st;
+                c.onClient(mc -> {
+                    fst.close();
+                    return null;
+                });
+            }
             WireCapture.stop();
             CrystalLeap1112Cases.tearDown(c, on);
         }
