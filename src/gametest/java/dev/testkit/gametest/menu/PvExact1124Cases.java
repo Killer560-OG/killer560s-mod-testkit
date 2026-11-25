@@ -425,7 +425,7 @@ final class PvExact1124Cases {
         if (full != null) {
             for (List<?> t : (List<?>[]) Mod.field(full, "tips")) {
                 String x = t == null ? "" : text(t).replaceAll("§.", "");
-                if (x.startsWith("Mining Speed")) speedTip = x;
+                if (x.split("\\|", 2)[0].equals("Mining Speed")) speedTip = x;
             }
         }
         PvStyle1104Cases.look(bad, speedTip.contains("Level 10/50") && !speedTip.matches("(?s).*%[a-z_]+%.*") && speedTip.contains("Powder Spent") && speedTip.contains("+200"),
@@ -505,7 +505,7 @@ final class PvExact1124Cases {
         PvStyle1104Cases.look(bad, infoTips[5] != null && text(infoTips[5]).contains("§7Gold Medal: §20§a/§216§7 (§30%§7)"),
                 style + ": Farming Level Cap hover " + (infoTips[5] == null ? "none" : text(infoTips[5])));
         String vis = String.join(" | ", (String[]) Mod.field(f, "visitors"));
-        PvStyle1104Cases.look(bad, vis.startsWith("§8Unique Served: §a1§8/§a146 | §8Total: §a2§8/§a3 | §aUncommon§8: §a2§8/§a3")
+        PvStyle1104Cases.look(bad, vis.startsWith("§8Unique Served: §a1§8/§a146 | §8Total§8: §a2§8/§a3 | §aUncommon§8: §a2§8/§a3")
                 && vis.contains("§8Max Occupancy: §a1§2/§a5"), style + ": Visitors " + vis);
         Object[] queue = (Object[]) Mod.field(f, "queue");
         List<?>[] qTips = (List<?>[]) Mod.field(f, "queueTips");
