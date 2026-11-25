@@ -39,7 +39,7 @@ import java.util.Map;
 final class EffectsSearchCases {
 
     static final String[] CASES = {"1102-ui-hide-effects", "1102-ui-hide-effects-hud", "1102-ui-hide-effects-config",
-            "1102-ui-search-queries", "1102-ui-search-commands", "1102-ui-search-readme"};
+            "1102-ui-search-queries", "1102-ui-search-commands", "1102-ui-search-readme", "1125-ui-search-switch-fresh"};
 
     private static final String CFG = "hideeffects.HideEffectsConfig";
     private static final String FEAT = "hideeffects.HideEffectsFeature";
@@ -640,6 +640,98 @@ final class EffectsSearchCases {
                     counts[0], counts[1], counts[2]));
         }
         c.check(counts[0] >= 30, "only " + counts[0] + " queries ran - the list or the menu is not what it should be");
+    }
+
+    // ---- 1125-ui-search-switch-fresh ----------------------------------------------------------------------------------
+
+    private static final String[] SWITCH_QUERIES = {"hide potion effects", "auto routes", "terminal", "esp", "auto", "dungeon", "map"};
+
+    /** Every feature result row of {@code q}: the switch state the row would draw (FeatureCards.state), by tab id. */
+    private static Map<String, Object[]> rowStates(Screen s, String q) {
+        setSearch(s, "");
+        setSearch(s, q);
+        Map<String, Object[]> out = new LinkedHashMap<>();
+        for (Object r : MenuACases.results(s)) {
+            if (!(Boolean) Mod.call(r, "feature")) {
+                continue;
+            }
+            Object tab = Mod.call(r, "tab");
+            out.put(tab.getClass().getSimpleName(), new Object[]{tab, Mod.staticCall("gui.FeatureCards", "state", tab)});
+        }
+        return out;
+    }
+
+    /** The truth the card reads: the tab's switch built fresh from the live config (null = no switch). */
+    private static Boolean truth(Object tab) {
+        Object m = Mod.staticCall("gui.FeatureCards", "masterSwitch", tab, null);
+        return m == null ? null : (Boolean) Mod.call(m, "isOn");
+    }
+
+    /**
+     * killer560 (2026-11-25): "it shows my auto routes as off but if i click on it then it is actually toggled on". A setting
+     * changed outside the menu's own switches (keybind, command, profile) left the search rows' cached switch states old.
+     * Every query lists its rows once, a setting is changed behind the menu's back, the queries run again: each row's
+     * switch must equal the card's own read, and pressing a row's switch flips the setting and both agree afterwards.
+     */
+    static void searchSwitchFresh(UiCase c) {
+        if (!present(c)) {
+            return;
+        }
+        Object cfg = cfg();
+        boolean was = (Boolean) Mod.call(cfg, "isHidePotionEffectsRaw");
+        Screen s = c.onClient(mc -> {
+            try {
+                return MenuACases.open(mc);
+            } catch (Exception e) {
+                throw new AssertionError(UiCase.describe(e), e);
+            }
+        });
+        try {
+            Map<String, Boolean> before = new LinkedHashMap<>();
+            for (String q : SWITCH_QUERIES) {
+                Map<String, Object[]> rows = c.onClient(mc -> rowStates(s, q));
+                rows.forEach((id, v) -> before.put(id, (Boolean) v[1]));
+            }
+            c.onClient(mc -> {
+                Mod.call(cfg, "setHidePotionEffects", !was);
+                return null;
+            });
+            int checked = 0;
+            Object hideTab = null;
+            for (String q : SWITCH_QUERIES) {
+                Map<String, Object[]> rows = c.onClient(mc -> rowStates(s, q));
+                for (Map.Entry<String, Object[]> e : rows.entrySet()) {
+                    Boolean truth = c.onClient(mc -> truth(e.getValue()[0]));
+                    checked++;
+                    if (e.getKey().equals("HidePotionEffectsTab")) {
+                        hideTab = e.getValue()[0];
+                    }
+                    c.check(java.util.Objects.equals(truth, e.getValue()[1]), "search '" + q + "' row " + e.getKey()
+                            + " shows " + e.getValue()[1] + " but the card reads " + truth);
+                }
+            }
+            c.check(checked >= 20, "only " + checked + " switch rows were compared - the queries found too little");
+            c.check(hideTab != null, "the Hide Potion Effects row never showed in the results");
+            if (hideTab != null) {
+                Object tab = hideTab;
+                boolean cfgNow = (Boolean) Mod.call(cfg, "isHidePotionEffectsRaw");
+                c.check(cfgNow != was, "the setting did not change behind the menu");
+                Boolean pressed = c.onClient(mc -> (Boolean) Mod.staticCall("gui.FeatureCards", "toggle", tab, null));
+                boolean after = (Boolean) Mod.call(cfg, "isHidePotionEffectsRaw");
+                c.check(after == was, "pressing the row's switch did not flip the setting (" + cfgNow + " -> " + after + ")");
+                c.check(java.util.Objects.equals(pressed, truth(tab)),
+                        "after the press the row shows " + pressed + " but the card reads " + truth(tab));
+                c.note("compared " + checked + " rows over " + SWITCH_QUERIES.length + " queries; Hide Potion Effects card "
+                        + before.get("HidePotionEffectsTab") + " -> changed behind the menu -> pressed -> " + pressed);
+            }
+        } finally {
+            c.onClient(mc -> {
+                Mod.call(cfg, "setHidePotionEffects", was);
+                setSearch(s, "");
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+        }
     }
 
     // ---- 1102-ui-search-commands --------------------------------------------------------------------------------------
