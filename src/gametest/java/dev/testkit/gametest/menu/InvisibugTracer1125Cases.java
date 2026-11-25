@@ -1,6 +1,6 @@
 package dev.testkit.gametest.menu;
 
-import dev.testkit.gametest.Session;
+import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.gui.components.AbstractWidget;
 
