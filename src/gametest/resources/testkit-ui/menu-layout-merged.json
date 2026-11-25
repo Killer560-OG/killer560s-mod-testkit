@@ -998,14 +998,14 @@
     {
       "owner": "Compactor Preview",
       "key": "compactor preview",
-      "text": "Hover a Personal Compactor and its tooltip lists the Sack items it compacts; hover a Personal Deletor and it shows a grid of the items it deletes. No need to open either.",
-      "why": "pv0273-1117: SkyBlock 0.27.3 compactors have no slots, they compact a list of Sack items"
+      "text": "Hover a Personal Deletor and its tooltip shows a grid of the items it deletes. No need to open it.",
+      "why": "patch-choices-1125: the preview is the Personal Deletor's only (killer560, 11-25)"
     },
     {
       "owner": "(unscoped)",
       "key": "compactor preview",
-      "text": "Hover a Personal Compactor and its tooltip lists the Sack items it compacts; hover a Personal Deletor and it shows a grid of the items it deletes. No need to open either.",
-      "why": "pv0273-1117: SkyBlock 0.27.3 compactors have no slots, they compact a list of Sack items"
+      "text": "Hover a Personal Deletor and its tooltip shows a grid of the items it deletes. No need to open it.",
+      "why": "patch-choices-1125: the preview is the Personal Deletor's only (killer560, 11-25)"
     },
     {
       "owner": "Compactor Preview",

@@ -661,7 +661,7 @@ final class SlotTextCases {
             if (o == null) {
                 return "null";
             }
-            return Mod.call(o, "deletor") + " " + Mod.call(o, "tier") + " " + Mod.call(o, "rows") + "x" + Mod.call(o, "cols")
+            return Mod.call(o, "tier") + " " + Mod.call(o, "rows") + "x" + Mod.call(o, "cols")
                     + " " + Mod.call(o, "slots") + " active=" + Mod.call(o, "active");
         });
     }
@@ -669,10 +669,12 @@ final class SlotTextCases {
     static void contentsRead(UiCase c) throws Exception {
         ItemStack c7 = compactor("PERSONAL_COMPACTOR_7000", "personal_compact_0", "ENCHANTED_COBBLESTONE",
                 "personal_compact_5", "ENCHANTED_DIAMOND", "personal_compact_11", "WHEAT");
+        // 11-25 (killer560: "no preview for anything but the deletor"): no compactor reads as contents, whatever its id.
         String r7 = contents(c, c7);
-        c.note("7000: " + r7);
-        // 0.27.3: compactors have no slots any more (a list of Sack items, 0x0); deletors are 7, 14, 21 or 28 slots.
-        c.check(r7.equals("false 7000 0x0 {0=ENCHANTED_COBBLESTONE, 5=ENCHANTED_DIAMOND, 11=WHEAT} active=null"), "7000 read as: " + r7);
+        String rs = contents(c, compactor("PERSONAL_COMPACTOR_MINING_4000", "personal_compact_0", "ENCHANTED_COBBLESTONE"));
+        String r5 = contents(c, compactor("PERSONAL_COMPACTOR_5000", "personal_compact_2", "ENCHANTED_IRON"));
+        c.note("compactors: " + r7 + " / " + rs + " / " + r5);
+        c.check(r7.equals("null") && rs.equals("null") && r5.equals("null"), "a compactor read as contents: " + r7 + " / " + rs + " / " + r5);
 
         CompoundTag del = tag("PERSONAL_DELETOR_4000");
         del.putString("personal_deletor_0", "COBBLESTONE");
@@ -680,55 +682,23 @@ final class SlotTextCases {
         String r4 = contents(c, mk(Items.PLAYER_HEAD, "Personal Deletor", del));
         String d7 = contents(c, mk(Items.PLAYER_HEAD, "Personal Deletor", tag("PERSONAL_DELETOR_7000")));
         c.note("deletor 4000: " + r4 + "; deletor 7000: " + d7);
-        c.check(r4.equals("true 4000 1x7 {0=COBBLESTONE} active=true"), "deletor 4000 read as: " + r4);
-        c.check(d7.equals("true 7000 4x7 {} active=null"), "deletor 7000 read as: " + d7);
-
-        String r5 = contents(c, compactor("PERSONAL_COMPACTOR_5000", "personal_compact_2", "ENCHANTED_IRON"));
-        String r6 = contents(c, compactor("PERSONAL_COMPACTOR_6000", "personal_compact_6", "ENCHANTED_IRON"));
-        c.note("5000: " + r5 + "; 6000: " + r6);
-        c.check(r5.equals("false 5000 0x0 {2=ENCHANTED_IRON} active=null"), "5000 read as: " + r5);
-        c.check(r6.equals("false 6000 0x0 {6=ENCHANTED_IRON} active=null"), "6000 read as: " + r6);
-
-        // the new skill compactors (PERSONAL_COMPACTOR_<SKILL>_4000) read, and their hover names the skill and the list
-        ItemStack skill = compactor("PERSONAL_COMPACTOR_MINING_4000", "personal_compact_0", "ENCHANTED_COBBLESTONE");
-        String rs = contents(c, skill);
-        List<String> lines = c.onClient(mc -> {
-            Object cont = Mod.staticCall(CPF, "contentsOf", skill);
-            List<String> out = new ArrayList<>();
-            out.add(String.valueOf(Mod.call(cont, "skill")));
-            for (Object l : (List<?>) Mod.staticCall(CPF, "compactorLines", cont)) {
-                out.add(((net.minecraft.network.chat.Component) l).getString());
-            }
-            return out;
-        });
-        c.note("skill compactor: " + rs + " lines " + lines);
-        c.check(rs.equals("false 4000 0x0 {0=ENCHANTED_COBBLESTONE} active=null"), "skill compactor read as: " + rs);
-        c.check(lines.get(0).equals("MINING") && lines.contains("Mining Compactor") && lines.contains("Compacts:")
-                && lines.stream().anyMatch(l -> l.contains("ON") && l.contains("Cobblestone")), "skill compactor lines: " + lines);
-        List<String> emptyLines = c.onClient(mc -> {
-            List<String> out = new ArrayList<>();
-            for (Object l : (List<?>) Mod.staticCall(CPF, "compactorLines", Mod.staticCall(CPF, "contentsOf", compactor("PERSONAL_COMPACTOR_7000")))) {
-                out.add(((net.minecraft.network.chat.Component) l).getString());
-            }
-            return out;
-        });
-        c.check(emptyLines.equals(List.of("Choose the Sack items it compacts in /compactor")), "empty compactor lines: " + emptyLines);
-
-        // a deletor key on a compactor is not its slot; hostile and malformed keys are dropped
-        String mixed = contents(c, compactor("PERSONAL_COMPACTOR_7000", "personal_deletor_0", "COBBLESTONE",
-                "personal_compact_99999999999", "X", "personal_compact_-1", "Y", "personal_compact_abc", "Z", "personal_compact_3", ""));
-        c.note("foreign / hostile keys: " + mixed);
-        c.check(mixed.equals("false 7000 0x0 {} active=null"), "foreign and hostile keys were read: " + mixed);
+        c.check(r4.equals("4000 1x7 {0=COBBLESTONE} active=true"), "deletor 4000 read as: " + r4);
+        c.check(d7.equals("7000 4x7 {} active=null"), "deletor 7000 read as: " + d7);
 
         // not a compactor
         String aotv = contents(c, mk(Items.DIAMOND_SWORD, "Aspect of the Void", tag("ASPECT_OF_THE_VOID")));
         String bare = contents(c, new ItemStack(Items.STONE));
-        String fake = contents(c, mk(Items.PLAYER_HEAD, "Personal Compactor", tag("PERSONAL_COMPACTOR_7000_FAKE")));
+        String fake = contents(c, mk(Items.PLAYER_HEAD, "Personal Deletor", tag("PERSONAL_DELETOR_7000_FAKE")));
         c.check(aotv.equals("null") && bare.equals("null") && fake.equals("null"), "non-compactors read as: " + aotv + " / " + bare + " / " + fake);
 
+        CompoundTag t3 = tag("PERSONAL_DELETOR_7000");
+        t3.putString("personal_deletor_0", "ENCHANTED_COBBLESTONE");
+        t3.putString("personal_deletor_5", "ENCHANTED_DIAMOND");
+        t3.putString("personal_deletor_11", "WHEAT");
+        ItemStack icons3 = mk(Items.PLAYER_HEAD, "Personal Deletor", t3);
         // the icons: the vanilla look-alike for an enchanted id glints, a plain one does not
         List<String> icons = c.onClient(mc -> {
-            Object cont = Mod.staticCall(CPF, "contentsOf", c7);
+            Object cont = Mod.staticCall(CPF, "contentsOf", icons3);
             Map<?, ?> stacks = (Map<?, ?>) Mod.staticCall(CPF, "resolveStacks", cont);
             List<String> out = new ArrayList<>();
             for (var e : stacks.entrySet()) {
@@ -775,7 +745,7 @@ final class SlotTextCases {
             compactorEnabled(c, false, "ON_HOVER");
             openInventory(c);
             int[] pos = invSlotPos(c, 17);
-            // 0.27.3: the grid is the deletor's only (7 slots at 4000, 28 at 7000); a compactor shows a text list.
+            // 0.27.3: the grid is the deletor's only (7 slots at 4000, 28 at 7000); a compactor shows nothing (11-25).
             ItemStack big = mk(Items.PLAYER_HEAD, "Personal Deletor", deletorTag("PERSONAL_DELETOR_7000", "COBBLESTONE"));
             ItemStack mid = mk(Items.PLAYER_HEAD, "Personal Deletor", deletorTag("PERSONAL_DELETOR_4000", "DIRT"));
             ItemStack comp = compactor("PERSONAL_COMPACTOR_7000", "personal_compact_0", "ENCHANTED_COBBLESTONE", "personal_compact_5", "ENCHANTED_DIAMOND");
@@ -800,14 +770,14 @@ final class SlotTextCases {
             int changedComp = changedIn(onComp, offComp, 0, 0, onComp.getWidth(), onComp.getHeight());
             int changedEmpty = changedIn(onEmpty, offEmpty, 0, 0, onEmpty.getWidth(), onEmpty.getHeight());
             c.note("slot-gray px added by the grid: deletor 7000 (28 slots) " + extraBig + ", deletor 4000 (7) " + extraMid
-                    + ", compactor " + extraComp + " (frame changed " + changedComp + " px: the list), empty compactor " + extraEmpty
-                    + " (changed " + changedEmpty + " px: the /compactor line)");
+                    + ", compactor " + extraComp + " (frame changed " + changedComp + " px), empty compactor " + extraEmpty
+                    + " (changed " + changedEmpty + " px)");
             c.check(greyOffBig > 0, "the instrument saw no slot gray at all in the baseline frame");
             c.check(extraBig >= 12000, "deletor 7000 grid missing: only " + extraBig + " extra gray px");
             c.check(extraMid >= 3000, "deletor 4000 grid missing: only " + extraMid + " extra gray px");
             c.check(extraBig > 5 * extraMid / 2, "the 28-slot grid (" + extraBig + ") is not far bigger than the 7-slot one (" + extraMid + ")");
             c.check(extraComp <= 200 && extraEmpty <= 200, "a compactor drew a grid: +" + extraComp + " / +" + extraEmpty + " gray px");
-            c.check(changedComp > 0 && changedEmpty > 0, "a compactor hover added nothing: the feature did not act");
+            c.check(changedComp <= 20 && changedEmpty <= 20, "a compactor hover drew a preview: " + changedComp + " / " + changedEmpty + " px changed");
         } finally {
             closeScreen(c);
             HudEditorCases.restoreWindow(c, window, oldGui);
