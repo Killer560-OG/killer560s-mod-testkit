@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T22:23:57",
- "modSource": "lane-readme-search-carnival-1124",
- "modGitSha": "d3487ab2fba52bbfca7a759da9597ec8aedf8dff",
+ "generatedAt": "2026-11-24T22:38:14",
+ "modSource": "lane-pv-bingo-relay-1124",
+ "modGitSha": "de3ee60766eb31351d43f8157971d09137a0300f",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
