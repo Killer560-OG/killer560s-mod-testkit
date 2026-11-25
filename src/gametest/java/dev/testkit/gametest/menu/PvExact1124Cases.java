@@ -56,6 +56,8 @@ final class PvExact1124Cases {
                     + "\"foraging\":{\"tree_gifts\":{\"FIG\":12,\"milestone_tier_claimed\":{\"FIG\":2}},\"starlyn\":{\"personal_bests\":{\"FIG_LOG\":4321}}},"
                     + "\"skill_tree\":{\"nodes\":{\"mining\":{\"mining_speed\":10,\"core_of_the_mountain\":1}},\"experience\":{\"mining\":5000}},"
                     + "\"loadout\":{\"loadouts\":{\"1\":{\"id\":1,\"name\":\"Boss\",\"favoredBait\":\"MINNOW_BAIT\"}}},"
+                    // 1124h: SkyBlockPV's Mutations category.
+                    + "\"garden_player_data\":{\"discovered_greenhouse_crops\":[\"PHANTOMLEAF\"],\"analyzed_greenhouse_crops\":[]},"
                     + "\"leveling\":{\"experience\":12345},\"profile\":{\"first_join\":1600000000000,\"cookie_buff_active\":true},"
                     + "\"jacobs_contest\":{\"perks\":{\"double_drops\":15},\"medals_inv\":{\"gold\":4}},\"rift\":{")
             // 1124b: a maxed Social (NEU's maxed bar), a bank history, and a worn diamond set for the model's armor.
@@ -590,12 +592,31 @@ final class PvExact1124Cases {
             Object g = Mod.field(f, "gear");
             return g != null && ((java.util.concurrent.Future<?>) g).isDone();
         }, 400);
-        for (int sub = 0; sub < 2; sub++) {
+        for (int sub = 0; sub < 4; sub++) {
             int v = sub;
             c.ctx().runOnClient(mc -> setInt(s, "subView", v));
             c.ctx().waitTicks(3);
             BazaarReskinCases.shot(c, style.toLowerCase() + "-farming" + sub);
+            int got = c.onClient(mc -> (Integer) Mod.field(s, "subView"));
+            PvStyle1104Cases.look(bad, got == sub, style + ": Farming category " + sub + " did not stay open (" + got + ")");
         }
+        // 1124h: Visitors and Mutations (GroupedScreen): every repo entry, the fixture's visits and discovery, tints and hovers.
+        List<?> vc = (List<?>) Mod.field(f, "visitorCells"), mc2 = (List<?>) Mod.field(f, "mutationCells");
+        PvStyle1104Cases.look(bad, vc.size() >= 140 && mc2.size() >= 40, style + ": " + vc.size() + " visitor and " + mc2.size() + " mutation slots");
+        Object adv = null, phantom = null;
+        for (Object o : vc) if (text((List<?>) Mod.field(o, "tip")).startsWith("§aCombat Merchant")) adv = o;
+        for (Object o : mc2) if (text((List<?>) Mod.field(o, "tip")).contains("Discovered: §aYes")) phantom = o;
+        String at = adv == null ? "none" : text((List<?>) Mod.field(adv, "tip")) + " color " + Integer.toHexString((Integer) Mod.field(adv, "color"))
+                + " filters " + Mod.field(adv, "filters") + " skull " + ((net.minecraft.world.item.ItemStack) Mod.field(adv, "icon")).has(net.minecraft.core.component.DataComponents.PROFILE);
+        PvStyle1104Cases.look(bad, at.equals("§aCombat Merchant||§7Visits: §a3|§7Accepted: §a2|§7Rejected: §a1 color 55ff55 filters 21 skull true"),
+                style + ": Combat Merchant visitor slot " + at);
+        String pt = phantom == null ? "none" : text((List<?>) Mod.field(phantom, "tip")) + " color " + Integer.toHexString((Integer) Mod.field(phantom, "color"))
+                + " filters " + Mod.field(phantom, "filters");
+        PvStyle1104Cases.look(bad, pt.endsWith("||§7Discovered: §aYes|§7Analyzed: §cNo color ffff55 filters 13"), style + ": discovered mutation slot " + pt);
+        Object queue0 = ((Object[]) Mod.field(f, "queue"))[0];
+        PvStyle1104Cases.look(bad, ((net.minecraft.world.item.ItemStack) queue0).has(net.minecraft.core.component.DataComponents.PROFILE),
+                style + ": the Visitor Queue's Combat Merchant has no skin");
+        c.ctx().runOnClient(mc -> setInt(s, "subView", 0));
     }
 
     private static void setInt(Object target, String name, int v) {
