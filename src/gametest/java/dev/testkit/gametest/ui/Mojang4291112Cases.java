@@ -102,7 +102,7 @@ final class Mojang4291112Cases {
         server.createContext("/hypixel/", ex -> {
             RELAY_HITS.add(ex.getRequestURI().getPath() + "?" + ex.getRequestURI().getRawQuery() + "|" + ex.getRequestHeaders().getFirst("Authorization"));
             String body = relayStatus == 200
-                    ? (ex.getRequestURI().getPath().contains("museum") ? "{\"success\":true,\"members\":{}}" : "{\"success\":true,\"profiles\":[]}")
+                    ? (ex.getRequestURI().getPath().contains("museum") ? "{\"success\":true,\"members\":{}}" : ex.getRequestURI().getPath().contains("bingo") ? "{\"success\":true,\"events\":[{\"key\":7,\"points\":3,\"completed_goals\":[\"G1\"]}]}" : "{\"success\":true,\"profiles\":[]}")
                     : "{\"error\":\"stub " + relayStatus + "\"}";
             byte[] b = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
             ex.getResponseHeaders().add("content-type", "application/json");
@@ -126,6 +126,10 @@ final class Mojang4291112Cases {
             Object kind = Mod.enumValue("profileviewer.api.ProfileViewerApi$AuxKind", "MUSEUM");
             Object museum = done(c, Mod.staticCall("profileviewer.api.ProfileViewerApi", "fetchAux", kind, "01234567-89ab-cdef-0123-456789abcdef", true, true));
             c.check(museum != null && RELAY_HITS.stream().anyMatch(h -> h.startsWith("/hypixel/skyblock/museum?id=01234567-89ab-cdef-0123-456789abcdef")), "the museum read never went through the relay: " + RELAY_HITS);
+            // pv-bingo-relay-1124: the NEU Classic Bingo page's data (no key of its own) comes through the relay's skyblock/bingo route
+            Object bingo = done(c, Mod.staticCall("profileviewer.api.ProfileViewerApi", "fetchAux", Mod.enumValue("profileviewer.api.ProfileViewerApi$AuxKind", "BINGO"), "01234567-89ab-cdef-0123-456789abcdef", true, true));
+            c.check(bingo != null && String.valueOf(bingo).contains("Shared Hypixel key") && String.valueOf(bingo).contains("completed_goals") && RELAY_HITS.contains("/hypixel/skyblock/bingo?id=01234567-89ab-cdef-0123-456789abcdef|Bearer test-token"),
+                    "the bingo read never came through the relay: " + bingo + " " + RELAY_HITS);
             c.check(joins() == 0 && attempts().stream().noneMatch(s -> s.contains("sessionserver")), "a relay-served run touched Mojang's session server: " + attempts());
 
             for (int status : new int[]{429, 503}) {
