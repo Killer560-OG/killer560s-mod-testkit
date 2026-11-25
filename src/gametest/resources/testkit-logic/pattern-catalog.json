@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T17:25:15",
- "modSource": "lane-invibug-tracer-1125",
- "modGitSha": "bc9ac45f5ba1627791d0a1cb8781a1eb38cb9f46",
+ "generatedAt": "2026-11-25T17:39:56",
+ "modSource": "lane-arwarpclick-1125",
+ "modGitSha": "77db28cbb5ef4cffc7ed219a46bd92a544f4fa14",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
