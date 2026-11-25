@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T23:15:42",
- "modSource": "lane-etable-bottle-default-1124",
- "modGitSha": "80dc96fe66681dbdbe696f9d662eb19331d02649",
+ "generatedAt": "2026-11-25T00:15:54",
+ "modSource": "lane-perf-origin-1124",
+ "modGitSha": "2ef0dbf312ea0dc1679cbe9e9e1a843a09d9e588",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
