@@ -27,6 +27,7 @@ final class BeaconCases {
         MenuSuite.test(s, "1123-menu-beacon-pause", BeaconCases::pause);
         MenuSuite.test(s, "1124-menu-beacon-samecolor", BeaconCases::sameColor);
         BeaconAutoCases.register(s);
+        BeaconHudCases.register(s);
     }
 
     private static void ready(Session c) throws Exception {
