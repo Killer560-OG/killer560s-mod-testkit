@@ -28,12 +28,30 @@ import java.util.List;
  * ended (137 of 251 kill-to-warp gaps on the 6 floors were such trips, a tick each). Asserts the floor cleared,
  * {@code ClearExecutor.searchesInTick} went up by at least {@link #MIN_SEARCHED} and at least {@link #MIN_SAME_TICK_SEARCH}
  * trips left on the kill's own tick.
+ * <p>
+ * <b>1125-sim-ac-warmyield</b> (mod acoptimal-next3-1125), the same floor: a searched trip no longer waits in the planner
+ * thread's queue behind a floor-graph warm-up slice. The full graph warms for 12-20 s of every floor, in 10 ms slices that
+ * gave way only at their end, so origin's searched trips waited 5-12 ms in the queue (37 of 213 on the 6 floors) and many
+ * left a tick late. The probe reads each "[Path] running ... queued X ms" line; asserts the floor cleared, at least
+ * {@link #MIN_QUEUED_LINES} searched trips ran and at most {@link #MAX_SLOW_QUEUED} of them queued {@link #SLOW_QUEUE_MS} ms or more.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAcPreSneakTests implements FabricClientGameTest {
 
     private static final String PRESNEAK = "1124-sim-ac-presneak";
     private static final String SEARCHTICK = "1125-sim-ac-searchtick";
+    private static final String WARMYIELD = "1125-sim-ac-warmyield";
+    /** Searched trips (lines with a queue time) the floor must run, at least. */
+    private static final int MIN_QUEUED_LINES = 10;
+    /** A queue wait this long is a warm-up slice in the way (a search alone is 1-4 ms). */
+    private static final double SLOW_QUEUE_MS = 5.0;
+    /** Searched trips allowed to queue that long. */
+    private static final int MAX_SLOW_QUEUED = 1;
+    private static final java.util.regex.Pattern QUEUED = java.util.regex.Pattern.compile("\\[Path\\] running .*\\(queued ([\\d.]+) ms");
+    private static long logMark;
+    private static int queuedLines;
+    private static int slowQueued;
+    private static double worstQueued;
     private static String NAME = PRESNEAK;
     private static final String AUTO = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String EXEC = "com.killer560.hub.livemap.autoclear.ClearExecutor";
@@ -55,15 +73,15 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        for (String name : new String[]{PRESNEAK, SEARCHTICK}) {
+        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(name)) {
                 NAME = name;
-                runOne(ctx, name.equals(SEARCHTICK));
+                runOne(ctx, name.equals(SEARCHTICK), name.equals(WARMYIELD));
             }
         }
     }
 
-    private void runOne(ClientGameTestContext ctx, boolean searchTick) {
+    private void runOne(ClientGameTestContext ctx, boolean searchTick, boolean warmYield) {
         ModUnderTest.require("killer560smod");
         LogTap.install();
         ctx.runOnClient(mc -> install());
@@ -97,6 +115,10 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             java.util.Arrays.fill(GAPS, 0);
             killTick = -1;
+            logMark = LogTap.mark();
+            queuedLines = 0;
+            slowQueued = 0;
+            worstQueued = 0;
         });
         List<SimAutoClearSpeedTests.RoomTime> rooms = new ArrayList<>();
         List<String> problems = new ArrayList<>();
@@ -115,18 +137,30 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         }
         int primedAfter = primed(ctx);
         int searchedAfter = searched(ctx);
-        int[] gaps = ctx.computeOnClient(mc -> GAPS.clone());
+        int[] gaps = ctx.computeOnClient(mc -> {
+            readQueued();
+            return GAPS.clone();
+        });
         int total = rooms.stream().mapToInt(SimAutoClearSpeedTests.RoomTime::ticks).sum();
         println("RESULT room ticks " + total + " over " + rooms.size() + " rooms; kill-to-first-warp gaps 0:" + gaps[0]
                 + " 1:" + gaps[1] + " 2:" + gaps[2] + " 3:" + gaps[3] + " 4:" + gaps[4] + " 5+:" + gaps[5]
                 + "; primed sneak ticks " + primedBefore + " -> " + primedAfter + "; searched trips taken in the tick "
-                + searchedBefore + " -> " + searchedAfter);
+                + searchedBefore + " -> " + searchedAfter + "; searched trips " + queuedLines + ", queued >= " + SLOW_QUEUE_MS
+                + " ms " + slowQueued + " (worst " + worstQueued + " ms)");
         long notCleared = rooms.stream().filter(r -> !r.cleared()).count();
         if (rooms.size() < 10 || notCleared > 0) {
             problems.add(rooms.size() + " room line(s), " + notCleared + " not cleared - the floor was not cleared");
         }
         int want = searchTick ? MIN_SAME_TICK_SEARCH : MIN_SAME_TICK;
-        if (gaps[0] < want) {
+        if (warmYield) {
+            if (queuedLines < MIN_QUEUED_LINES) {
+                problems.add(queuedLines + " searched trip(s) ran, want at least " + MIN_QUEUED_LINES);
+            }
+            if (slowQueued > MAX_SLOW_QUEUED) {
+                problems.add(slowQueued + " searched trip(s) queued " + SLOW_QUEUE_MS + " ms or more on the planner thread"
+                        + " (worst " + worstQueued + " ms), want at most " + MAX_SLOW_QUEUED);
+            }
+        } else if (gaps[0] < want) {
             problems.add(gaps[0] + " trip(s) left on the kill's own tick, want at least " + want
                     + " (gaps 1:" + gaps[1] + " 2:" + gaps[2] + " 3+:" + (gaps[3] + gaps[4] + gaps[5]) + ")");
         }
@@ -166,6 +200,9 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     private static void probe(Minecraft mc) {
         if (mc.player == null) {
             return;
+        }
+        if (mc.player.tickCount % 20 == 0) {
+            readQueued();
         }
         int kills;
         long tick;
@@ -207,6 +244,23 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         lastKills = kills;
         lastUses = uses;
         lastHops = hopCount;
+    }
+
+    /** Reads the queue time of every searched trip logged since the last read (client thread; the ring holds 4000 lines). */
+    private static void readQueued() {
+        long m = LogTap.mark();
+        for (String line : LogTap.between(logMark, m)) {
+            java.util.regex.Matcher q = QUEUED.matcher(line);
+            if (q.find()) {
+                double ms = Double.parseDouble(q.group(1));
+                queuedLines++;
+                worstQueued = Math.max(worstQueued, ms);
+                if (ms >= SLOW_QUEUE_MS) {
+                    slowQueued++;
+                }
+            }
+        }
+        logMark = m;
     }
 
     private static int primed(ClientGameTestContext ctx) {
