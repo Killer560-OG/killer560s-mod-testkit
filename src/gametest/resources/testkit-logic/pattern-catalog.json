@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T00:51:38",
- "modSource": "lane-perf-origin-1124",
- "modGitSha": "25b0732f9a2284b77cbc09a9d5bce8b243c6002c",
+ "generatedAt": "2026-11-25T01:06:52",
+ "modSource": "lane-beacon-ready-hud-1125",
+ "modGitSha": "89144b79aea9f7fffeb60370dc9b3bfa5049b877",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
@@ -4051,23 +4051,23 @@
    "field": "HEADER",
    "index": null,
    "file": "src/main/java/com/killer560/hub/foraging/BeaconReadyAlert.java",
-   "line": 29,
+   "line": 36,
    "regex": "^[A-Za-z]{2,20} Beacon: \\d{1,4} Stacks?$",
    "flags": null,
    "kind": "field",
    "expr": "\"^[A-Za-z]{2,20} Beacon: \\\\d{1,4} Stacks?$\""
   },
   {
-   "id": "foraging.BeaconReadyAlert#AVAILABLE",
+   "id": "foraging.BeaconReadyAlert#COOL",
    "cls": "foraging.BeaconReadyAlert",
-   "field": "AVAILABLE",
+   "field": "COOL",
    "index": null,
    "file": "src/main/java/com/killer560/hub/foraging/BeaconReadyAlert.java",
-   "line": 30,
-   "regex": "^Cooldown: AVAILABLE$",
+   "line": 37,
+   "regex": "^Cooldown: (?:(\\d+)h ?)?(?:(\\d+)m ?)?(?:(\\d+)s)?$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^Cooldown: AVAILABLE$\""
+   "expr": "\"^Cooldown: (?:(\\\\d+)h ?)?(?:(\\\\d+)m ?)?(?:(\\\\d+)s)?$\""
   },
   {
    "id": "foraging.BeaconTuneSolver#CURRENT",
