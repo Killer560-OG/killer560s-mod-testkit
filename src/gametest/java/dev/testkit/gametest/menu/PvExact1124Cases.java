@@ -231,6 +231,7 @@ final class PvExact1124Cases {
         c.ctx().waitTicks(3);
         neuTrophy(c, s, bad, scale);
         neuBingo(c, s, bad);
+        neuLevel(c, s, bad, scale);
 
         // Basic page content, built once (NeuBasic).
         Object nb = c.onClient(mc -> Mod.field(s, "neuBasic"));
@@ -299,6 +300,77 @@ final class PvExact1124Cases {
             }
         }
         PvStyle1104Cases.look(bad, white >= 10, "NEU: " + white + " name pixels at y 54 (want 10+)");
+    }
+
+    /** 1124j: NEU Classic's Level page, the second Basic page: opened by a click in the level box and by the Level side button,
+     *  left by Home and by a tab click; nine bars over pv_levels.png with the original's task hovers. */
+    private static void neuLevel(Session c, Screen s, List<String> bad, double scale) throws Exception {
+        int px = c.onClient(mc -> (Integer) Mod.field(s, "panelX")), py = c.onClient(mc -> (Integer) Mod.field(s, "panelY"));
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
+        c.ctx().waitTicks(3);
+        BazaarReskinCases.pressAt(c, new int[]{px + 140, py + 60, 20, 20}, 0);
+        int view = c.onClient(mc -> (Integer) Mod.field(s, "subView"));
+        PvStyle1104Cases.look(bad, view == 1, "NEU level: a click in the level box left subView " + view + ", expected 1");
+        Object page = c.onClient(mc -> Mod.field(s, "neuLevel"));
+        String bars = "";
+        for (int i = 0; i < 60 && !bars.contains("Event Task="); i++) {
+            c.ctx().waitTicks(2);
+            bars = c.onClient(mc -> (String) Mod.call(page, "debugBars"));
+        }
+        int sb = c.onClient(mc -> {
+            Object p = Mod.call(s, "profile");
+            return (Integer) Mod.field(p, "sbLevel");
+        });
+        PvStyle1104Cases.look(bad, bars.startsWith("Level=" + sb + ";Core Task=") && bars.contains(";Dungeon Task=") && bars.contains(";Essence=")
+                && bars.contains(";Slaying Task=") && bars.contains(";Story Task=") && bars.contains(";Event Task=") && bars.contains("%;"),
+                "NEU level: bars " + bars);
+        String core = c.onClient(mc -> (String) Mod.call(page, "debugTip", "Core Task"));
+        PvStyle1104Cases.look(bad, core.startsWith("§6Skill Level Up: ") && core.contains("|§6Museum Progression: §c§lNOT DETECTABLE!|")
+                && core.contains("|§6Fairy Soul: ") && core.contains("|§6Fast Travel Scroll: ") && core.contains("||§7Progress: §5")
+                && core.endsWith("/14,235 XP)|"), "NEU level: Core Task hover " + core);
+        String ess = c.onClient(mc -> (String) Mod.call(page, "debugTip", "Essence"));
+        PvStyle1104Cases.look(bad, ess.contains("§6Wither Essence: ") && ess.contains("§6Undead Essence: ") && !ess.contains("Forest"),
+                "NEU level: Essence hover " + ess);
+        String lvl = c.onClient(mc -> (String) Mod.call(page, "debugTip", "Level"));
+        PvStyle1104Cases.look(bad, lvl.matches("§7Progress: §5\\d+% §8\\(\\d+/100 XP\\)\\|"), "NEU level: Level hover " + lvl);
+        // The hover on screen: the cursor on the Slaying Task bar shows its task lines.
+        BazaarReskinCases.cursorTo(c, new int[]{px + 40, py + 86, 4, 4});
+        c.ctx().waitTicks(3);
+        String shown = c.onClient(mc -> {
+            Object t = Mod.field(s, "pendingTooltip");
+            return t instanceof List<?> l ? text(l) : "";
+        });
+        PvStyle1104Cases.look(bad, shown.startsWith("§6Slayer Level Up: ") && shown.contains("|§6Defeat Arachne: §a100% §8(60/60 XP)|"),
+                "NEU level: Slaying hover on screen " + shown);
+        BufferedImage img = BazaarReskinCases.shot(c, "neu-level");
+        // pv_levels.png over the panel: its pixels at a few opaque spots; the red bar name at Core Task.
+        BufferedImage lv = res("neu/pv_levels.png");
+        PvStyle1104Cases.look(bad, lv != null, "NEU level: no pv_levels.png in the jar");
+        if (lv != null) {
+            int hits = 0, tried = 0;
+            for (int x = 150; x < 290 && tried < 40; x += 7) {
+                for (int y = 140; y < 195 && tried < 40; y += 11) {
+                    int argb = lv.getRGB(x, y);
+                    if ((argb >>> 24) != 255) continue;
+                    tried++;
+                    hits += near(gp(img, scale, px + x, py + y), argb & 0xFFFFFF) ? 1 : 0;
+                }
+            }
+            PvStyle1104Cases.look(bad, tried > 0 && hits * 4 >= tried * 3, "NEU level: pv_levels pixels " + hits + "/" + tried);
+        }
+        int red = 0;
+        for (int x = px + 37; x < px + 90; x++) for (int y = py + 21; y < py + 29; y++) red += near(gp(img, scale, x, y), 0xFF5555) ? 1 : 0;
+        PvStyle1104Cases.look(bad, red >= 10, "NEU level: " + red + " red name pixels at Core Task (want 10+)");
+        // Side buttons: Home goes back, Level opens it again; a tab click leaves it.
+        BazaarReskinCases.pressAt(c, new int[]{px - 24, py + 4, 20, 20}, 0);
+        view = c.onClient(mc -> (Integer) Mod.field(s, "subView"));
+        PvStyle1104Cases.look(bad, view == 0, "NEU level: the Home button left subView " + view);
+        BazaarReskinCases.pressAt(c, new int[]{px - 24, py + 32, 20, 20}, 0);
+        view = c.onClient(mc -> (Integer) Mod.field(s, "subView"));
+        PvStyle1104Cases.look(bad, view == 1, "NEU level: the Level button left subView " + view);
+        BazaarReskinCases.pressAt(c, new int[]{px, py - 28 + 4, 28, 19}, 0);
+        view = c.onClient(mc -> (Integer) Mod.field(s, "subView"));
+        PvStyle1104Cases.look(bad, view == 0, "NEU level: the Basic tab click left subView " + view);
     }
 
     /** 1124h: NEU Classic's Trophy Fish page (the fixture caught 3 Bronze Sulphur Skitters). */
