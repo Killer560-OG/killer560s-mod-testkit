@@ -5175,6 +5175,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(10);
         double[][] spots = plan ? PLAN_LAYOUTS[4] : chain ? new double[][]{{5.5, 15.5}, {17.5, 11.5}, {17.5, 19.5}}
                 : new double[][]{{10.5, 15.5}, {18.5, 15.5}, {21.5, 23.5}};
+        float[] hisLook = ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
         List<JsonObject> mobs = new ArrayList<>();
         for (double[] sp : spots) {
             Vec3 at = ctx.computeOnClient(mc -> {
@@ -5306,7 +5307,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         printTrace("achype", s);
         int impacts = delta(before, "witherImpacts");
         int warps = delta(before, "etherwarps");
-        boolean across = logHas(m, "[AutoClear] Wither Impact across");
+        // Since the room kill plan (3453a2b86, 11-22) takes this layout, its cast across logs "(room plan) ... 2 mob(s) in its
+        // blast" instead of "Wither Impact across" (achype-across-1125): both are one cast taking A and B.
+        boolean across = logHas(m, "[AutoClear] Wither Impact across") || LogTap.since(m).stream().anyMatch(l ->
+                l.contains("[AutoClear] Wither Impact (room plan)") && l.matches(".*: ([2-9]|\\d\\d+) mob\\(s\\) in its blast.*"));
         if (chain) {
             // The wire: the feature's own cast count (its room line) must be 2 or more with no etherwarp (the first cast, then
             // the chained one), and the trace must hold that many use_item ticks; the ones after the first are quoted.
@@ -5339,6 +5343,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 planCasts += l.contains("[AutoClear] Wither Impact (room plan)") ? 1 : 0;
             }
             c.note("plan moves " + planMoves + ", plan casts " + planCasts + ", use_item ticks on the wire " + useTicks(s).size()
+                    + ", planned again after a server move " + LogTap.since(m).stream()
+                    .filter(l -> l.contains("so it is planned again from here")).count()
                     + (act == dev.testkit.gametest.SameTick.Act.USE_CLICK ? ", hops held for his click "
                     + LogTap.since(m).stream().filter(l -> l.contains("hop held a tick: his right click")).count() : ""));
             if (act == dev.testkit.gametest.SameTick.Act.USE_CLICK) {
@@ -5356,8 +5362,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 }
                 for (String l : since.subList(0, Math.min(last, since.size()))) {
                     java.util.regex.Matcher rm = rp.matcher(l);
+                    // A use on HIS own look (the one he started with, handed back after a path warp's turn: fin3-def-2 seq 18,
+                    // rot 90/0 | server look -14.93/4.79) is his click, not a ride on Auto Clear's turn.
                     if (rm.find() && (Math.abs(net.minecraft.util.Mth.wrapDegrees(Float.parseFloat(rm.group(1)) - Float.parseFloat(rm.group(3)))) > 1f
-                            || Math.abs(Float.parseFloat(rm.group(2)) - Float.parseFloat(rm.group(4))) > 1f)) {
+                            || Math.abs(Float.parseFloat(rm.group(2)) - Float.parseFloat(rm.group(4))) > 1f)
+                            && (Math.abs(net.minecraft.util.Mth.wrapDegrees(Float.parseFloat(rm.group(1)) - hisLook[0])) > 1f
+                            || Math.abs(Float.parseFloat(rm.group(2)) - hisLook[1]) > 1f)) {
                         ridden.add(l.replaceAll("^.*?\\[RightClick\\] ", "").replaceAll(" \\| shift.*", ""));
                     }
                 }
