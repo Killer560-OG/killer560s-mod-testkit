@@ -327,10 +327,10 @@ final class PvExact1124Cases {
         PvStyle1104Cases.look(bad, "§c1/15".equals(helm[0]) && "§c0/18".equals(helm[3]), "NEU trophy: helmet counts " + String.join(",", helm));
         long caught = c.onClient(mc -> (Long) Mod.field(model, "totalCaught"));
         PvStyle1104Cases.look(bad, caught == 3, "NEU trophy: Total Caught " + caught);
-        String tip0 = c.onClient(mc -> text((List<?>) Mod.call(page, "tip", model, 0, f0)));
+        String tip0 = c.onClient(mc -> text(trophyTip(page, model, 0, f0)));
         PvStyle1104Cases.look(bad, tip0.startsWith("§fSulphur Skitter|") && tip0.contains("|§bDiamond: §c✖|") && tip0.contains("|§8Bronze: §63|")
                 && tip0.endsWith("|§7Total: §63"), "NEU trophy: Sulphur Skitter hover " + tip0);
-        String tip17 = c.onClient(mc -> text((List<?>) Mod.call(page, "tip", model, 17, f17)));
+        String tip17 = c.onClient(mc -> text(trophyTip(page, model, 17, f17)));
         PvStyle1104Cases.look(bad, tip17.contains("|§c§c✖ Not Discovered|"), "NEU trophy: missing fish hover " + tip17);
         // The first slot's ring is pv_elements' cell tinted bronze (FF8200): its gray edge reads orange.
         int px = c.onClient(mc -> (Integer) Mod.field(s, "panelX")), py = c.onClient(mc -> (Integer) Mod.field(s, "panelY"));
@@ -339,6 +339,17 @@ final class PvExact1124Cases {
         PvStyle1104Cases.look(bad, r > gr + 25 && gr >= b, "NEU trophy: bronze ring pixel " + String.format("%06X", ring));
         c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
         c.ctx().waitTicks(3);
+    }
+
+    /** NeuTrophyPage.tip(Model, int, Fish): Mod.call does not match an int parameter. */
+    private static List<?> trophyTip(Object page, Object model, int i, Object fish) {
+        try {
+            java.lang.reflect.Method mt = page.getClass().getDeclaredMethod("tip", model.getClass(), int.class, fish.getClass());
+            mt.setAccessible(true);
+            return (List<?>) mt.invoke(null, model, i, fish);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("NeuTrophyPage.tip: " + e, e);
+        }
     }
 
     private static void sbpv(Session c, Screen s, List<String> bad, BufferedImage img, double scale, int[] g, String style) throws Exception {
