@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T00:51:38",
- "modSource": "lane-perf-origin-1124",
- "modGitSha": "25b0732f9a2284b77cbc09a9d5bce8b243c6002c",
+ "generatedAt": "2026-11-25T01:07:36",
+ "modSource": "lane-invisibug-finder-1124",
+ "modGitSha": "ea9e1c5bc4555ba109551c2fa06c9b14c099731e",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
