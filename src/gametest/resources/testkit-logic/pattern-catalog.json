@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T04:27:18",
- "modSource": "lane-argrim-origin-fails-1125",
- "modGitSha": "0ea9a36f96804861b7ddbd38a6c22e8029ec2c5b",
+ "generatedAt": "2026-11-25T05:46:39",
+ "modSource": "lane-acoptimal-next3-1125b",
+ "modGitSha": "db5f22220e5b5955295b0c982ff11e24d62d42ff",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
