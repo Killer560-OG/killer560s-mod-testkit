@@ -43,13 +43,16 @@ import java.util.function.Predicate;
  *       click as vanilla does (on a block use_item_on then use_item), after {@code gameMode.tick} has sent a pending hotbar
  *       change, and a feature sees it queued at START as it sees his real clicks. His packets are the uses and interacts
  *       sent while slotA or slotB is held (grimgapA/B-1105; one act since ship8, was KEYUSE and USE_KEY).</li>
+ *   <li>{@link Act#USE_CLICK} (argrim-planuse-exp-1125): his right click pressed at END (START actors see it queued), sent
+ *       at the next START LATE as vanilla's {@code startUseItem} on that tick's own pick, so its packets are his. Use it,
+ *       not USE, where his crosshair may be on a block: USE's bare use_item before a block click is PacketOrderN.</li>
  * </ul>
  * Packets sent while the player's action runs (or, for SWAP / ATTACK / DIG, the packet vanilla sends for it next tick)
  * are his; a teleport accept is marked (T) and is neither. Everything else matching the case's predicate is the feature's.
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, DIG_HELD, USE_KEY, OPEN_CLICK, CLOSE }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, DIG_HELD, USE_KEY, OPEN_CLICK, CLOSE, USE_CLICK }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -63,6 +66,10 @@ public final class SameTick implements AutoCloseable {
     private final java.util.function.Consumer<Packet<?>> prevTap;
 
     private boolean injecting;
+    /** USE / USE_CLICK: the crosshair's hit type when his use went in. */
+    private String injectHit;
+    /** USE_CLICK: his press queued at END, sent at the next START LATE. */
+    private boolean clickQueued;
     private int tick;
     /** Injections still allowed; -1 (the default) is no limit. See {@link #allow}. */
     private volatile int left = -1;
@@ -99,6 +106,7 @@ public final class SameTick implements AutoCloseable {
             ClientTickEvents.START_CLIENT_TICK.register(LATE, mc -> {
                 SameTick s = active;
                 if (s != null && s.act == Act.USE) s.inject(mc);
+                if (s != null && s.act == Act.USE_CLICK) s.sendClick(mc);
             });
             ClientTickEvents.END_CLIENT_TICK.register(mc -> {
                 SameTick s = active;
@@ -125,9 +133,17 @@ public final class SameTick implements AutoCloseable {
         try {
             switch (act) {
                 case USE -> {
-                    // A stick's use passes, so vanilla sends the use_item and no swing.
+                    // A stick's use passes, so vanilla sends the use_item and no swing. Its crosshair is the one from before
+                    // this tick's pick, and a block under it gets no use_item_on: see USE_CLICK.
+                    injectHit = hitType(mc);
                     mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
                     done++;
+                }
+                case USE_CLICK -> {
+                    // His right click (argrim-planuse-exp-1125): pressed between ticks, so every START actor sees it queued
+                    // (ActionGate.hisClickQueued) as it sees his real clicks; sendClick sends it at START LATE.
+                    net.minecraft.client.KeyMapping.click(mc.options.keyUse.getDefaultKey());
+                    clickQueued = true;
                 }
                 case ATTACK, DIG -> {
                     // What his crosshair is on decides what vanilla's startAttack does with the click.
@@ -205,6 +221,38 @@ public final class SameTick implements AutoCloseable {
         }
     }
 
+    /**
+     * USE_CLICK's send: the press queued at END, taken off the key and sent as handleKeybinds sends it, on THIS tick's pick
+     * (Minecraft.pick runs after START_CLIENT_TICK, with every mod's pick hook): vanilla's own startUseItem (on a block
+     * use_item_on, use_item, the off hand's use_item_on; into the air use_item). Its packets are his. Act.USE's bare
+     * use_item from before the pick, followed by the feature's block click in one tick, is GrimAC PacketOrderN, an order no
+     * vanilla client sends (argrim-planuse-exp-1125).
+     */
+    private void sendClick(Minecraft mc) {
+        if (!clickQueued || mc.player == null) return;
+        clickQueued = false;
+        if (!mc.options.keyUse.consumeClick()) return;
+        injecting = true;
+        try {
+            java.lang.reflect.Method pick = Minecraft.class.getDeclaredMethod("pick", float.class);
+            pick.setAccessible(true);
+            pick.invoke(mc, 1.0f);
+            injectHit = hitType(mc);
+            java.lang.reflect.Method use = Minecraft.class.getDeclaredMethod("startUseItem");
+            use.setAccessible(true);
+            use.invoke(mc);
+            done++;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("USE_CLICK: " + e, e);
+        } finally {
+            injecting = false;
+        }
+    }
+
+    private static String hitType(Minecraft mc) {
+        return mc.hitResult == null ? "NONE" : mc.hitResult.getType().name();
+    }
+
     private static int intField(Object o, String name) {
         for (Class<?> k = o.getClass(); k != null; k = k.getSuperclass()) {
             try {
@@ -253,7 +301,8 @@ public final class SameTick implements AutoCloseable {
             }
             if (mine) winPlayer = true;
             if (feat) winFeature = true;
-            window.add(name + (mine ? "(P)" : feat ? "(F)" : accept ? "(T)" : ""));
+            // USE / USE_CLICK: his packets carry what his crosshair was on ({MISS} / {BLOCK} / {ENTITY}).
+            window.add(name + (mine ? "(P)" + (injecting && injectHit != null ? "{" + injectHit + "}" : "") : feat ? "(F)" : accept ? "(T)" : ""));
             boolean tickPacket = (p instanceof ServerboundMovePlayerPacket && !echo)
                     || (p instanceof ServerboundClientTickEndPacket && !movedSinceEnd);
             if (p instanceof ServerboundMovePlayerPacket && !echo) movedSinceEnd = true;
