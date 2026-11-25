@@ -758,6 +758,9 @@ final class SlotTextCases {
             BufferedImage onMid = hoverShot(c, mid, pos, "mid-on");
             BufferedImage onComp = hoverShot(c, comp, pos, "comp-on");
             BufferedImage onEmpty = hoverShot(c, empty, pos, "empty-on");
+            // settled frames: the first shot after a deletor grid may still carry its tooltip (437 px on 11-25), a second one does not
+            onComp = hoverShot(c, comp, pos, "comp-on2");
+            onEmpty = hoverShot(c, empty, pos, "empty-on2");
             compactorEnabled(c, false, "ON_HOVER");
             BufferedImage offMid = hoverShot(c, mid, pos, "mid-off");
             BufferedImage offComp = hoverShot(c, comp, pos, "comp-off");

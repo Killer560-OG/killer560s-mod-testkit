@@ -184,6 +184,8 @@ final class HxLuck1102Cases {
                 c.hx().give(0, h[0] + "[custom_data={enchantments:{looting:" + h[1] + "}}]");
                 int k0 = c.onClient(mc -> (Integer) Mod.field(LK, "killsCounted"));
                 int id = summon(c, h[2], "luckmob");
+                // a rod does fist damage, which a husk's armor shaves below 1 hp: leave it a sliver so the click kills
+                c.server().command("data merge entity @e[tag=luckmob,limit=1] {Health:0.05f}");
                 c.ctx().waitTicks(20);
                 hit(c, id);
                 c.waitUntil("the " + h[0] + " kill was counted", mc -> (Integer) Mod.field(LK, "killsCounted") == k0 + 1, 80);
