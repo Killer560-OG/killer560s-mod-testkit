@@ -25,6 +25,7 @@ final class HxTreeRegen1123Cases {
         s.test("1124-foraging-treeregen-self-chunk", HxTreeRegen1123Cases::selfAndChunk);
         s.test("1124-foraging-treeregen-styles", HxTreeRegen1123Cases::styles);
         s.test("1124-foraging-treeregen-onstart", HxTreeRegen1123Cases::onStart);
+        s.test("1124-foraging-treeregen-lingers", HxTreeRegen1123Cases::lingers);
     }
 
     private static int num(Session c, String m) {
@@ -102,11 +103,11 @@ final class HxTreeRegen1123Cases {
             BlockPos s = t[0].east(3);
             set(c, s, Blocks.STONE.defaultBlockState());
             set(c, s, Blocks.AIR.defaultBlockState());
-            c.check(num(c, "trackedLogs") == 3, "a stone block going to air was tracked: " + num(c, "trackedLogs"));
+            c.check(num(c, "trackedLogs") == 2, "a stone block going to air was tracked: " + num(c, "trackedLogs"));
             // Off Galatea: a chop tracks nothing.
             c.ctx().runOnClient(mc -> Mod.staticCall(T, "setTestIsland", false));
             c.ctx().runOnClient(mc -> mc.level.setServerVerifiedBlockState(t[0], Blocks.AIR.defaultBlockState(), 3));
-            c.check(num(c, "trackedLogs") == 3, "a chop off Galatea was tracked: " + num(c, "trackedLogs"));
+            c.check(num(c, "trackedLogs") == 2, "a chop off Galatea was tracked: " + num(c, "trackedLogs"));
             c.ctx().runOnClient(mc -> Mod.staticCall(T, "setTestIsland", true));
             // Expiry: aged past 1400 ticks, the tree is no longer regenerating and nothing is drawn.
             c.ctx().runOnClient(mc -> Mod.staticCall(T, "ageAll", 1500));
@@ -129,8 +130,9 @@ final class HxTreeRegen1123Cases {
             c.check(num(c, "drawnBoxes") == 0, "a tree was drawn on his own break: " + num(c, "drawnBoxes"));
             set(c, t[1], Blocks.AIR.defaultBlockState());
             c.check(num(c, "trackedLogs") == 1, "the server's later air changed the count: " + num(c, "trackedLogs"));
+            set(c, t[3], Blocks.AIR.defaultBlockState());
             c.ctx().runOnClient(mc -> mc.level.getChunkAt(t[1]).setBlockState(t[1], Blocks.OAK_LOG.defaultBlockState(), 0));
-            c.waitUntil("chunk-data return drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 4, 60);
+            c.waitUntil("chunk-data return drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 3, 60);
             c.check(draws(c, t[1]), "the log that came back as chunk data was not drawn");
         } finally {
             off(c, t, wasOn);
@@ -162,6 +164,53 @@ final class HxTreeRegen1123Cases {
         }
     }
 
+    /**
+     * killer560, 11-24: "the regrowing tree thing is sticking around a long time after the tree is fully regenerated". The
+     * highlight is gone within 2 ticks of the last log's return (single update, section update: the same
+     * setServerVerifiedBlockState path), within the 10-tick recheck when it comes back as chunk data, and a second tree
+     * still missing a log nearby (same chunk) does not keep a whole one drawn.
+     */
+    private static void lingers(Session c) {
+        boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(Mod.field(T, "CFG"), "isEnabledRaw"));
+        on(c);
+        BlockPos[] t = trunk(c);
+        BlockPos other = c.onClient(mc -> mc.player.blockPosition().above(6).east(5));
+        BlockState log = Blocks.OAK_LOG.defaultBlockState();
+        BlockState air = Blocks.AIR.defaultBlockState();
+        try {
+            set(c, other, log);
+            set(c, other, air);
+            for (BlockPos p : t) {
+                set(c, p, air);
+            }
+            c.ctx().waitTicks(2);
+            for (int i = 0; i < 3; i++) {
+                set(c, t[i], log);
+            }
+            c.waitUntil("standing logs drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 3, 60);
+            // The last log returns as a single block update: gone within 2 ticks, though the other tree is still missing a log.
+            set(c, t[3], log);
+            c.ctx().waitTicks(2);
+            c.check(num(c, "drawnBoxes") == 0 && !draws(c, t[0]), "the whole tree is still drawn 2 ticks after its last log returned: "
+                    + num(c, "drawnBoxes"));
+            c.check(num(c, "trackedLogs") == 1, "tracked chops after the tree is whole: " + num(c, "trackedLogs"));
+            // Second round: the returns arrive as a section update (same path), the last one as chunk data.
+            for (BlockPos p : t) {
+                set(c, p, air);
+            }
+            c.ctx().waitTicks(2);
+            for (int i = 0; i < 3; i++) {
+                set(c, t[i], log);
+            }
+            c.waitUntil("standing logs drawn again", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 3, 60);
+            c.ctx().runOnClient(mc -> mc.level.getChunkAt(t[3]).setBlockState(t[3], log, 0));
+            c.waitUntil("chunk-data last return clears", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 0, 14);
+        } finally {
+            c.ctx().runOnClient(mc -> mc.level.setServerVerifiedBlockState(other, air, 3));
+            off(c, t, wasOn);
+        }
+    }
+
     private static void style(Session c, int v) {
         c.ctx().runOnClient(mc -> Mod.call(Mod.field(T, "CFG"), "set", "style", v));
     }
@@ -179,8 +228,9 @@ final class HxTreeRegen1123Cases {
         boolean[][] grows = {{true, false, false}, {true, true, false}, {false, true, false}, {false, false, true}};
         try {
             set(c, t[1], Blocks.AIR.defaultBlockState());
+            set(c, t[3], Blocks.AIR.defaultBlockState());
             set(c, t[1], Blocks.OAK_LOG.defaultBlockState());
-            c.waitUntil("drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 4, 60);
+            c.waitUntil("drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 3, 60);
             for (int v = 0; v < 4; v++) {
                 style(c, v);
                 c.ctx().waitTicks(25);

@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T00:15:55",
- "modSource": "lane-autotuner-slow-1124",
- "modGitSha": "1eb1d2d5f711e75d5980a2dbd1b5a9e88bdcc44d",
+ "generatedAt": "2026-11-25T01:07:36",
+ "modSource": "lane-invisibug-finder-1124",
+ "modGitSha": "ea9e1c5bc4555ba109551c2fa06c9b14c099731e",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
@@ -4099,7 +4099,7 @@
    "field": "SWEEP",
    "index": null,
    "file": "src/main/java/com/killer560/hub/foraging/SweepOverlay.java",
-   "line": 46,
+   "line": 51,
    "regex": "Sweep:\\D*?([\\d,]+(?:\\.\\d+)?)",
    "flags": null,
    "kind": "field",

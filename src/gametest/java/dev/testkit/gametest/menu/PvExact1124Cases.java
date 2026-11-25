@@ -546,7 +546,9 @@ final class PvExact1124Cases {
         PvStyle1104Cases.look(bad, stay == 7, style + ": the Combat tab on Crimson Isle moved to page " + stay + " (should stay)");
         c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
         c.ctx().waitTicks(3);
-        List<?> sections = c.onClient(mc -> (List<?>) Mod.field(m, "sections"));
+        sbpvDropdown(c, s, bad, style, theme0(style));
+        sbpvWorthSources(c, bad, style);
+        List<?> sections =c.onClient(mc -> (List<?>) Mod.field(m, "sections"));
         List<String> titles = new ArrayList<>();
         for (Object sec : sections) titles.add((String) Mod.field(sec, "title"));
         PvStyle1104Cases.look(bad, titles.equals(List.of("Skills", "Slayer", "Essence")), style + ": sections " + titles);
@@ -569,6 +571,60 @@ final class PvExact1124Cases {
         int cy = g[4] + 10;
         int got = gp(img, scale, g[0] + 5, cy + 10), exp = title == null ? -1 : blend(title.getRGB(25, 25), gp(img, scale, g[0] + 5, cy - 4));
         PvStyle1104Cases.look(bad, near(got, exp), style + ": Info title bar at contentY + 20 is " + String.format("%06X, its sprite gives %06X", got, exp));
+    }
+
+    private static String theme0(String style) { return style.equals("SBPV_CLEAR") ? "sbpv/clear/button.png" : "sbpv/button.png"; }
+
+    /** 1124l: SkyBlockPV's profile list is its dark buttons (BUTTON_DARK) under the profile button, not our popup card:
+     *  the left edge of the first row is the button sprite's, and the list holds one 20-tall row per profile. */
+    private static void sbpvDropdown(Session c, Screen s, List<String> bad, String style, String sprite) throws Exception {
+        int[] g = c.onClient(mc -> new int[]{i(s, "profileButtonX"), i(s, "profileButtonY"), i(s, "profileButtonH"), i(s, "panelX")});
+        BazaarReskinCases.pressAt(c, new int[]{g[0] + 2, g[1] + 2, 96, g[2] - 4}, 0);
+        c.ctx().waitTicks(3);
+        boolean open = c.onClient(mc -> (Boolean) Mod.field(s, "dropdownOpen"));
+        PvStyle1104Cases.look(bad, open, style + ": the profile button click did not open the list");
+        BufferedImage shot = BazaarReskinCases.shot(c, style.toLowerCase() + "-dropdown");
+        double scale = shot.getWidth() / (double) c.onClient(mc -> s.width);
+        int ry = g[1] + g[2] + 1, x = g[0];
+        BufferedImage sp = res(sprite);
+        PvStyle1104Cases.look(bad, sp != null, style + ": no " + sprite + " in the jar");
+        if (sp != null) {
+            int bg = gp(shot, scale, x - 4, ry + 10), exp = blend(sp.getRGB(1, sp.getHeight() / 2), bg), got = gp(shot, scale, x + 1, ry + 10);
+            PvStyle1104Cases.look(bad, near(got, exp), style + ": first list row's left edge is " + String.format("%06X, the dark button sprite gives %06X", got, exp));
+        }
+        setObj(s, "dropdownOpen", false);
+        c.ctx().waitTicks(2);
+    }
+
+    /** 1124l: the Net Worth hover's sources carry the original's category names in its order (NetworthCategory), ours with no
+     *  counterpart after them, Museum last, and every number is the calculator's. */
+    private static void sbpvWorthSources(Session c, List<String> bad, String style) {
+        String hover = c.onClient(mc -> {
+            try {
+                Class<?> cat = Mod.cls("profileviewer.data.Networth$Category");
+                Class<?> res = Mod.cls("profileviewer.data.Networth$Result");
+                String[] names = {"Ender Chest", "Bags", "Wardrobe", "Purse / Bank", "Accessory Bag", "Museum", "Inventory", "Pets", "Sacks"};
+                List<Object> cats = new ArrayList<>();
+                long n = 1000;
+                for (String nm : names) cats.add(cat.getDeclaredConstructors()[0].newInstance(nm, n += 1000, List.of()));
+                Object r = res.getDeclaredConstructors()[0].newInstance(0L, cats, 0, 0, true, 0L, List.of(), true, 0L, List.of());
+                return text((List<?>) Mod.staticCall("profileviewer.screen.ProfileViewerScreen", "sbpvWorthTip", 4_000_000_000L, r, 2_000_000.0, false, true));
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("cannot build a Networth result: " + e, e);
+            }
+        });
+        String plain = hover.replaceAll("§.", "");
+        String[] want = {"Purse/Bank: 5,000", "Inventory: 8,000", "Enderchest: 2,000", "Sacks: 10,000", "Pets: 9,000", "Loadout: 4,000",
+                "Talisman Bag: 6,000", "Bags: 3,000", "Museum: 7,000"};
+        int at = -1;
+        boolean ordered = true;
+        for (String w : want) {
+            int k = plain.indexOf(w);
+            ordered &= k > at;
+            at = Math.max(at, k);
+        }
+        PvStyle1104Cases.look(bad, ordered && !plain.contains("Ender Chest") && !plain.contains("Wardrobe") && !plain.contains("Accessory Bag")
+                && !plain.contains("Not loaded"), style + ": Net Worth sources " + plain);
     }
 
     /** 1124c: SkyBlockPV's own Loadout, Fishing, Foraging, Chocolate Factory and Kills pages build from the profile. */
