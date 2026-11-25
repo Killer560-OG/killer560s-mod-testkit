@@ -448,7 +448,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1125-hype-resync", c -> {
                     acResync = true;
                     try {
-                        caseAutoClearHype(c, null, false, false, true);
+                        caseAutoClearHype(c, null, false, false, false);
                     } finally {
                         acResync = false;
                     }
