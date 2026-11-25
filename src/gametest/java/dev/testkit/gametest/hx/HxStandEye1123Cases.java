@@ -52,9 +52,11 @@ final class HxStandEye1123Cases {
         s.test("1123-hx-standeye-senders-same-swap", c -> run(c, "swap"));
         s.test("1123-hx-standeye-senders-same-tp", c -> run(c, "tp"));
         s.test("1125-hx-standeye-twotick", c -> run(c, null, 2));
-        for (String act : new String[]{"idle", "use", "dig", "swap", "tp"}) {
-            s.test("1125-hx-standeye-twotick-same-" + act, c -> run(c, act, 2));
-        }
+        s.test("1125-hx-standeye-twotick-same-idle", c -> run(c, "idle", 2));
+        s.test("1125-hx-standeye-twotick-same-use", c -> run(c, "use", 2));
+        s.test("1125-hx-standeye-twotick-same-dig", c -> run(c, "dig", 2));
+        s.test("1125-hx-standeye-twotick-same-swap", c -> run(c, "swap", 2));
+        s.test("1125-hx-standeye-twotick-same-tp", c -> run(c, "tp", 2));
     }
 
     /** The mod's re-aim counter, 0 on a jar from before it (the origin jar). */
