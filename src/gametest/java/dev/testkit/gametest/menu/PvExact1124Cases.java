@@ -50,12 +50,16 @@ final class PvExact1124Cases {
                     + "\"player_stats\":{\"kills\":{\"total\":500,\"zombie\":500,\"zombie_1\":20},\"deaths\":{\"total\":20}},"
                     // 1124c: SkyBlockPV's Fishing, Chocolate Factory and Loadout pages.
                     + "\"trophy_fish\":{\"sulphur_skitter\":3,\"sulphur_skitter_bronze\":3,\"total_caught\":3,\"last_caught\":\"sulphur_skitter/bronze\"},"
-                    + "\"events\":{\"easter\":{\"chocolate\":1234567,\"total_chocolate\":2500000,\"chocolate_level\":2,\"employees\":{\"rabbit_bro\":10}}},"
+                    + "\"events\":{\"easter\":{\"chocolate\":1234567,\"total_chocolate\":2500000,\"chocolate_level\":2,\"employees\":{\"rabbit_bro\":10},"
+                    + "\"rabbits\":{\"aaron\":2,\"able\":1,\"collected_eggs\":{}},\"rabbit_hitmen\":{\"rabbit_hitmen_slots\":3}}},"
+                    // 1124d: tree gifts, personal bests and essence perks, and a HotM tree for the Loadout trees.
+                    + "\"foraging\":{\"tree_gifts\":{\"FIG\":12,\"milestone_tier_claimed\":{\"FIG\":2}},\"starlyn\":{\"personal_bests\":{\"FIG_LOG\":4321}}},"
+                    + "\"skill_tree\":{\"nodes\":{\"mining\":{\"mining_speed\":10,\"core_of_the_mountain\":1}},\"experience\":{\"mining\":5000}},"
                     + "\"loadout\":{\"loadouts\":{\"1\":{\"id\":1,\"name\":\"Boss\",\"favoredBait\":\"MINNOW_BAIT\"}}},"
                     + "\"leveling\":{\"experience\":12345},\"profile\":{\"first_join\":1600000000000,\"cookie_buff_active\":true},"
                     + "\"jacobs_contest\":{\"perks\":{\"double_drops\":15},\"medals_inv\":{\"gold\":4}},\"rift\":{")
             // 1124b: a maxed Social (NEU's maxed bar), a bank history, and a worn diamond set for the model's armor.
-            .replace("\"SKILL_FARMING\":3000000", "\"SKILL_FARMING\":3000000,\"SKILL_SOCIAL\":5000000")
+            .replace("\"SKILL_FARMING\":3000000}", "\"SKILL_FARMING\":3000000,\"SKILL_SOCIAL\":5000000},\"perks\":{\"midas_lure\":5,\"drake_piper\":1,\"agatha_fig_personal_best\":1,\"agatha_fig_fortune\":50}")
             .replace("\"banking\":{\"balance\":4200000}", "\"banking\":{\"balance\":4200000,\"transactions\":["
                     + "{\"amount\":250000,\"timestamp\":1700000000000,\"action\":\"DEPOSIT\",\"initiator_name\":\"§bPvStyleTest\"},"
                     + "{\"amount\":1000,\"timestamp\":1700000500000,\"action\":\"WITHDRAW\",\"initiator_name\":\"§bPvStyleTest\"}]}")
@@ -396,6 +400,37 @@ final class PvExact1124Cases {
                 style + ": Loadout selector hover " + (loTips == null || loTips[0] == null ? "none" : text(loTips[0])));
         String forg = String.join(" | ", (String[]) Mod.field(m, "forInfo"));
         PvStyle1104Cases.look(bad, !forg.isEmpty(), style + ": Foraging Information is empty");
+        // 1124d: the bundled repo tables acted (rarities, hitman cost, perks, gift maxima, personal bests, loadout trees, gear).
+        String rar = String.join(" | ", (String[]) Mod.field(m, "rarityCounts"));
+        List<?>[] rarTips = (List<?>[]) Mod.field(m, "rarityTips");
+        PvStyle1104Cases.look(bad, rar.startsWith("§b0") && rar.endsWith("§f2") && text(rarTips[rarTips.length - 1]).contains("Total: 3"),
+                style + ": Rarities chips " + rar);
+        List<?>[] cfTips = (List<?>[]) Mod.field(m, "cfInfoTips");
+        String hit = "";
+        for (List<?> t : cfTips) if (t != null && text(t).startsWith("Paid:")) hit = text(t);
+        PvStyle1104Cases.look(bad, hit.equals("Paid: 100,000/32M (0.31%)"), style + ": hitman hover '" + hit + "'");
+        PvStyle1104Cases.look(bad, fish.contains("Midas Lure: §c5§r/10") && fish.contains("Drake Piper: §a1§r/1"), style + ": fishing perks " + fish);
+        PvStyle1104Cases.look(bad, forg.contains("Fig Gifts: §c2§r/§a7") && forg.contains("Total Fig Gifts: 12"), style + ": tree gifts " + forg);
+        String pb = String.join(" | ", ((String[][]) Mod.field(m, "pbLines"))[0]);
+        PvStyle1104Cases.look(bad, pb.equals("Fig Personal Bests: §aYes | Fig Best: §c4,321§r/§a100,000 | Fig Fortune Level: §a50§r/§a50"),
+                style + ": Fig personal bests " + pb);
+        Object hotm = ((Object[][]) Mod.field(m, "trees"))[0][0];
+        String counts = hotm == null ? "" : String.join(",", (String[]) Mod.field(hotm, "counts"));
+        PvStyle1104Cases.look(bad, counts.contains("10"), style + ": HOTM Loadout tree " + (hotm == null ? "missing" : counts));
+        for (int[] page : new int[][]{{17}, {16}, {14}}) {
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", page[0]));
+            c.ctx().waitTicks(3);
+            BazaarReskinCases.shot(c, style.toLowerCase() + "-page" + page[0]);
+        }
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 15));
+        c.waitUntil("the Fishing Gear is built", mc -> {
+            Object g = Mod.field(m, "fishGear");
+            return g != null && ((java.util.concurrent.Future<?>) g).isDone();
+        }, 400);
+        Object gear = ((java.util.concurrent.Future<?>) Mod.field(m, "fishGear")).get();
+        PvStyle1104Cases.look(bad, gear != null && ((List<?>) Mod.field(gear, "tools")).size() == 4, style + ": Fishing Gear " + gear);
+        c.ctx().waitTicks(3);
+        BazaarReskinCases.shot(c, style.toLowerCase() + "-page15");
         c.ctx().runOnClient(mc -> { Mod.call(s, "setPage", 15); setInt(pages, "fishTab", 1); });
         c.ctx().waitTicks(3);
         BazaarReskinCases.shot(c, style.toLowerCase() + "-frogs");
