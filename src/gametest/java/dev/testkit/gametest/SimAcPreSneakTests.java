@@ -34,6 +34,14 @@ import java.util.List;
  * gave way only at their end, so origin's searched trips waited 5-12 ms in the queue (37 of 213 on the 6 floors, 15 of 37 on this one; the fix: 0-1) and many
  * left a tick late. The probe reads each "[Path] running ... queued X ms" line; asserts the floor cleared, at least
  * {@link #MIN_QUEUED_LINES} searched trips ran and at most {@link #MAX_SLOW_QUEUED} of them queued {@link #SLOW_QUEUE_MS} ms or more.
+ * <p>
+ * <b>1125-sim-ac-nearprime</b> (mod acoptimal-next4-1125), the same floor: the sneak is down before the kill also when a mob
+ * left stands within a cast across. Origin primed it only when every mob left was beyond one (or the plan's next step was a
+ * warp), so 59 of the 67 one-tick-late warps on the 6 floors waited for a sneak pressed on the kill's tick. The probe reads,
+ * at each kill Auto Clear counts, the sneak the server heard last (the input of the tick before), and counts the trips after
+ * a kill whose first warp found it up; asserts the floor cleared, at least {@link #MIN_KILL_TRIPS} trips after a kill, at most
+ * {@link #MAX_UNSNEAKED} of them unsneaked at the kill, and no more than {@link #MAX_LATE_CASTS} casts after a kill 2+ ticks late
+ * (the prime holds only its own tick's input, so a cast across after the kill still turns and goes standing, a tick after it).
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAcPreSneakTests implements FabricClientGameTest {
@@ -41,6 +49,18 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     private static final String PRESNEAK = "1124-sim-ac-presneak";
     private static final String SEARCHTICK = "1125-sim-ac-searchtick";
     private static final String WARMYIELD = "1125-sim-ac-warmyield";
+    private static final String NEARPRIME = "1125-sim-ac-nearprime";
+    /** Trips after a kill the floor must run, at least. */
+    private static final int MIN_KILL_TRIPS = 25;
+    /** Trips after a kill allowed to start with the sneak not yet heard. */
+    private static final int MAX_UNSNEAKED = 3;
+    /** Casts after a kill allowed to go 2 or more ticks after it. */
+    private static final int MAX_LATE_CASTS = 2;
+    private static boolean prevShift;
+    private static boolean killUnsneaked;
+    private static int killTrips;
+    private static int unsneakedTrips;
+    private static final int[] CAST_GAPS = new int[3];
     /** Searched trips (lines with a queue time) the floor must run, at least. */
     private static final int MIN_QUEUED_LINES = 10;
     /** A queue wait this long is a warm-up slice in the way (a search alone is 1-4 ms). */
@@ -73,10 +93,10 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD}) {
+        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD, NEARPRIME}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(name)) {
                 NAME = name;
-                runOne(ctx, name.equals(SEARCHTICK), name.equals(WARMYIELD));
+                runOne(ctx, name.equals(SEARCHTICK), name.equals(WARMYIELD) || name.equals(NEARPRIME));
             }
         }
     }
@@ -114,6 +134,9 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         int searchedBefore = searched(ctx);
         ctx.runOnClient(mc -> {
             java.util.Arrays.fill(GAPS, 0);
+            java.util.Arrays.fill(CAST_GAPS, 0);
+            killTrips = 0;
+            unsneakedTrips = 0;
             killTick = -1;
             logMark = LogTap.mark();
             queuedLines = 0;
@@ -146,13 +169,26 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
                 + " 1:" + gaps[1] + " 2:" + gaps[2] + " 3:" + gaps[3] + " 4:" + gaps[4] + " 5+:" + gaps[5]
                 + "; primed sneak ticks " + primedBefore + " -> " + primedAfter + "; searched trips taken in the tick "
                 + searchedBefore + " -> " + searchedAfter + "; searched trips " + queuedLines + ", queued >= " + SLOW_QUEUE_MS
-                + " ms " + slowQueued + " (worst " + worstQueued + " ms)");
+                + " ms " + slowQueued + " (worst " + worstQueued + " ms); trips after a kill " + killTrips
+                + ", unsneaked at the kill " + unsneakedTrips + "; casts after a kill gap 0:" + CAST_GAPS[0] + " 1:"
+                + CAST_GAPS[1] + " 2+:" + CAST_GAPS[2]);
         long notCleared = rooms.stream().filter(r -> !r.cleared()).count();
         if (rooms.size() < 10 || notCleared > 0) {
             problems.add(rooms.size() + " room line(s), " + notCleared + " not cleared - the floor was not cleared");
         }
         int want = searchTick ? MIN_SAME_TICK_SEARCH : MIN_SAME_TICK;
-        if (warmYield) {
+        if (NAME.equals(NEARPRIME)) {
+            if (killTrips < MIN_KILL_TRIPS) {
+                problems.add(killTrips + " trip(s) after a kill, want at least " + MIN_KILL_TRIPS);
+            }
+            if (unsneakedTrips > MAX_UNSNEAKED) {
+                problems.add(unsneakedTrips + " of " + killTrips + " trip(s) after a kill found the sneak not yet heard at the"
+                        + " kill, want at most " + MAX_UNSNEAKED);
+            }
+            if (CAST_GAPS[2] > MAX_LATE_CASTS) {
+                problems.add(CAST_GAPS[2] + " cast(s) after a kill went 2+ ticks after it, want at most " + MAX_LATE_CASTS);
+            }
+        } else if (warmYield) {
             if (queuedLines < MIN_QUEUED_LINES) {
                 problems.add(queuedLines + " searched trip(s) ran, want at least " + MIN_QUEUED_LINES);
             }
@@ -229,21 +265,36 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         if (killTick >= 0) {
             if (newHop >= 0) {
                 GAPS[(int) Math.min(5, newHop - killTick)]++;
+                killTrip();
                 killTick = -1;
             } else if (lastUses >= 0 && uses > lastUses) {
+                CAST_GAPS[(int) Math.min(2, tick - killTick)]++;
                 killTick = -1;   // a cast or a bat went first: not a trip after the kill
             }
         }
         if (lastKills >= 0 && kills > lastKills) {
             killTick = tick;
+            killUnsneaked = !prevShift;   // the input of the tick before: what the server heard when this tick's use goes
             if (!hops.isEmpty() && hops.get(hops.size() - 1) == tick) {
                 GAPS[0]++;   // the warp went in the kill's own tick
+                killTrip();
+                killTick = -1;
+            } else if (lastUses >= 0 && uses > lastUses) {
+                CAST_GAPS[0]++;
                 killTick = -1;
             }
         }
+        prevShift = mc.player.getLastSentInput().shift();
         lastKills = kills;
         lastUses = uses;
         lastHops = hopCount;
+    }
+
+    private static void killTrip() {
+        killTrips++;
+        if (killUnsneaked) {
+            unsneakedTrips++;
+        }
     }
 
     /** Reads the queue time of every searched trip logged since the last read (client thread; the ring holds 4000 lines). */
