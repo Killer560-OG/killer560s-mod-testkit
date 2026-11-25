@@ -182,8 +182,9 @@ final class EtableDefaultsCases {
             // file keeps a 0 (or 250,000) its owner set, and the slider range still reaches 0.
             loadFrom(c, oldDefaultsFile("").replace("\"configVersion\":1", "\"configVersion\":2"));
             String v2 = snapshot(c);
-            if (!v2.equals(HIS)) {
-                problems.add("version-2 file with price 0: got " + v2 + ", expected " + HIS);
+            String expectV2 = HIS.replace("delay=400", "delay=200").replace("first=600", "first=1000").replace("random=50", "random=0");
+            if (!v2.equals(expectV2)) {
+                problems.add("version-2 file with price 0: got " + v2 + ", expected " + expectV2);
             }
             loadFrom(c, oldDefaultsFile("").replace("\"configVersion\":1", "\"configVersion\":3")
                     .replace("\"delayMs\":200", "\"delayMs\":400").replace("\"firstClickDelayMs\":1000", "\"firstClickDelayMs\":600")

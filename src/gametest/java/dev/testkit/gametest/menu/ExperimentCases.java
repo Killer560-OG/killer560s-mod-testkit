@@ -983,6 +983,7 @@ final class ExperimentCases {
     /** A stakes screen with some tiers locked, played by the run: the tier clicks in 80 ticks and the chat lines. */
     private static String stakesNoClick(Session c, String... locks) throws Exception {
         MenuKit.reset(c);
+        c.ctx().runOnClient(mc -> Mod.setField(FEATURE, "armed", true)); // a stop disarms the run
         int before = c.events("container.click").size();
         long mark = dev.testkit.gametest.LogTap.mark();
         JsonObject slots = new JsonObject();
@@ -1001,6 +1002,7 @@ final class ExperimentCases {
     /** The Bottles of Enchanting screen with one Titanic at the given Bazaar price: the slot the run clicks, or "none". */
     private static String bottlesRun(Session c, String price) throws Exception {
         MenuKit.reset(c);
+        c.ctx().runOnClient(mc -> Mod.setField(FEATURE, "armed", true));
         int before = c.events("container.click").size();
         JsonObject slots = new JsonObject();
         slots.add("11", MenuKit.obj("{\"item\":\"minecraft:experience_bottle\",\"name\":\"§dTitanic Experience Bottle\","
