@@ -410,6 +410,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1122-same-plan-attack", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.ATTACK, false, false, true));
                 s.test("62-argrim-1122-same-plan-swap", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.SWAP, false, false, true));
                 s.test("62-argrim-1122-same-plan-tp", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.TP, false, false, true));
+                // acoptimal-next4-1125-fix2: the server moves him off the plan after its first cast (as his own Hyperion
+                // click does); the plan is planned again from there and acts again, Grim clean.
+                s.test("62-argrim-1125-plan-moved", c -> {
+                    acPlanShove = true;
+                    try {
+                        caseAutoClearHype(c, null, false, false, true);
+                    } finally {
+                        acPlanShove = false;
+                    }
+                });
                 // The same corner layout with his container click armed by Auto Clear's first etherwarp line instead of the
                 // plan's: runs on a jar without the plan too (an origin jar shows whether a flag there is the plan's).
                 s.test("62-argrim-1122-trip-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
@@ -5138,6 +5148,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /** Trip price every plan row starts from (0 = none learned); the walk row prices every etherwarp trip out. */
     private static double acTripPrice;
+    /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena 4 ticks after the plan's first cast. */
+    private static boolean acPlanShove;
 
     /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
@@ -5262,7 +5274,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (second && !armed) {
             start.run();
         }
+        int[] shoveIn = {acPlanShove && plan ? 4 : -1};
+        int[] shoveAt = {-1};
         boolean finished = waitFor(ctx, 600, () -> {
+            if (shoveIn[0] >= 0 && shoveIn[0]-- == 0) {
+                shoveAt[0] = LogTap.since(m).size();
+                tpRel(ctx, 16.5, 15.5, -90f, 0f);
+            }
             if (armed && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, chainLine)
                     && tpSpam[0]-- > 0) {
                 // The teleports keep coming through the chained cast's ticks, so one of his answers shares its tick.
@@ -5373,6 +5391,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 }
                 c.note("Hyperion uses on a look the server had not heard " + ridden.size() + (ridden.isEmpty() ? "" : " e.g. " + ridden.get(0)));
                 check(ridden.isEmpty(), "his right click went out on Auto Clear's unheard turn: " + ridden);
+            }
+            if (shoveAt[0] >= 0) {
+                // The feature acted: the plan left for the server's move is planned again from there, and a plan step
+                // (a cast across or the plan's etherwarp) goes after it.
+                List<String> after = LogTap.since(m);
+                after = after.subList(Math.min(shoveAt[0], after.size()), after.size());
+                int keep = -1;
+                for (int i = 0; i < after.size() && keep < 0; i++) {
+                    keep = after.get(i).contains("so it is planned again from here") ? i : -1;
+                }
+                long stepsAfter = keep < 0 ? 0 : after.subList(keep, after.size()).stream().filter(l ->
+                        l.contains("[AutoClear] Wither Impact (room plan)") || l.contains("- the plan's block")).count();
+                c.note("moved by the server: planned again " + (keep >= 0) + ", plan steps after it " + stepsAfter);
+                check(keep >= 0, "the server's move did not get the plan planned again from where it put him");
+                check(stepsAfter >= 1, "no plan step after the plan was planned again from where the server put him");
             }
             check(planMoves >= 2 && planCasts >= 1, "the room kill plan did not act (plan moves " + planMoves + ", plan casts "
                     + planCasts + "): the plan rows tested nothing");
