@@ -308,6 +308,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1123-holdreplan", c -> caseHoldReplan(c, null));
                 s.test("62-argrim-1123-holdreplan-same-use", c -> caseHoldReplan(c, dev.testkit.gametest.SameTick.Act.USE));
                 s.test("62-argrim-1123-holdreplan-same-swap", c -> caseHoldReplan(c, dev.testkit.gametest.SameTick.Act.SWAP));
+                // mod arstuck-1125: his left click on a held warp sends it in its own tick, never as an attack.
+                s.test("62-argrim-1125-heldclick", GrimAutoRoutesTests::caseHeldClick);
             }
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -3768,6 +3770,69 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (!cube.isEmpty()) {
                 Map<int[], String> air = new HashMap<>();
                 cube.keySet().forEach(k -> air.put(k, "minecraft:air"));
+                setBlocks(ctx, air);
+            }
+        }
+    }
+
+    /**
+     * 62-argrim-1125-heldclick (arstuck-1125): a start ew node (6,6) -> (14,6) with a stone at (10,F,6) set in its line
+     * after it was written, so the aim check holds the warp ("no look from here lands on", sneak down) and the chat line
+     * says a left click sends it. His real left click is taken from vanilla in its own tick and the warp's use goes in
+     * that tick: one use_item at least, no player_action, no swing of its own (his 2026-11-25 clicks went out as Dungeon
+     * Breaker digs and the warp stayed held). GrimAC (default and experimental): nothing.
+     */
+    private static void caseHeldClick(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Map<int[], String> cap = new HashMap<>();
+        try {
+            writeRoute(ctx, List.of(ew(6, 6, 14, 6, true)));
+            cap.put(new int[]{10, F, 6}, "minecraft:stone");
+            setBlocks(ctx, cap);
+            tpRel(ctx, 6.5, 2.5 + 1, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+            ctx.waitTicks(10);
+            long mr = LogTap.mark();
+            tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+            ctx.waitTicks(40);
+            check(logHas(mr, "no look from here lands on") && ctx.computeOnClient(mc -> (Boolean)
+                    ModUnderTest.staticCall(EXECUTOR, "isRunning")), "premise: the warp was not held by the aim check");
+            JsonObject before = stats();
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            startSampling(ctx);
+            long mk = LogTap.mark();
+            ctx.getInput().holdKey(o -> o.keyAttack);
+            ctx.waitTicks(2);
+            ctx.getInput().releaseKey(o -> o.keyAttack);
+            ctx.waitTicks(15);
+            List<Sample> s = stopSampling(ctx);
+            printTrace(c.name(), s);
+            int stray = 0;
+            for (Sample x : s) {
+                stray += (int) Math.max(0, x.out().stream().filter(dev.testkit.compat.McPackets.swingId()::equals).count()
+                        - x.out().stream().filter("use_item"::equals).count());
+            }
+            println(c.name() + ": released " + logHas(mk, "released its wait") + ", uses " + useTicks(s).size()
+                    + ", player_action " + count(s, "player_action") + ", stray swings " + stray + ", server etherwarps "
+                    + delta(before, "etherwarps"));
+            check(logHas(mk, "Left click on node #1 ETHERWARP: released its wait"), "his left click did not send the held warp");
+            check(!logHas(mk, "your attack goes out this tick"), "his left click was handed to vanilla as an attack");
+            check(useTicks(s).size() >= 1 && delta(before, "etherwarps") >= 1, "no etherwarp went out after his click");
+            check(count(s, "player_action") == 0, "his click still sent " + count(s, "player_action") + " player_action");
+            check(stray == 0, "his click still sent " + stray + " swing(s) of its own");
+            c.note("heldclick: " + useTicks(s).size() + " use(s), 0 player_action, 0 stray swing");
+            noteFlags(c, s);
+            check(c.scenario().flags().isEmpty(), "GrimAC flagged: " + c.scenario().flags());
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                dev.testkit.harness.WireCapture.stop();
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+            });
+            if (!cap.isEmpty()) {
+                Map<int[], String> air = new HashMap<>();
+                cap.keySet().forEach(k -> air.put(k, "minecraft:air"));
                 setBlocks(ctx, air);
             }
         }
