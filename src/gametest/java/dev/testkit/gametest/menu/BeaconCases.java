@@ -26,6 +26,7 @@ final class BeaconCases {
         MenuSuite.test(s, "1123-menu-beacon-tune2", BeaconCases::tune2);
         MenuSuite.test(s, "1123-menu-beacon-pause", BeaconCases::pause);
         MenuSuite.test(s, "1124-menu-beacon-samecolor", BeaconCases::sameColor);
+        MenuSuite.test(s, "1124-menu-beacon-autoruns", BeaconCases::autoRuns);
         BeaconAutoCases.register(s);
         BeaconHudCases.register(s);
     }
@@ -173,6 +174,33 @@ final class BeaconCases {
                 "both beacon beats (green speed 4 Normal, magenta speed 1 High) measured: " + s);
         String yours = s == null ? "" : s.substring(s.indexOf("| yours"));
         c.check(yours.contains(";") && !yours.contains("?"), "two player beats readable from the lore: " + s);
+    }
+
+    /**
+     * His two slow Auto Tunes of 11-24 11:16 PM replayed (fixtures beacon-auto1/auto2-1124.tsv, from the logger session of that
+     * night). Run 1: after his green pane sat paused 200 ticks it was read as overdue, so at its unpause the tuner swapped his
+     * two panes, subtracted the wrong beat's sound and read the orange beacon beat Normal, then Low (Pitch re-turned five times).
+     * Run 2: both beacon beats are speed 4 and step in the same tick, so neither pitch was ever heard alone: nothing was clicked
+     * for 200 ticks. Now the beacon beats keep High / Low and his panes stay where they are, and run 2 has both pitches (Normal
+     * and High, whose is which a guess) after their first step.
+     */
+    private static void autoRuns(Session c) throws Exception {
+        int a = 23074;
+        java.util.Map<Integer, String> r = replay(c, "beacon-auto1-1124.tsv", true, a + 60, a + 300, a + 350, a + 400, a + 450, a + 500);
+        c.note("auto run 1 replay: +300 " + r.get(a + 300) + " ## +400 " + r.get(a + 400));
+        for (int t : new int[]{60, 300, 350, 400, 450, 500}) {
+            String s = r.get(a + t);
+            c.check(s != null && s.contains("green, speed 3, low") && s.contains("orange, speed 4, high"), "run 1 beacon beats (green 3 Low, orange 4 High) at +" + t + ": " + s);
+        }
+        String y = r.get(a + 300);
+        c.check(y != null && y.matches(".*\\| yours orange, speed 4, \\w+ @3; green, speed 3, \\w+ @2.*"), "his panes after the unpause (orange @3, green @2) at +300: " + y);
+        int b = 23762;
+        java.util.Map<Integer, String> q = replay(c, "beacon-auto2-1124.tsv", true, b + 40);
+        String z = q.get(b + 40);
+        c.note("auto run 2 replay: +40 " + z);
+        String beacon = z == null ? "" : z.substring(0, Math.max(0, z.indexOf("| yours")));
+        c.check(beacon.contains("speed 4, normal") && beacon.contains("speed 4, high") && !beacon.contains("?"),
+                "run 2 both pitches (Normal and High) known after the first joint step: " + z);
     }
 
     /**

@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T01:06:52",
- "modSource": "lane-beacon-ready-hud-1125",
- "modGitSha": "89144b79aea9f7fffeb60370dc9b3bfa5049b877",
+ "generatedAt": "2026-11-25T01:36:28",
+ "modSource": "lane-acoptimal-next-1124",
+ "modGitSha": "4d1fcc696512291e977f940217029f15bb4d4054",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
@@ -4051,23 +4051,23 @@
    "field": "HEADER",
    "index": null,
    "file": "src/main/java/com/killer560/hub/foraging/BeaconReadyAlert.java",
-   "line": 36,
+   "line": 29,
    "regex": "^[A-Za-z]{2,20} Beacon: \\d{1,4} Stacks?$",
    "flags": null,
    "kind": "field",
    "expr": "\"^[A-Za-z]{2,20} Beacon: \\\\d{1,4} Stacks?$\""
   },
   {
-   "id": "foraging.BeaconReadyAlert#COOL",
+   "id": "foraging.BeaconReadyAlert#AVAILABLE",
    "cls": "foraging.BeaconReadyAlert",
-   "field": "COOL",
+   "field": "AVAILABLE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/foraging/BeaconReadyAlert.java",
-   "line": 37,
-   "regex": "^Cooldown: (?:(\\d+)h ?)?(?:(\\d+)m ?)?(?:(\\d+)s)?$",
+   "line": 30,
+   "regex": "^Cooldown: AVAILABLE$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^Cooldown: (?:(\\\\d+)h ?)?(?:(\\\\d+)m ?)?(?:(\\\\d+)s)?$\""
+   "expr": "\"^Cooldown: AVAILABLE$\""
   },
   {
    "id": "foraging.BeaconTuneSolver#CURRENT",

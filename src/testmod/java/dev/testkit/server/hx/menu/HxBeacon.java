@@ -32,7 +32,7 @@ import java.util.List;
  * like the recording: left click forward, right click back, Speed 5 wraps to 1, Pitch High wraps to Low, Color red wraps to
  * white; Pause freezes your beat's step timer and unpause resumes it (recorded 11-24: five unpauses, each next step came the
  * rest of the period later). The tune completes when EVERY one of
- * your beats equals a beacon beat in color, speed, pitch AND slot, checked at each click (and at each step with
+ * your beats equals a beacon beat in color, speed, pitch AND slot, unpaused, checked at each click (and at each step with
  * {@code onStep}): chat "BEACON REWARDS", the menu closes. {@code menu.beacon.state} returns {clicks, done, steps, ...};
  * {@code beacon.click} {slot, kind, tick} and {@code beacon.done} are events.
  */
@@ -170,7 +170,7 @@ final class HxBeacon implements HxMenus.Ticking {
 
     private boolean complete() {
         for (Beat m : mine) {
-            if (beacon.stream().noneMatch(m::same)) {
+            if (m.paused || beacon.stream().noneMatch(m::same)) { // 11-24: matched while paused completed only at the unpause click
                 return false;
             }
         }
