@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T00:06:57",
- "modSource": "lane-optimal-blocks-reachable-1124",
- "modGitSha": "6e855ab325aa39bfcf7d9cc73134be48d2ed1efe",
+ "generatedAt": "2026-11-25T00:23:48",
+ "modSource": "lane-treeregen-lingers-1124",
+ "modGitSha": "a77dd80ade5c4d7769d2383a18201848b7e9c568",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
