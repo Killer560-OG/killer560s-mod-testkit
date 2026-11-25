@@ -70,11 +70,13 @@ final class BeaconAutoCases {
     /** His own hand tune that night took 324 ticks from the menu opening (11:14:57.9 to 11:15:14.1 PM): Auto Tune must beat it. */
     private static final int HAND = 324;
 
-    /** One beat matched in everything but phase: the beacon's pane halfway to its next step, yours {@code lag} ticks later (negative: earlier). */
+    /**
+     * One beat matched in everything but phase: the beacon's step timer starts as the menu opens (as recorded 11-25, and as
+     * the Tuner reads it), yours steps {@code lag} ticks after it (negative: earlier; a negative since counts up to 0 first).
+     */
     private static String phase(String color, int speed, int pitch, int lag) {
-        int p = 15 + 10 * (5 - speed);
         String b = "{\"color\":\"" + color + "\",\"speed\":" + speed + ",\"pitch\":" + pitch + ",\"idx\":3,\"since\":";
-        return "{\"beacon\":[" + b + p / 2 + "}],\"mine\":[" + b + (p / 2 - lag) + "}]}";
+        return "{\"beacon\":[" + b + "0}],\"mine\":[" + b + (-lag) + "}]}";
     }
 
     /** His VIII upgrade of 11-25 11:46:57 AM as it opened: beacon pink speed 5 Low at 0 and white speed 5 High at 4 (stepping together), his green speed 1 Low at 5 and cyan speed 4 Normal at 1. */
@@ -270,6 +272,11 @@ final class BeaconAutoCases {
                 st = null;
                 SameTick.judge(c, s2, "auto tune close", SameTick.Expect.SHARE);
                 return new Result(null, btn);
+            }
+            if (!done) { // what the server and the Tuner each held when it gave up
+                c.note("server " + c.hx().call("menu.beacon.state") + "; tuner tgt " + java.util.Arrays.deepToString((int[][]) Mod.field(TUNER, "tgtRaw"))
+                        + " cur " + java.util.Arrays.deepToString((int[][]) Mod.field(TUNER, "curS")) + " guessing " + Mod.field(TUNER, "guessing")
+                        + " swap " + Mod.field(TUNER, "swap"));
             }
             c.check(done, "the tune never completed in " + maxTicks + " ticks (clicks " + served + ")");
             if (budget > 0 && done) {
