@@ -28,7 +28,9 @@ import java.util.function.Predicate;
 /**
  * 1109-boss-ee3route-grim (ee3route-1109): the HEE2 -> EE3 route file {@code fastest.json} on GrimAC. The stretch's map
  * (corridor, S2 pit, low-lever platform, Breaker tunnel, walkway to EE3) is rebuilt from his P3 capture as /fill commands
- * ({@code killer560s-mod-logs/ee3route-1109/fills-env.txt}, written by fills.py there; full cubes as stone). Lever Aura
+ * ({@code killer560s-mod-logs/ee3route-1109/fills-full.txt}, written by fills.py there; full cubes as stone; every cell of
+ * x -2..63 y 104..142 z 100..146 equals the capture. ee3-casestart-1125: fills-env.txt, used until then, had 48k cells of
+ * that box differ from the capture (applied in order), among them the y120 ledge at x10-11 z111-117 the newer routes land on at t65-70). Lever Aura
  * flicks both S2 levers (with their "Not Activated" stands) while AP3 holds the walk (leverap3-1109: the off-walk look),
  * the BOOM node sends its Superboom tap and the server then clears gate 2's arch cells (SimBossTests DOOR_BOX 2), as Hypixel would; GrimAC must stay
  * silent (Session.test) on the default and experimental configs.
@@ -389,7 +391,7 @@ final class Ee3RouteGrimCases {
     static void run(Session c, SameTick.Act act, boolean noLook) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         Path route = routeDir().resolve(ROUTE + ".json");
-        Path fills = DIR.resolve("fills-env.txt");
+        Path fills = DIR.resolve("fills-full.txt");
         c.check(Files.isRegularFile(route) && Files.isRegularFile(fills), "missing " + route + " or " + fills);
         Ticks ticks = new Ticks();
         SameTick st = null;
@@ -511,12 +513,34 @@ final class Ee3RouteGrimCases {
                 }
                 c.server().sync(30);
             }
-            // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
+            // ee3-casestart-1125: the start of a boss run as in a real one after AP3's Fast Align at HEE2 (stopped, feet on the
+            // point, <= 0.002 in 7 Hypixel runs) and as 1112-boss-ap3trace: AP3 off for the tp, standing still on the ground at
+            // the HEE2 node, yaw 117 pitch 46.3 (the route finder's start), then AP3 on, so the first node fires from rest.
+            // With AP3 on, the tp fired the route on his airborne landing tick (60.49,138.98 at tick 2): every run began
+            // 0.02-0.04 off the plan, and new routes fell off the start floor before the levers.
+            c.onClient(mc -> {
+                Mod.set("ap3.Ap3Config", "setEnabled", false);
+                return null;
+            });
             park(c);
             c.ctx().waitTicks(5);
-            // The start of a boss run: standing at the HEE2 node, yaw 117 pitch 46.3 (the route finder's sim start).
             walkRec = walkTrace != null;
             c.hx().call("dungeon.tp", "x", 60.5, "y", 132.0, "z", 139.0, "yaw", 117f, "pitch", 46.3f);
+            double[] rest = null;
+            for (int w = 0; w < 40; w++) {
+                c.ctx().waitTick();
+                rest = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getZ(), mc.player.onGround() ? 1 : 0,
+                        mc.player.getDeltaMovement().horizontalDistance()});
+                if (w >= 2 && rest[2] > 0 && rest[3] == 0) {
+                    break;
+                }
+            }
+            c.check(rest[2] > 0 && rest[3] == 0 && Math.hypot(rest[0] - 60.5, rest[1] - 139) < 1e-6, String.format(Locale.ROOT,
+                    "not placed still on HEE2 (%.5f,%.5f ground %s h %.5f)", rest[0], rest[1], rest[2] > 0, rest[3]));
+            c.onClient(mc -> {
+                Mod.set("ap3.Ap3Config", "setEnabled", true);
+                return null;
+            });
             int t0 = -1;
             int charges = 20;
             int recharge = 0;

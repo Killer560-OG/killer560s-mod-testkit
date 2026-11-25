@@ -239,6 +239,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxArrowParticles1117Cases.register(s);
                     // mod invisibug-1122: Invisibug Highlight.
                     HxInvisibug1122Cases.register(s);
+                    HxInvisibug1125Cases.register(s); // 1125-invisibug-* (invibug-tracer-1125)
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);
                     // mod featG-1109: Carry Tracker.
