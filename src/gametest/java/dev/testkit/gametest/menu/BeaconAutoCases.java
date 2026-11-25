@@ -31,6 +31,12 @@ import java.util.function.Consumer;
  *   <li>1124-menu-autotune-run1 / -run2: his two slow Auto Tunes of 11-24 11:16 PM as they opened (607 and 458 ticks; the
  *       second with both beacon beats stepping together, so their pitches are only heard together); each must complete
  *       faster than his own hand tune that night (324 ticks).</li>
+ *   <li>1125-menu-autotune-phase / -phase-jitter: your pane on the beacon pane's slot, everything matched, but stepping N ticks
+ *       after it (N = 1..14 at speed 5; the jitter variant varies the latency every 10 ticks): his VIII upgrade of 11-25 sat
+ *       5 ticks out and Auto Tune gave up. The fake server completes only in step (see HxBeacon); each must end in step.</li>
+ *   <li>1125-menu-autotune-viii: that upgrade as it opened (white and pink speed 5 stepping together).</li>
+ *   <li>1125-menu-autotune-slowboost / -slowwait: speed 1, 10 ticks behind (a pause would wait 375 ticks: it must run at Speed 5
+ *       and be done in well under that) and 4 ticks ahead (waiting is quicker: no Speed click at all).</li>
  *   <li>1123-menu-autotune-off: OFF (and the legit jar, which has no such setting) sends nothing.</li>
  *   <li>1123-same-autotune-click / -swap / -close: his own container click, hotbar swap and menu close in the SAME client tick
  *       as an Auto Tune click ({@link SameTick}); run on default and experimental GrimAC (separate checkouts).</li>
@@ -64,6 +70,18 @@ final class BeaconAutoCases {
     /** His own hand tune that night took 324 ticks from the menu opening (11:14:57.9 to 11:15:14.1 PM): Auto Tune must beat it. */
     private static final int HAND = 324;
 
+    /** One beat matched in everything but phase: the beacon's pane halfway to its next step, yours {@code lag} ticks later (negative: earlier). */
+    private static String phase(String color, int speed, int pitch, int lag) {
+        int p = 15 + 10 * (5 - speed);
+        String b = "{\"color\":\"" + color + "\",\"speed\":" + speed + ",\"pitch\":" + pitch + ",\"idx\":3,\"since\":";
+        return "{\"beacon\":[" + b + p / 2 + "}],\"mine\":[" + b + (p / 2 - lag) + "}]}";
+    }
+
+    /** His VIII upgrade of 11-25 11:46:57 AM as it opened: beacon pink speed 5 Low at 0 and white speed 5 High at 4 (stepping together), his green speed 1 Low at 5 and cyan speed 4 Normal at 1. */
+    private static final String VIII = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"pink\",\"speed\":5,\"pitch\":0,\"idx\":0,\"since\":0},"
+            + "{\"color\":\"white\",\"speed\":5,\"pitch\":2,\"idx\":4,\"since\":0}],\"mine\":[{\"color\":\"green\",\"speed\":1,\"pitch\":0,\"idx\":5,\"since\":1},"
+            + "{\"color\":\"cyan\",\"speed\":4,\"pitch\":1,\"idx\":1,\"since\":1}]}";
+
     private BeaconAutoCases() {
     }
 
@@ -79,6 +97,19 @@ final class BeaconAutoCases {
         MenuSuite.test(s, "1124-menu-autotune-samecolor", c -> run(c, SAME_COLOR, true, 4, null, 2600));
         MenuSuite.test(s, "1124-menu-autotune-run1", c -> run(c, RUN1, true, 4, null, 1400, HAND));
         MenuSuite.test(s, "1124-menu-autotune-run2", c -> run(c, RUN2, true, 4, null, 1400, HAND));
+        MenuSuite.test(s, "1125-menu-autotune-phase", c -> phaseRuns(c, new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, false));
+        MenuSuite.test(s, "1125-menu-autotune-phase-jitter", c -> phaseRuns(c, new int[]{2, 5, 9, 13}, true));
+        MenuSuite.test(s, "1125-menu-autotune-viii", c -> inStep(c, run(c, VIII, true, 4, null, 1400, 0, false), "VIII"));
+        MenuSuite.test(s, "1125-menu-autotune-slowboost", c -> {
+            Result r = run(c, phase("cyan", 1, 1, 10), true, 4, null, 600, 200, false);
+            inStep(c, r, "slow 10 behind");
+            c.check(r.btn().stream().anyMatch(k -> k[1] == 48), "a pane 10 ticks behind a speed 1 beacon was not run at Speed 5 (it waited the lap)");
+        });
+        MenuSuite.test(s, "1125-menu-autotune-slowwait", c -> {
+            Result r = run(c, phase("cyan", 1, 1, -4), true, 4, null, 600, 160, false);
+            inStep(c, r, "slow 4 ahead");
+            c.check(r.btn().stream().noneMatch(k -> k[1] == 48), "a pane 4 ticks ahead of a speed 1 beacon was run at Speed 5 instead of a 4-tick pause");
+        });
         MenuSuite.test(s, "1123-same-autotune-click", c -> run(c, WRAPS, true, 2, SameTick.Act.CLICK, 1800));
         MenuSuite.test(s, "1123-same-autotune-swap", c -> run(c, PAUSE, true, 2, SameTick.Act.SWAP, 1800));
         MenuSuite.test(s, "1123-same-autotune-close", c -> run(c, PAUSE, true, 2, SameTick.Act.CLOSE, 400));
@@ -112,12 +143,37 @@ final class BeaconAutoCases {
         return p instanceof ServerboundContainerClickPacket cp && cp.slotNum() >= 37 && cp.slotNum() <= 52;
     }
 
+    /** The server's beacon.done event (null: never done) and the button clicks on the wire as {client tick, slot}. */
+    private record Result(JsonObject done, List<int[]> btn) {
+    }
+
+    /** Every lag in {@code lags}: the tune completes within one lap plus the start, and every pane ends in step. */
+    private static void phaseRuns(Session c, int[] lags, boolean jitter) throws Exception {
+        for (int lag : lags) {
+            inStep(c, run(c, phase("lime", 5, 1, lag), true, 4, null, 400, 105 + 120, jitter), "lag " + lag);
+        }
+    }
+
+    /** At the completing click every one of your beats stepped on the beacon's tick (within one): the phase the server reports. */
+    private static void inStep(Session c, Result r, String what) {
+        if (r.done() == null) {
+            return; // run() already failed it
+        }
+        String ph = r.done().get("phase").toString();
+        c.note(what + ": done at " + r.done().get("tick") + ", phase " + ph);
+        c.check(ph.matches("\\[(-?[01],?)+\\]"), what + ": a pane ended out of step with its beacon pane (ticks apart " + ph + ")");
+    }
+
     private static void run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks) throws Exception {
         run(c, spec, auto, delay, act, maxTicks, 0);
     }
 
-    /** {@code budget} > 0: the tune must complete within that many server ticks of the menu opening. */
-    private static void run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks, int budget) throws Exception {
+    private static Result run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks, int budget) throws Exception {
+        return run(c, spec, auto, delay, act, maxTicks, budget, false);
+    }
+
+    /** {@code budget} > 0: the tune must complete within that many server ticks of the menu opening; {@code jitter}: latency 0-120 ms, changed every 10 ticks. */
+    private static Result run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks, int budget, boolean jitter) throws Exception {
         boolean has = Mod.isCheat();
         Object cfg = Mod.field(TUNER, "CFG");
         boolean wasOn = (Boolean) Mod.call(cfg, "on", "enabled");
@@ -156,7 +212,15 @@ final class BeaconAutoCases {
             c.waitUntil("the beacon menu", mc -> McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
                     && s.getTitle().getString().equals(title), 80);
             boolean done = false;
+            java.util.Random rnd = new java.util.Random(spec.hashCode());
             for (int t = 0; t < maxTicks && !done; t += 10) {
+                if (jitter) {
+                    int ms = rnd.nextInt(121);
+                    c.onClient(mc -> {
+                        dev.testkit.harness.Latency.install(ms);
+                        return null;
+                    });
+                }
                 c.ctx().waitTicks(10);
                 done = !c.hx().events(mark, "beacon.done").isEmpty();
                 if (act == SameTick.Act.CLOSE && !tap.buttons().isEmpty() && t > 60) {
@@ -165,6 +229,12 @@ final class BeaconAutoCases {
                 if (!auto && t >= 150) {
                     break;
                 }
+            }
+            if (jitter) {
+                c.onClient(mc -> {
+                    dev.testkit.harness.Latency.remove();
+                    return null;
+                });
             }
             c.ctx().waitTicks(act == SameTick.Act.CLOSE ? 40 : 5);
             WireCapture.stop();
@@ -186,7 +256,7 @@ final class BeaconAutoCases {
                     act == null ? (auto ? "plain" : "off") : act.name(), btn.size(), served, done, maxPerTick, minGap));
             if (!auto || !has) {
                 c.check(btn.isEmpty() && served == 0 && !done, "Auto Tune clicked with the setting OFF / in a build without it (" + btn.size() + " clicks)");
-                return;
+                return new Result(null, btn);
             }
             c.check(!btn.isEmpty() && served > 0, "Auto Tune sent no click (the feature did not act): wire " + btn.size() + ", server " + served);
             c.check(btn.size() == served, "the wire carried " + btn.size() + " button clicks but the server saw " + served);
@@ -199,7 +269,7 @@ final class BeaconAutoCases {
                 SameTick s2 = st;
                 st = null;
                 SameTick.judge(c, s2, "auto tune close", SameTick.Expect.SHARE);
-                return;
+                return new Result(null, btn);
             }
             c.check(done, "the tune never completed in " + maxTicks + " ticks (clicks " + served + ")");
             if (budget > 0 && done) {
@@ -212,6 +282,7 @@ final class BeaconAutoCases {
                 st = null;
                 SameTick.judge(c, s2, "auto tune " + act, act == SameTick.Act.CLICK ? SameTick.Expect.SHARE : SameTick.Expect.ACTED);
             }
+            return new Result(done ? c.hx().events(mark, "beacon.done").get(0) : null, btn);
         } finally {
             WireCapture.stop();
             PacketTrace.tap = tap.prev;

@@ -32,8 +32,10 @@ import java.util.List;
  * like the recording: left click forward, right click back, Speed 5 wraps to 1, Pitch High wraps to Low, Color red wraps to
  * white; Pause freezes your beat's step timer and unpause resumes it (recorded 11-24: five unpauses, each next step came the
  * rest of the period later). The tune completes when EVERY one of
- * your beats equals a beacon beat in color, speed, pitch AND slot, unpaused, checked at each click (and at each step with
- * {@code onStep}): chat "BEACON REWARDS", the menu closes. {@code menu.beacon.state} returns {clicks, done, steps, ...};
+ * your beats equals a beacon beat in color, speed, pitch AND slot, unpaused, and steps on the same tick as it (within one),
+ * checked at each click (and at each step with {@code onStep}); the beat an unpause click frees needs only the slot (11-25
+ * recording: his white pane shared the beacon's slot but stepped 5 ticks after it, and no Pitch click completed it, while
+ * his unpause on the slot did): chat "BEACON REWARDS", the menu closes. {@code menu.beacon.state} returns {clicks, done, steps, ...};
  * {@code beacon.click} {slot, kind, tick} and {@code beacon.done} are events.
  */
 final class HxBeacon implements HxMenus.Ticking {
@@ -61,6 +63,10 @@ final class HxBeacon implements HxMenus.Ticking {
 
         boolean same(Beat o) {
             return color == o.color && speed == o.speed && pitch == o.pitch && idx == o.idx;
+        }
+
+        boolean inStep(Beat o) {
+            return same(o) && Math.abs(since - o.since) <= 1;
         }
     }
 
@@ -129,6 +135,16 @@ final class HxBeacon implements HxMenus.Ticking {
             m.add(COLORS.get(b.color) + "," + b.speed + "," + b.pitch + "," + b.idx + (b.paused ? ",paused" : ""));
         }
         o.add("mine", m);
+        JsonArray ph = new JsonArray(); // per beat of yours: ticks its step timer is ahead of the matching beacon beat's, or null
+        for (Beat b : mine) {
+            Beat t = beacon.stream().filter(b::same).findFirst().orElse(null);
+            if (t == null) {
+                ph.add(com.google.gson.JsonNull.INSTANCE);
+            } else {
+                ph.add(b.since - t.since);
+            }
+        }
+        o.add("phase", ph);
         return o;
     }
 
@@ -162,15 +178,16 @@ final class HxBeacon implements HxMenus.Ticking {
         if (dirty) {
             steps++;
             render(server, menu);
-            if (onStep && complete()) {
+            if (onStep && complete(null)) {
                 finish(player);
             }
         }
     }
 
-    private boolean complete() {
+    /** {@code freed}: the beat this click just unpaused, which needs only the slot. */
+    private boolean complete(Beat freed) {
         for (Beat m : mine) {
-            if (m.paused || beacon.stream().noneMatch(m::same)) { // 11-24: matched while paused completed only at the unpause click
+            if (m.paused || beacon.stream().noneMatch(m == freed ? m::same : m::inStep)) { // 11-24: matched while paused completed only at the unpause click
                 return false;
             }
         }
@@ -263,7 +280,7 @@ final class HxBeacon implements HxMenus.Ticking {
             e.addProperty("tick", h.tick);
             HxEvents.custom("beacon.click", player, e);
             h.render(player.level().getServer(), menu);
-            if (h.complete()) {
+            if (h.complete(k == 3 && !b.paused ? b : null)) {
                 h.finish(player);
             }
             return;
