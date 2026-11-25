@@ -5347,7 +5347,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 List<String> ridden = new ArrayList<>();
                 java.util.regex.Pattern rp = java.util.regex.Pattern.compile(
                         "\\[RightClick\\] use seq \\d+ with HYPERION.*? rot (-?[\\d.]+)/(-?[\\d.]+) \\| server look (-?[\\d.]+)/(-?[\\d.]+)");
-                for (String l : LogTap.since(m)) {
+                // Only while a mob is left: after the last death Auto Clear hands his own look back (90/0 here), and his
+                // click on that is his (fin-def-4/5, exp-1/4 counted it).
+                List<String> since = LogTap.since(m);
+                int last = since.size();
+                for (int i = 0; i < since.size(); i++) {
+                    last = since.get(i).contains("starred kill(s) this run") ? i : last;
+                }
+                for (String l : since.subList(0, Math.min(last, since.size()))) {
                     java.util.regex.Matcher rm = rp.matcher(l);
                     if (rm.find() && (Math.abs(net.minecraft.util.Mth.wrapDegrees(Float.parseFloat(rm.group(1)) - Float.parseFloat(rm.group(3)))) > 1f
                             || Math.abs(Float.parseFloat(rm.group(2)) - Float.parseFloat(rm.group(4))) > 1f)) {
