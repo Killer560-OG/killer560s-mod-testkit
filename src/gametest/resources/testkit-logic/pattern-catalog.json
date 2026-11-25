@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T02:41:09",
- "modSource": "lane-pv-panorama-upload-1125",
- "modGitSha": "d1ad4389bb448f22cd86488aed1a06ae180362e5",
+ "generatedAt": "2026-11-25T03:29:13",
+ "modSource": "lane-patch-choices-1125b",
+ "modGitSha": "624044821b641fbc58936cab48e103f92642adeb",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
@@ -2635,7 +2635,7 @@
    "field": "ITEM_ID",
    "index": null,
    "file": "src/main/java/com/killer560/hub/compactorpreview/CompactorPreviewFeature.java",
-   "line": 45,
+   "line": 39,
    "regex": "^PERSONAL_DELETOR_(\\d{1,5})$",
    "flags": null,
    "kind": "field",
