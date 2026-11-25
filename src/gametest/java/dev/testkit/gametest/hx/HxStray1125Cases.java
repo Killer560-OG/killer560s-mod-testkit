@@ -151,7 +151,7 @@ final class HxStray1125Cases {
 
     /**
      * One round from (XA, z): queue A's warp 1 is cast standing (lands ~2 blocks past its aim: a correction) while warp 2
-     * is already sent (Ticks Between Etherwarps 3, 250 ms more round trip: warp 3 never goes). The next queue B (one warp
+     * is already sent (Ticks Between Etherwarps 3, 250 ms more round trip; A has only two warps, so exactly one lands late). The next queue B (one warp
      * 8 blocks south) starts the moment the correction is seen; warp 2's landing arrives after it. {@code held}: B is held
      * until that landing came (its first warp not sent yet: B must carry on from there and arrive on its block); else B's
      * warp went first (it was cast from the wrong spot: B is dropped quietly). Either way: one correction, one late landing.
@@ -163,7 +163,7 @@ final class HxStray1125Cases {
         int warps0 = warps(c);
         c.hx().call("dungeon.standingEye", "warps", 1);
         c.onClient(mc -> {
-            run(mc, nodes(mc.player.position(), floor(XA + 8, z), floor(XA + 16, z), floor(XA + 24, z)));
+            run(mc, nodes(mc.player.position(), floor(XA + 8, z), floor(XA + 16, z)));
             return null;
         });
         int waited = 0;
