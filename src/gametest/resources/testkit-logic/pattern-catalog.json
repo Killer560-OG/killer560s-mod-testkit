@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T21:38:21",
- "modSource": "lane-pv-styles-exact-1124k",
- "modGitSha": "fd0be1f02593a8680c0a430eaf28a94e3b580cf7",
+ "generatedAt": "2026-11-24T22:26:14",
+ "modSource": "lane-pv-bingo-relay-1124",
+ "modGitSha": "34b57e43d0abda6f5260b212eb50832028db22ba",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
