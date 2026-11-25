@@ -37,11 +37,10 @@ import java.util.List;
  * <p>
  * <b>1125-sim-ac-nearprime</b> (mod acoptimal-next4-1125), the same floor: the sneak is down before the kill also when a mob
  * left stands within a cast across. Origin primed it only when every mob left was beyond one (or the plan's next step was a
- * warp), so 59 of the 67 one-tick-late warps on the 6 floors waited for a sneak pressed on the kill's tick. The probe reads,
- * at each kill Auto Clear counts, the sneak the server heard last (the input of the tick before), and counts the trips after
- * a kill whose first warp found it up; asserts the floor cleared, at least {@link #MIN_KILL_TRIPS} trips after a kill, at most
- * {@link #MAX_UNSNEAKED} of them unsneaked at the kill, and no more than {@link #MAX_LATE_CASTS} casts after a kill 2+ ticks late
- * (the prime holds only its own tick's input, so a cast across after the kill still turns and goes standing, a tick after it).
+ * warp), so 59 of the 67 one-tick-late warps on the 6 floors waited for a sneak pressed on the kill's tick. Asserts the floor
+ * cleared, at least {@link #MIN_KILL_TRIPS} trips after a kill, the sneak primed after casts, and at most {@link #MAX_ONE_LATE}
+ * trips after a kill one tick late. It also prints, for reading only, the trips that found the sneak not yet heard at the
+ * kill (the input of the tick before) and the casts after a kill by gap.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAcPreSneakTests implements FabricClientGameTest {
@@ -52,10 +51,8 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     private static final String NEARPRIME = "1125-sim-ac-nearprime";
     /** Trips after a kill the floor must run, at least. */
     private static final int MIN_KILL_TRIPS = 25;
-    /** Trips after a kill allowed to start with the sneak not yet heard. */
-    private static final int MAX_UNSNEAKED = 3;
-    /** Casts after a kill allowed to go 2 or more ticks after it. */
-    private static final int MAX_LATE_CASTS = 2;
+    /** Trips after a kill allowed to leave one tick late (origin 3-7 on this floor over four runs, the fix 0-2). */
+    private static final int MAX_ONE_LATE = 2;
     private static boolean prevShift;
     private static boolean killUnsneaked;
     private static int killTrips;
@@ -181,12 +178,9 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             if (killTrips < MIN_KILL_TRIPS) {
                 problems.add(killTrips + " trip(s) after a kill, want at least " + MIN_KILL_TRIPS);
             }
-            if (unsneakedTrips > MAX_UNSNEAKED) {
-                problems.add(unsneakedTrips + " of " + killTrips + " trip(s) after a kill found the sneak not yet heard at the"
-                        + " kill, want at most " + MAX_UNSNEAKED);
-            }
-            if (CAST_GAPS[2] > MAX_LATE_CASTS) {
-                problems.add(CAST_GAPS[2] + " cast(s) after a kill went 2+ ticks after it, want at most " + MAX_LATE_CASTS);
+            if (gaps[1] > MAX_ONE_LATE) {
+                problems.add(gaps[1] + " trip(s) after a kill left one tick late, want at most " + MAX_ONE_LATE
+                        + " (gaps 0:" + gaps[0] + " 2:" + gaps[2] + "; unsneaked at the kill " + unsneakedTrips + " of " + killTrips + ")");
             }
         } else if (warmYield) {
             if (queuedLines < MIN_QUEUED_LINES) {
