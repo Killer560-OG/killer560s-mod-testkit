@@ -28,7 +28,9 @@ import java.util.function.Predicate;
 /**
  * 1109-boss-ee3route-grim (ee3route-1109): the HEE2 -> EE3 route file {@code fastest.json} on GrimAC. The stretch's map
  * (corridor, S2 pit, low-lever platform, Breaker tunnel, walkway to EE3) is rebuilt from his P3 capture as /fill commands
- * ({@code killer560s-mod-logs/ee3route-1109/fills-env.txt}, written by fills.py there; full cubes as stone). Lever Aura
+ * ({@code killer560s-mod-logs/ee3route-1109/fills-full.txt}, written by fills.py there; full cubes as stone; every cell of
+ * x -2..63 y 104..142 z 100..146 equals the capture. ee3-casestart-1125: fills-env.txt, used until then, had 48k cells of
+ * that box differ from the capture (applied in order), among them the y120 ledge at x10-11 z111-117 the newer routes land on at t65-70). Lever Aura
  * flicks both S2 levers (with their "Not Activated" stands) while AP3 holds the walk (leverap3-1109: the off-walk look),
  * the BOOM node sends its Superboom tap and the server then clears gate 2's arch cells (SimBossTests DOOR_BOX 2), as Hypixel would; GrimAC must stay
  * silent (Session.test) on the default and experimental configs.
@@ -389,7 +391,7 @@ final class Ee3RouteGrimCases {
     static void run(Session c, SameTick.Act act, boolean noLook) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         Path route = routeDir().resolve(ROUTE + ".json");
-        Path fills = DIR.resolve("fills-env.txt");
+        Path fills = DIR.resolve("fills-full.txt");
         c.check(Files.isRegularFile(route) && Files.isRegularFile(fills), "missing " + route + " or " + fills);
         Ticks ticks = new Ticks();
         SameTick st = null;
