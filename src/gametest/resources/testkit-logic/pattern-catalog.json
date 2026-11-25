@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T19:00:36",
- "modSource": "lane-ee3sim-boom-wall-1124c",
- "modGitSha": "87ea75b625a1f24adef91ce002627e35c7f4d16c",
+ "generatedAt": "2026-11-24T18:55:09",
+ "modSource": "lane-pv-styles-exact-1124e",
+ "modGitSha": "04ec2e7b8119c882ccd0c88303c20ed0a0dd69fd",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
