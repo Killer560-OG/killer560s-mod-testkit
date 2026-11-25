@@ -562,6 +562,10 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             if (reg == null) {
                 failures.add(c.room() + " (" + c.kind() + "): its last secret never registered"
                         + (out >= 0 ? " - the warp out went " + (out - end) + " tick(s) after the route" : ""));
+            } else if (c.kind().equals("essence") && reg - Math.min(out < 0 ? reg : out, rel == null ? reg : rel) <= 40) {
+                // A clicked essence is not waited for (acgaps2-1121): Hypixel takes the skull ~22 ticks after the click, so it may
+                // register after the warp out; it must still register (checked above) and within 40 ticks of leaving.
+                println(name, c.room() + ": clicked essence registered " + (reg - (out < 0 ? reg : out)) + " tick(s) after the warp out - accepted");
             } else if (out >= 0 && out < reg) {
                 failures.add(c.room() + " (" + c.kind() + "): left on tick " + out + ", before its last secret registered"
                         + " on " + reg);
