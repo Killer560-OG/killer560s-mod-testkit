@@ -442,6 +442,37 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     check(walks > 0, "Auto Clear never walked (the walk row tested nothing)");
                 });
                 s.test("62-argrim-1122-planprobe", GrimAutoRoutesTests::casePlanProbe);
+                // acnohype-1125: the server rewrites the Hyperion's slot with another item for 3 ticks after the first cast (as
+                // GrimAC's resync of a refused block click did in f2-q1-def-2); Auto Clear waits for it instead of stopping.
+                s.test("62-argrim-1125-hype-resync", c -> {
+                    acResync = true;
+                    try {
+                        caseAutoClearHype(c, null, false, false, true);
+                    } finally {
+                        acResync = false;
+                    }
+                });
+                // DIAG acnohype-1125 (scratch, removed before the ready line)
+                s.test("62-argrim-1125-diag-use-x8", c -> {
+                    int bad = 0;
+                    for (int i = 0; i < 8; i++) {
+                        try {
+                            caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.USE_CLICK, false, false, true);
+                            println("DIAGLOOP " + i + " ok");
+                        } catch (AssertionError e) {
+                            bad++;
+                            println("DIAGLOOP " + i + " FAIL " + e.getMessage());
+                        }
+                    }
+                    check(bad == 0, bad + " of 8 failed");
+                });
+                s.test("62-argrim-1125-diag-probe-priced", c -> {
+                    c.ctx().runOnClient(mc -> {
+                        java.util.Arrays.fill((double[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripMean"), 300);
+                        java.util.Arrays.fill((int[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripSeen"), 1);
+                    });
+                    casePlanProbe(c);
+                });
             }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
             // a dropped Wither Key fetched by an etherwarp trip, and by the forced walk after a setback.
@@ -5107,6 +5138,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(20);
             int moves0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "killPlanMoves"));
             long m = LogTap.mark();
+            if (li == 0) startSampling(ctx);   // DIAG acnohype-1125
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
                     Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> { },
                     (java.util.function.Consumer<String>) x -> { }}));
@@ -5116,6 +5148,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             int moves = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "killPlanMoves")) - moves0;
             took += moves > 0 ? 1 : 0;
+            if (li == 0) {   // DIAG acnohype-1125
+                for (Sample x : stopSampling(ctx)) {
+                    println(String.format(Locale.ROOT, "  PROBEDIAG t%d shift=%s sprint=%s pos %.4f/%.4f/%.4f %s", x.tick(), x.shift(), x.sprint(),
+                            x.pos().x, x.pos().y, x.pos().z, x.out()));
+                }
+            }
             StringBuilder lay = new StringBuilder();
             for (double[] sp : PLAN_LAYOUTS[li]) {
                 lay.append(" ").append(sp[0]).append("/").append(sp[1]);
@@ -5150,9 +5188,80 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static double acTripPrice;
     /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
     private static boolean acPlanShove;
+    /** 62-argrim-1125-hype-resync: the Hyperion's slot shows the AOTV for {@link #RESYNC_TICKS} ticks after the first cast. */
+    private static boolean acResync;
+    private static final int RESYNC_TICKS = 3;
+    private static net.minecraft.world.item.ItemStack acHype = net.minecraft.world.item.ItemStack.EMPTY;
+
+    /** The server's set_slot for hotbar slot 5 (inventory menu slot 40), through the client's own packet handler. */
+    private static void acSlot(net.minecraft.client.Minecraft mc, net.minecraft.world.item.ItemStack stack) {
+        if (acHype.isEmpty() || !acId(mc.player.getInventory().getItem(4)).equals("ASPECT_OF_THE_VOID")) {
+            acHype = mc.player.getInventory().getItem(4).copy();
+        }
+        mc.getConnection().handleContainerSetSlot(new net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket(
+                0, mc.player.inventoryMenu.getStateId(), 36 + 4, stack));
+        println("resync: hotbar slot 5 now " + acId(mc.player.getInventory().getItem(4)));
+    }
 
     /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
+            boolean plan, String tripArm) {
+        ClientGameTestContext ctx = c.ctx();
+        acDiag(true);
+        try {
+            caseAutoClearHype0(c, act, second, chain, plan, tripArm);
+        } finally {
+            acDiag(false);
+        }
+    }
+
+    private static volatile boolean acDiagOn;
+    private static boolean acDiagHooked;
+    private static String acDiagLast = "";
+
+    /** DIAG acnohype-1125: every inbound inventory packet and every change of the hotbar at a tick's end. */
+    private static void acDiag(boolean on) {
+        acDiagOn = on;
+        if (on && !acDiagHooked) {
+            acDiagHooked = true;
+            ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+                if (!acDiagOn || mc.player == null) return;
+                StringBuilder sb = new StringBuilder("sel ").append(mc.player.getInventory().getSelectedSlot()).append(':');
+                for (int i = 0; i < 9; i++) {
+                    var st = mc.player.getInventory().getItem(i);
+                    var d = st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                    sb.append(' ').append(i).append('=').append(st.isEmpty() ? "-" : d == null ? st.getItem().toString()
+                            : d.copyTag().getStringOr("id", "?"));
+                }
+                sb.append(" off=").append(mc.player.getOffhandItem().isEmpty() ? "-" : mc.player.getOffhandItem().getItem().toString());
+                String s = sb.toString();
+                if (!s.equals(acDiagLast)) {
+                    acDiagLast = s;
+                    System.out.println("[acdiag] tick " + dev.testkit.harness.PacketTrace.tickCount() + " hotbar " + s);
+                }
+            });
+        }
+        PacketTrace.inTap = on ? p -> {
+            if (p instanceof net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket sp) {
+                System.out.println("[acdiag] in set_slot c" + sp.getContainerId() + " s" + sp.getSlot() + " " + acId(sp.getItem()));
+            } else if (p instanceof net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket cp) {
+                System.out.println("[acdiag] in set_content c" + cp.containerId() + " n" + cp.items().size() + (cp.items().size() > 44 ? " hot36-44 " + cp.items().subList(36, 45).stream().map(GrimAutoRoutesTests::acId).toList() : ""));
+            } else if (p instanceof net.minecraft.network.protocol.game.ClientboundSetPlayerInventoryPacket ip) {
+                System.out.println("[acdiag] in set_player_inventory s" + ip.slot() + " " + acId(ip.contents()));
+            } else if (p instanceof net.minecraft.network.protocol.game.ClientboundSetHeldSlotPacket hp) {
+                System.out.println("[acdiag] in set_held_slot " + hp.slot());
+            } else if (p instanceof net.minecraft.network.protocol.game.ClientboundRespawnPacket) {
+                System.out.println("[acdiag] in respawn");
+            }
+        } : null;
+    }
+
+    private static String acId(net.minecraft.world.item.ItemStack st) {
+        var d = st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+        return st.isEmpty() ? "-" : d == null ? st.getItem().toString() : d.copyTag().getStringOr("id", "?");
+    }
+
+    private static void caseAutoClearHype0(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
             boolean plan, String tripArm) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
@@ -5275,9 +5384,19 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             start.run();
         }
         int[] shoveAt = {-1};
+        // 62-argrim-1125-hype-resync: from the first cast on, the server rewrites the Hyperion's slot with the AOTV (what
+        // GrimAC's resync of a refused block click wrote while the server thread still held the AOTV, f2-q1-def-2) and puts
+        // the Hyperion back RESYNC_TICKS later; Auto Clear must wait for it, not stop.
+        int[] resync = {acResync ? 0 : -1};
         boolean finished = waitFor(ctx, 600, () -> {
             // On the plan etherwarp's landing, standing between two plan steps (a move during the trip is the trip's
             // own to plan again: run q1-def-moved), as his Hyperion click after a landing did in fin3-def-2.
+            if (resync[0] == 0) {
+                resync[0] = 1;
+                ctx.runOnClient(mc -> acSlot(mc, mc.player.getInventory().getItem(0).copy()));
+            } else if (resync[0] > 0 && resync[0]++ == RESYNC_TICKS) {
+                ctx.runOnClient(mc -> acSlot(mc, acHype.copy()));
+            }
             if (acPlanShove && plan && shoveAt[0] < 0 && logHas(m, "[Path] arrived")) {
                 shoveAt[0] = LogTap.since(m).size();
                 tpRel(ctx, 16.5, 15.5, -90f, 0f);
@@ -5352,6 +5471,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(uses.size() >= 2, "the chained cast never reached the wire: Auto Clear weapon uses " + featureUses
                     + ", use_item ticks " + uses.size());
             check(warps == 0, warps + " etherwarp(s) in the chain layout");
+        }
+        if (acResync) {
+            // The resync went in while Auto Clear still had mobs to cast at, it waited, and it carried on with the Hyperion.
+            c.note("resync ticks " + resync[0] + ", waited: " + logHas(m, "waiting up to") + ", back: "
+                    + LogTap.since(m).stream().filter(l -> l.contains("is back in the hotbar")).findFirst()
+                    .map(l -> l.replaceAll("^.*?\\[AutoClear\\] ", "")).orElse("never"));
+            check(resync[0] > RESYNC_TICKS, "the slot resync never went in (the case tested nothing)");
+            check(!logHas(m, "stopped: no Hyperion in the hotbar"), "Auto Clear stopped on the slot resync (no Hyperion in the hotbar)");
+            check(logHas(m, "is back in the hotbar"), "Auto Clear never needed the Hyperion during the resync (the case tested nothing)");
         }
         if (plan && tripArm == null) {
             // The plan acted: its casts across and etherwarps are counted by AutoClearFeature.killPlanMoves, and each plan cast
