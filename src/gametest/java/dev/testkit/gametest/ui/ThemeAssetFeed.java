@@ -69,6 +69,9 @@ public final class ThemeAssetFeed {
                 BY_NAME.computeIfAbsent(name, k -> new AtomicInteger()).incrementAndGet();
                 Path dir = folder();
                 Path f = dir == null || name.isEmpty() || name.contains("..") ? null : dir.resolve(name);
+                if (f != null && !Files.isRegularFile(f) && path.contains("/pv-panorama-")) {
+                    f = dir.resolve("pv-panorama").resolve(name); // the Profile Viewer panorama release (pv-panorama-1)
+                }
                 if (f == null || !Files.isRegularFile(f)) {
                     ex.sendResponseHeaders(404, -1);
                     return;
