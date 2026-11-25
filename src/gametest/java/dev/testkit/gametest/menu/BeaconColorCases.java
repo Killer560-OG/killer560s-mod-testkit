@@ -49,6 +49,7 @@ final class BeaconColorCases {
             o[6] = (Integer) Mod.call(cfg, "num", "color");
             Mod.call(cfg, "set", "color", 0);
             Mod.call(cfg, "save");
+            Mod.call(menu, "setTheme", Mod.enumValue("gui.MenuTheme", "DARK"));
             o[7] = (Integer) Mod.staticCall(F, "color");
             Mod.call(menu, "setTheme", oldTheme);
             Mod.call(cfg, "set", "enabled", false);
