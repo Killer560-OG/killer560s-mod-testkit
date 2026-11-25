@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T22:49:20",
- "modSource": "lane-aura-rebuild-fix-1124",
- "modGitSha": "071a1033b058f5687f43269fae0cf24d2242c724",
+ "generatedAt": "2026-11-24T23:15:42",
+ "modSource": "lane-etable-bottle-default-1124",
+ "modGitSha": "80dc96fe66681dbdbe696f9d662eb19331d02649",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
