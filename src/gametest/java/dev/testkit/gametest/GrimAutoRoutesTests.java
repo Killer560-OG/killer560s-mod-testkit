@@ -414,6 +414,23 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // plan's: runs on a jar without the plan too (an origin jar shows whether a flag there is the plan's).
                 s.test("62-argrim-1122-trip-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
                         false, false, true, "[AutoClear] etherwarp toward"));
+                // His container click while Auto Clear WALKS (every etherwarp trip priced out, as after failed trips): the
+                // server must not hear the walk's keys or sprint with the click (MultiActionsC; lane1125-0321 drew it on the
+                // trip row's walks after two failed trips, acoptimal-next2-1125b).
+                s.test("62-argrim-1125-walk-openclick", c -> {
+                    long w0 = c.ctx().computeOnClient(mc -> ((Number) ModUnderTest.staticCall(
+                            "com.killer560.hub.pathfinding.ShortWalk", "walksStarted")).longValue());
+                    acTripPrice = 300;
+                    try {
+                        caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false, false, true, "- walking (");
+                    } finally {
+                        acTripPrice = 0;
+                    }
+                    long walks = c.ctx().computeOnClient(mc -> ((Number) ModUnderTest.staticCall(
+                            "com.killer560.hub.pathfinding.ShortWalk", "walksStarted")).longValue()) - w0;
+                    c.note("Auto Clear walks " + walks);
+                    check(walks > 0, "Auto Clear never walked (the walk row tested nothing)");
+                });
                 s.test("62-argrim-1122-planprobe", GrimAutoRoutesTests::casePlanProbe);
             }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
@@ -449,6 +466,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // imap-zpew-1026 (killer560, 2026-10-27): Zero Ping Etherwarp's Works For list - each sender's hops predicted
             // with its switch on, none with it off, the others unaffected, nothing with ZPEW off.
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1027-zpew-map", GrimAutoRoutesTests::caseZpewMap);
+            // argrim-origin-fails-1125: the route loaded while he stands on its START node, then the server moves him away
+            // (a leap, a /warp - here the testkit's tp) while the node's etherwarp still waits for the sneak.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1125-tp-armed", GrimAutoRoutesTests::caseTpArmed);
+            s.testExpectingFlags("62-argrim-1125-tp-walk-control", GrimAutoRoutesTests::caseTpWalkControl);
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1027-zpew-routes", GrimAutoRoutesTests::caseZpewRoutes);
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1027-zpew-secret", GrimAutoRoutesTests::caseZpewSecret);
             // midas-1020: pastes King Midas over the session's room, so it goes last.
@@ -5115,6 +5136,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         caseAutoClearHype(c, act, second, chain, plan, null);
     }
 
+    /** Trip price every plan row starts from (0 = none learned); the walk row prices every etherwarp trip out. */
+    private static double acTripPrice;
+
     /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
             boolean plan, String tripArm) {
@@ -5141,8 +5165,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // The trip prices Auto Clear learned in the rows before (a 3-tick 2-warp trip after the plain row) price the old
             // choice under the plan's margin, so no later row took the plan (2026-11-22 run 2): every plan row starts fresh.
             ctx.runOnClient(mc -> {
-                java.util.Arrays.fill((double[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripMean"), 0.0);
-                java.util.Arrays.fill((int[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripSeen"), 0);
+                java.util.Arrays.fill((double[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripMean"), acTripPrice);
+                java.util.Arrays.fill((int[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripSeen"), acTripPrice > 0 ? 1 : 0);
             });
         }
         int planMoves0 = plan && tripArm == null   // an origin jar has no killPlanMoves (trip row)
@@ -5902,11 +5926,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, true);
+        // Off the START node first: a run before this one lands him on it, and a route loaded under him fires node #1,
+        // which this case's tp then broke off (62-argrim-1125-tp-armed has that on purpose).
+        tpRel(ctx, 6.5, 20.5, 0f, 0f);
         writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", runWhileOpen));
         List<Sample> s = List.of();
         try {
-            tpRel(ctx, 6.5, 20.5, 0f, 0f);
             ctx.waitTicks(5);
             openMap(ctx);
             float[] look0 = look(ctx);
@@ -6250,9 +6276,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{none.getClass()}, new Object[]{none});
                 ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set", new Class<?>[]{String.class, int.class},
                         new Object[]{"AutoClearTab", pilot ? PILOT_KEY : AS_KEY});
-                runStartedForTest(true);
             });
         }
+        // A start before the run is only ARMED (ArmedStart, 11-22) and start() answers false; the arena has no Mort, so the
+        // run is marked started on every path, not only the key's (argrim-origin-fails-1125).
+        ctx.runOnClient(mc -> runStartedForTest(true));
         if (pilot && !byKey) {
             ctx.runOnClient(mc -> {
                 Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
@@ -6371,8 +6399,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             new Class<?>[]{boolean.class}, new Object[]{false});
                     ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set",
                             new Class<?>[]{String.class, int.class}, new Object[]{"AutoClearTab", -1});
-                    runStartedForTest(false);
                 }
+                runStartedForTest(false);
             });
             writeRoute(ctx, null);
             ctx.waitTicks(3);
@@ -6705,6 +6733,134 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         } finally {
             zpSet(ctx, false, null, true);
         }
+    }
+
+    /**
+     * argrim-origin-fails-1125: 62-argrim-1027-zpew-map's 2nd and 3rd runs (and imwarp-run after imwarp) began with him on
+     * the route's START node, where the run before had landed him; the route's load fired node #1, and the case's own
+     * tp then moved him 20 blocks while its etherwarp waited for the sneak: GrimAC Simulation .013 every time. Here that
+     * on purpose, every tick printed, and the tick each GrimAC line came in.
+     */
+    private static void caseTpArmed(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        List<Sample> s = List.of();
+        List<String> flagTicks = new ArrayList<>();
+        try {
+            tpRel(ctx, 24.5, 10.5, 0f, 0f);
+            ctx.waitTicks(10);
+            long m = LogTap.mark();
+            startSampling(ctx);
+            writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            int seen = c.scenario().flags().size();
+            for (int i = 0; i < 50; i++) {
+                ctx.waitTicks(1);
+                int n = c.scenario().flags().size();
+                if (n > seen) {
+                    flagTicks.add("t" + PacketTrace.tickCount() + " " + c.scenario().flags().get(n - 1));
+                    seen = n;
+                }
+            }
+            s = stopSampling(ctx);
+            for (Sample x : s) {
+                println(String.format(Locale.ROOT, "  tparmed t%d shift=%s pos=%.3f,%.3f,%.3f %s", x.tick(), x.shift(),
+                        x.pos().x, x.pos().y, x.pos().z, x.out()));
+            }
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[AutoRoutes]")) {
+                    println("  " + l.replaceAll("^.*?\\[AutoRoutes\\]", "[AutoRoutes]"));
+                }
+            }
+            println("tp-armed: GrimAC lines by tick " + flagTicks);
+            check(logHas(m, "Fire: room"), "the route never fired its START node under him - the case proves nothing");
+            check(logHas(m, "stepping back onto its spot"), "the route never stepped back after the tp - the case proves nothing");
+            // The step back must still walk (a tick later than the tp's first tick), not stand there.
+            Vec3 landedAt = null;
+            for (Sample x : s) {
+                if (x.out().contains("accept_teleportation") && landedAt == null) {
+                    landedAt = s.get(Math.min(s.size() - 1, s.indexOf(x) + 1)).pos();
+                }
+            }
+            Vec3 last = s.isEmpty() ? null : s.get(s.size() - 1).pos();
+            check(landedAt != null && last != null && last.distanceTo(landedAt) > 0.3, "the step back never moved him (from "
+                    + landedAt + " to " + last + ")");
+        } finally {
+            writeRoute(ctx, null);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test over"}));
+            ctx.waitTicks(3);
+        }
+        noteFlags(c, s);
+    }
+
+    /**
+     * The control for {@link #caseTpArmed}, no route, plain keys: the same tp, then keys pressed on the first tick he is
+     * seen at the new spot (what the route's step back did) or a few ticks later. Each variant's GrimAC lines are counted;
+     * a flag here with no feature running is the tp's, not the mod's. Expected (2026-11-25, every run): a SNEAKING step on
+     * the first tick flags Simulation .013, walking or a tick later never; so it runs expecting flags and fails only if
+     * a variant that must stay clean flags.
+     */
+    private static void caseTpWalkControl(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        // {sneak, left too, ticks after the landing before the keys go down}
+        int[][] variants = {{1, 1, 0}, {0, 1, 0}, {1, 0, 0}, {0, 0, 0}, {1, 1, 1}, {1, 0, 1}, {1, 1, 2}, {1, 1, 3}};
+        StringBuilder out = new StringBuilder();
+        try {
+            for (int[] v : variants) {
+                tpRel(ctx, 24.5, 10.5, 0f, 0f);
+                ctx.runOnClient(mc -> mc.options.keyShift.setDown(v[0] == 1));
+                ctx.waitTicks(10);
+                int f0 = c.scenario().flags().size();
+                Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
+                double[] p = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    Vec3 w = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                            double.class, double.class, double.class}, new Object[]{frame, 6.5, (double) F, 20.5});
+                    return new double[]{w.x, w.y, w.z};
+                });
+                session.hx().call("dungeon.tp", "x", p[0], "y", p[1], "z", p[2], "yaw", mcYaw(ctx), "pitch", 0f);
+                boolean moved = waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(from) > 5));
+                if (v[2] > 0) {
+                    ctx.waitTicks(v[2]);
+                }
+                ctx.runOnClient(mc -> {
+                    mc.options.keyUp.setDown(true);
+                    mc.options.keyLeft.setDown(v[1] == 1);
+                });
+                ctx.waitTicks(10);
+                ctx.runOnClient(mc -> {
+                    mc.options.keyUp.setDown(false);
+                    mc.options.keyLeft.setDown(false);
+                    mc.options.keyShift.setDown(false);
+                });
+                ctx.waitTicks(15);
+                int n = c.scenario().flags().size() - f0;
+                String tag = (v[0] == 1 ? "sneak" : "walk") + (v[1] == 1 ? " W+A" : " W") + " +" + v[2] + "t";
+                out.append(tag).append(": ").append(moved ? n + " flag(s)" : "tp did not land").append("; ");
+                check(moved, tag + ": the tp never moved him - the case proves nothing");
+                // Only a sneaking step on the very first tick after the tp draws it (GrimAC 2.3.74, 26.3): the wait Auto
+                // Routes' step back keeps must stay clean.
+                check(v[0] == 1 && v[2] == 0 || n == 0, tag + ": " + n + " GrimAC line(s) - more than the first tick after the tp flags now");
+            }
+            println("tp-walk control: " + out);
+            c.note("tp-walk control: " + out);
+        } finally {
+            ctx.runOnClient(mc -> {
+                mc.options.keyUp.setDown(false);
+                mc.options.keyLeft.setDown(false);
+                mc.options.keyShift.setDown(false);
+            });
+            ctx.waitTicks(3);
+        }
+        noteFlags(c, List.of());
+    }
+
+    private static float mcYaw(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> mc.player.getYRot());
     }
 
     /**

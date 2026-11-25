@@ -47,6 +47,7 @@ final class HxLuck1102Cases {
 
     static void register(Session s) {
         s.test("1102-luck-mobkill", HxLuck1102Cases::mobKill);
+        s.test("1125-luck-looting-tools", HxLuck1102Cases::lootingTools);
         s.test("1102-luck-slayerlevel", HxLuck1102Cases::slayerLevel);
         s.test("1102-luck-meter", HxLuck1102Cases::meter);
         s.test("1118-rngrank-double", HxLuck1102Cases::rankDouble);
@@ -171,6 +172,29 @@ final class HxLuck1102Cases {
         });
         c.ctx().waitTicks(6);
         c.ctx().getInput().pressKey(o -> o.keyAttack);
+    }
+
+    /** Patch Nov 24 2026: Looting applies to axes and fishing rods, so a kill with either held reads its level. */
+    private static void lootingTools(Session c) {
+        skyblock(c);
+        withMf(c, 100, () -> {
+            c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            String[][] held = {{"minecraft:iron_axe", "3", "[Lv73] Zealot 13,000/13,000❤"}, {"minecraft:fishing_rod", "2", "[Lv100] Water Hydra 500k/500k❤"}};
+            for (String[] h : held) {
+                c.hx().give(0, h[0] + "[custom_data={enchantments:{looting:" + h[1] + "}}]");
+                int k0 = c.onClient(mc -> (Integer) Mod.field(LK, "killsCounted"));
+                int id = summon(c, h[2], "luckmob");
+                // a rod does fist damage, which a husk's armor shaves below 1 hp: leave it a sliver so the click kills
+                c.server().command("data merge entity @e[tag=luckmob,limit=1] {Health:0.05f}");
+                c.ctx().waitTicks(20);
+                hit(c, id);
+                c.waitUntil("the " + h[0] + " kill was counted", mc -> (Integer) Mod.field(LK, "killsCounted") == k0 + 1, 80);
+                String last = String.valueOf((Object) c.onClient(mc -> (Object) Mod.field(LK, "lastKill")));
+                c.note(h[0] + ": " + last);
+                c.check(last.endsWith(" L" + h[1]), h[0] + " Looting " + h[1] + " not read, lastKill " + last);
+            }
+            c.hx().give(0, "minecraft:air");
+        });
     }
 
     private static void mobKill(Session c) {
