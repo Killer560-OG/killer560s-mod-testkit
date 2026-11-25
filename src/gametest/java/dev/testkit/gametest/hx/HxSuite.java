@@ -167,6 +167,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxTreeRegen1123Cases.register(s);
                     HxTeamLedger1124Cases.register(s);
                     HxSweepOverlay1124Cases.register(s);
+                    // Highlight Optimal Blocks: practical picks and every tree of the kind last broken (mod optimal-blocks-reachable-1124).
+                    HxSweepReach1124Cases.register(s);
                     HxKitCheck1124Cases.register(s);
                     // Crystal Hollows Map HUD (1104-chmap-hud, mod chhud-1104).
                     HxChMapHud1104Cases.register(s);

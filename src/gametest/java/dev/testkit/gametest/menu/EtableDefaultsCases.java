@@ -112,10 +112,10 @@ final class EtableDefaultsCases {
         return Mod.field(cfg, field);
     }
 
-    /** killer560's screenshot, 2026-10-15, less what he kept off for everyone the same day: the three Superpairs skips
-     *  and the Titanic purchase. The feature's own switch keeps its default (off). */
+    /** killer560's screenshot, 2026-10-15, less what he kept off for everyone the same day: the three Superpairs skips.
+     *  The Titanic price is 1,000,000 since 11-24 (a version-1 or 2 file holding the old default 0 moves to it). The feature's own switch keeps its default (off). */
     static final String HIS = "superpairs=true valuableOnly=false skipGrand=false skipGuardian=false adaptive=false"
-            + " blockInput=false guardianSwap=true stop=MAX_CLICKS delay=400 first=600 random=50 renew=0 titanic=0"
+            + " blockInput=false guardianSwap=true stop=MAX_CLICKS delay=400 first=600 random=50 renew=0 titanic=1000000"
             + " auto=false";
 
     /** The defaults before 2026-10-15, as a version-1 file wrote them. */
@@ -158,7 +158,7 @@ final class EtableDefaultsCases {
                     .replace("\"titanicMaxPriceCoins\":0.0", "\"titanicMaxPriceCoins\":1234567.0"));
             String kept = snapshot(c);
             String expectKept = HIS.replace("delay=400", "delay=550").replace("random=50", "random=100")
-                    .replace("titanic=0", "titanic=1234567").replace("valuableOnly=false", "valuableOnly=true")
+                    .replace("titanic=1000000", "titanic=1234567").replace("valuableOnly=false", "valuableOnly=true")
                     .replace("skipGuardian=false", "skipGuardian=true");
             c.note("old file with changed delays/price: " + kept);
             if (!kept.equals(expectKept)) {
@@ -173,10 +173,31 @@ final class EtableDefaultsCases {
                     .replace("\"autoRenewCount\":0", "\"autoRenewCount\":3"));
             String garbage = snapshot(c);
             String expectGarbage = HIS.replace("delay=400", "delay=150").replace("first=600", "first=150")
-                    .replace("titanic=0", "titanic=3000000").replace("renew=0", "renew=3");
+                    .replace("titanic=1000000", "titanic=3000000").replace("renew=0", "renew=3");
             c.note("zero/negative/garbage file: " + garbage);
             if (!garbage.equals(expectGarbage)) {
                 problems.add("zero/garbage file: got " + garbage + ", expected " + expectGarbage);
+            }
+            // (d2) the Titanic price 11-24: a version-2 file holding the old default 0 moves to 1,000,000 once, a version-3
+            // file keeps a 0 (or 250,000) its owner set, and the slider range still reaches 0.
+            loadFrom(c, oldDefaultsFile("").replace("\"configVersion\":1", "\"configVersion\":2"));
+            String v2 = snapshot(c);
+            String expectV2 = HIS.replace("delay=400", "delay=200").replace("first=600", "first=1000").replace("random=50", "random=0");
+            if (!v2.equals(expectV2)) {
+                problems.add("version-2 file with price 0: got " + v2 + ", expected " + expectV2);
+            }
+            loadFrom(c, oldDefaultsFile("").replace("\"configVersion\":1", "\"configVersion\":3")
+                    .replace("\"delayMs\":200", "\"delayMs\":400").replace("\"firstClickDelayMs\":1000", "\"firstClickDelayMs\":600")
+                    .replace("\"randomDelayMaxMs\":0", "\"randomDelayMaxMs\":50"));
+            String v3zero = snapshot(c);
+            c.note("version-3 file with price 0: " + v3zero);
+            if (!v3zero.equals(HIS.replace("titanic=1000000", "titanic=0"))) {
+                problems.add("version-3 file with a chosen 0: got " + v3zero);
+            }
+            loadFrom(c, oldDefaultsFile("").replace("\"configVersion\":1", "\"configVersion\":3")
+                    .replace("\"titanicMaxPriceCoins\":0.0", "\"titanicMaxPriceCoins\":250000.0"));
+            if (!snapshot(c).contains("titanic=250000")) {
+                problems.add("version-3 file with 250000: got " + snapshot(c));
             }
             // (e) the setters clamp to the same floor the loader does.
             String setters = c.onClient(mc -> {
