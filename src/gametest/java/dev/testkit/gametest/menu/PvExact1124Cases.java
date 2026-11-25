@@ -425,7 +425,7 @@ final class PvExact1124Cases {
         if (full != null) {
             for (List<?> t : (List<?>[]) Mod.field(full, "tips")) {
                 String x = t == null ? "" : text(t).replaceAll("§.", "");
-                if (x.startsWith("Mining Speed")) speedTip = x;
+                if (x.startsWith("Mining Speed|")) speedTip = x;
             }
         }
         PvStyle1104Cases.look(bad, speedTip.contains("Level 10/50") && !speedTip.matches("(?s).*%[a-z_]+%.*") && speedTip.contains("Powder Spent") && speedTip.contains("+200"),
