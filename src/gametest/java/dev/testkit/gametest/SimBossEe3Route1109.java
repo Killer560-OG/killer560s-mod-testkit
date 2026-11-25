@@ -230,7 +230,12 @@ final class SimBossEe3Route1109 {
             }
         }
         double startErr = Math.hypot(rest[0] - at[0], rest[2] - at[2]);
-        if (rest[3] == 0 || rest[4] != 0 || startErr > 1e-6) {
+        if (seg && (rest[3] == 0 || rest[4] != 0 || startErr > 1e-6)) {
+            // ee3-rowfix-1125: a segment row (a design aid, never judged) may start inside a block and be pushed out (the
+            // bundled P1/P2 at 14.5,115,139.5 rest 0.91 west): it plays from where it rests, as it did before the exact start.
+            say(String.format(Locale.ROOT, "%s: segment start rests at %.5f,%.5f (off %.6f) - played from there", tag,
+                    rest[0], rest[2], startErr));
+        } else if (rest[3] == 0 || rest[4] != 0 || startErr > 1e-6) {
             f.add(String.format(Locale.ROOT, "%s: not placed still on the start (%.5f,%.5f off %.6f, ground %s, h %.5f)", tag,
                     rest[0], rest[2], startErr, rest[3] > 0, rest[4]));
             return;
