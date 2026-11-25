@@ -179,11 +179,12 @@ final class HxLuck1102Cases {
         skyblock(c);
         withMf(c, 100, () -> {
             c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
-            String[][] held = {{"minecraft:iron_axe", "3"}, {"minecraft:fishing_rod", "2"}};
+            String[][] held = {{"minecraft:iron_axe", "3", "[Lv73] Zealot 13,000/13,000❤"}, {"minecraft:fishing_rod", "2", "[Lv100] Water Hydra 500k/500k❤"}};
             for (String[] h : held) {
                 c.hx().give(0, h[0] + "[custom_data={enchantments:{looting:" + h[1] + "}}]");
                 int k0 = c.onClient(mc -> (Integer) Mod.field(LK, "killsCounted"));
-                int id = summon(c, "[Lv73] Zealot 13,000/13,000❤", "luckmob");
+                int id = summon(c, h[2], "luckmob");
+                c.ctx().waitTicks(20);
                 hit(c, id);
                 c.waitUntil("the " + h[0] + " kill was counted", mc -> (Integer) Mod.field(LK, "killsCounted") == k0 + 1, 80);
                 String last = String.valueOf((Object) c.onClient(mc -> (Object) Mod.field(LK, "lastKill")));

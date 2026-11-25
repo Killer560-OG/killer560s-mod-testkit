@@ -762,6 +762,8 @@ final class SlotTextCases {
             BufferedImage offMid = hoverShot(c, mid, pos, "mid-off");
             BufferedImage offComp = hoverShot(c, comp, pos, "comp-off");
             BufferedImage offEmpty = hoverShot(c, empty, pos, "empty-off");
+            BufferedImage offComp2 = hoverShot(c, comp, pos, "comp-off2");
+            int noise = changedIn(offComp2, offComp, 0, 0, offComp.getWidth(), offComp.getHeight());
 
             int extraBig = greys(onBig) - greyOffBig;
             int extraMid = greys(onMid) - greys(offMid);
@@ -777,7 +779,7 @@ final class SlotTextCases {
             c.check(extraMid >= 3000, "deletor 4000 grid missing: only " + extraMid + " extra gray px");
             c.check(extraBig > 5 * extraMid / 2, "the 28-slot grid (" + extraBig + ") is not far bigger than the 7-slot one (" + extraMid + ")");
             c.check(extraComp <= 200 && extraEmpty <= 200, "a compactor drew a grid: +" + extraComp + " / +" + extraEmpty + " gray px");
-            c.check(changedComp <= 20 && changedEmpty <= 20, "a compactor hover drew a preview: " + changedComp + " / " + changedEmpty + " px changed");
+            c.check(changedComp <= noise + 20 && changedEmpty <= noise + 20, "a compactor hover drew a preview: " + changedComp + " / " + changedEmpty + " px changed, frame noise " + noise);
         } finally {
             closeScreen(c);
             HudEditorCases.restoreWindow(c, window, oldGui);
