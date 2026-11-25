@@ -5144,7 +5144,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {   // acnohype-1125: walks whose first keys waited out a teleport's own tick (absent on an older jar)
             c.note("walk starts held off a teleport tick: " + ctx.computeOnClient(mc -> ModUnderTest.staticCall(
                     "com.killer560.hub.pathfinding.ShortWalk", "teleportHolds")));
-        } catch (RuntimeException e) {
+        } catch (Throwable e) {   // an older jar has no such counter
             c.note("walk starts held off a teleport tick: n/a");
         }
     }
@@ -5167,7 +5167,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static double acTripPrice;
     /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
     private static boolean acPlanShove;
-    /** 62-argrim-1125-hype-resync: the Hyperion's slot shows the AOTV until Auto Clear needs it, then RESYNC_TICKS more. */
+    /**
+     * 62-argrim-1125-hype-resync: the Hyperion's slot shows another item until Auto Clear reaches for it, then RESYNC_TICKS
+     * more. A stick, not the AOTV the real resync wrote: the server still holds the Hyperion there, so an AOTV the client
+     * picked for its etherwarps cast Wither Impact on the server and killed every mob with no Hyperion use at all.
+     */
     private static boolean acResync;
     private static final int RESYNC_TICKS = 3;
     /** Ticks the AOTV stays in the Hyperion's slot at most when Auto Clear never asks for the Hyperion. */
@@ -5176,7 +5180,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /** The server's set_slot for hotbar slot 5 (inventory menu slot 40), through the client's own packet handler. */
     private static void acSlot(net.minecraft.client.Minecraft mc, net.minecraft.world.item.ItemStack stack) {
-        if (acHype.isEmpty() || !acId(mc.player.getInventory().getItem(4)).equals("ASPECT_OF_THE_VOID")) {
+        if (acId(mc.player.getInventory().getItem(4)).equals("HYPERION")) {
             acHype = mc.player.getInventory().getItem(4).copy();
         }
         mc.getConnection().handleContainerSetSlot(new net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket(
@@ -5272,8 +5276,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     .armedBy(() -> logHas(m, armLine)));
         }
         // 62-argrim-1125-hype-resync: as Auto Clear starts (its first hop needs the Hyperion) the server rewrites the
-        // Hyperion's slot with the AOTV (what GrimAC's resync of a refused block click wrote while the server thread still
-        // held the AOTV, f2-q1-def-2) and keeps it there until Auto Clear reaches for the Hyperion (its wait line, or
+        // Hyperion's slot with another item (GrimAC's resync of a refused block click wrote the AOTV the server thread still
+        // held, f2-q1-def-2) and keeps it there until Auto Clear reaches for the Hyperion (its wait line, or
         // its stop on a jar without the wait), then puts the Hyperion back RESYNC_TICKS later; Auto Clear must wait, not stop.
         int[] resync = {-1};   // ticks the AOTV has been in the slot, -2 once the Hyperion is back
         int[] restoreAt = {-1};
@@ -5294,7 +5298,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (acResync) {
             resync[0] = 0;
             ctx.runOnClient(mc -> {
-                acSlot(mc, mc.player.getInventory().getItem(0).copy());
+                acSlot(mc, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK));
                 ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
                         java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
                         (java.util.function.Consumer<String>) gaveUp::set});
