@@ -148,9 +148,10 @@ final class HxInvisibug1122Cases {
         try (Settings set = on(c, true)) {
             island(c, "Galatea", "GALATEA");
             forget(c);
-            for (int i = 0; i < 8; i++) {
+            // 12 points: origin needs 7 in a row, and a loaded test client can stretch a step past its 7-tick limit
+            for (int i = 0; i < 12; i++) {
                 send(c, B, i, 118.90, at);
-                c.ctx().waitTicks(i < 7 ? 5 : 1);
+                c.ctx().waitTicks(i < 11 ? 5 : 1);
             }
             c.check(count(c, "boxCount") == 1, "the bug next to the player was not boxed: " + count(c, "boxCount"));
             c.hx().call("chat", "text", "The Invisibug was more visible than it thought...", "overlay", false);
@@ -158,11 +159,11 @@ final class HxInvisibug1122Cases {
             c.ctx().waitTicks(2);
             c.check(count(c, "boxCount") == 0, "box still drawn 2 ticks after the catch line (3 after its last crit): "
                     + count(c, "boxCount"));
-            send(c, B, 8, 118.90, at);
+            send(c, B, 12, 118.90, at);
             c.ctx().waitTicks(3);
             c.check(count(c, "boxCount") == 0, "a late crit of the caught bug drew its box again");
             c.ctx().waitTicks(25);
-            send(c, B, 9, 118.90, at);
+            send(c, B, 13, 118.90, at);
             c.ctx().waitTicks(2);
             c.check(count(c, "boxCount") == 1, "a bug back at the caught spot was not boxed from its first crit: "
                     + count(c, "boxCount"));
@@ -185,10 +186,11 @@ final class HxInvisibug1122Cases {
             int first = -1;
             for (int i = 0; i < B.length / 2; i++) {
                 send(c, B, i, 118.90, at);
-                c.ctx().waitTicks(i == 0 ? 1 : 5);
+                c.ctx().waitTicks(1);
                 if (first < 0 && count(c, "boxCount") > 0) {
                     first = i;
                 }
+                c.ctx().waitTicks(4);
             }
             c.note("first box " + (first < 0 ? "never" : (first * 5) + " ticks after the first crit (point " + (first + 1) + ")"));
             c.check(first >= 0 && first <= 2, "first box at point " + (first + 1) + " (want by the 3rd point, 10 ticks)");
