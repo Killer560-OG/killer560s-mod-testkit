@@ -71,9 +71,11 @@ final class SimBossEe3Route1109 {
                 int reps = p.length > 1 ? Integer.parseInt(p[1]) : 1;
                 for (int i = 0; i < reps; i++) {
                     try {
-                        // "name reps x y z yaw": start there instead of HEE2 (one segment of a route, while designing it).
+                        // "name reps x y z yaw [pitch]": start there instead of HEE2 (a start seed within 0.1 of HEE2, judged
+                        // like the plain run, or one segment of a route while designing it). Default: the route finder's start.
                         double[] at = p.length >= 6 ? new double[]{Double.parseDouble(p[2]), Double.parseDouble(p[3]),
-                                Double.parseDouble(p[4]), Double.parseDouble(p[5])} : new double[]{60.5, 132, 139, 72};
+                                Double.parseDouble(p[4]), Double.parseDouble(p[5]), p.length >= 7 ? Double.parseDouble(p[6]) : 0}
+                                : new double[]{60.5, 132, 139, 117, 46.3};
                         one(ctx, f, p[0], i, at);
                     } catch (Exception e) {
                         f.add(p[0] + " #" + i + " threw: " + e);
@@ -132,8 +134,10 @@ final class SimBossEe3Route1109 {
     }
 
     private static void one(ClientGameTestContext ctx, List<String> f, String name, int rep, double[] at) throws Exception {
-        boolean seg = at[0] != 60.5 || at[2] != 139;
-        String tag = name + (seg ? "@" + (int) at[0] + "," + (int) at[2] : "") + " #" + rep;
+        double off = Math.hypot(at[0] - 60.5, at[2] - 139);
+        boolean seg = off > 0.1; // a start seed (within 0.1 of HEE2) is judged like the plain run
+        String tag = name + (seg ? "@" + (int) at[0] + "," + (int) at[2]
+                : off > 0 ? String.format(Locale.ROOT, "@%+.3f,%+.3f", at[0] - 60.5, at[2] - 139) : "") + " #" + rep;
         boolean his = name.startsWith("his");
         Path route = DIR.resolve(name + ".json");
         if (his && !Files.isRegularFile(route)) {
@@ -155,7 +159,10 @@ final class SimBossEe3Route1109 {
         ctx.runOnClient(mc -> {
             try {
                 Object cfg = ModUnderTest.config(Ap3RuntimeTests.CONFIG);
-                ModUnderTest.set(cfg, "setEnabled", true);
+                // ee3-casestart-1125: on only once he stands still on the start (below). On here, the boss start (on the start
+                // node) and the tp's own ticks already ran the route's first ticks, airborne off the tp, so every run began
+                // 0.02-0.1 off the plan and new routes fell off the start floor (r34a 0.085 west at t0).
+                ModUnderTest.set(cfg, "setEnabled", false);
                 ModUnderTest.staticCall(Ap3RuntimeTests.FEATURE, "setForceDungeon", new Class<?>[]{boolean.class}, new Object[]{false});
                 Object cu = ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtilsConfig", "getInstance");
                 ModUnderTest.call(cu, "setAuraBossLevers", new Class<?>[]{boolean.class}, new Object[]{true});
@@ -207,7 +214,28 @@ final class SimBossEe3Route1109 {
                 + hasBoom + ", Superboom in slot " + boomSlot + ", levers low/high powered at start " + lev0[0] + "/" + lev0[1]);
 
         long mark = LogTap.mark();
-        SimBossTests.tp(ctx, at[0], at[1], at[2], (float) at[3], 0f);
+        // ee3-casestart-1125: start as a real run does after AP3's Fast Align at HEE2 (stopped, feet on the point, <= 0.002 in
+        // 7 Hypixel runs) and as 1112-boss-ap3trace does: placed exactly (full decimals, AP3 off), standing still on the
+        // ground, then AP3 on, so the route's first node fires on t0 from rest.
+        SimBossTests.command(ctx, String.format(Locale.ROOT, "tp @p %s %s %s %s %s", at[0], at[1], at[2], at[3], at[4]));
+        double[] rest = null;
+        for (int w = 0; w < 40; w++) {
+            ctx.waitTick();
+            rest = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                    mc.player.onGround() ? 1 : 0, mc.player.getDeltaMovement().horizontalDistance()});
+            say(String.format(Locale.ROOT, "%s settle w%d pos %.5f %.5f %.5f %s h %.5f", tag, w, rest[0], rest[1], rest[2],
+                    rest[3] > 0 ? "G" : "A", rest[4]));
+            if (w >= 2 && rest[3] > 0 && rest[4] == 0) {
+                break;
+            }
+        }
+        double startErr = Math.hypot(rest[0] - at[0], rest[2] - at[2]);
+        if (rest[3] == 0 || rest[4] != 0 || startErr > 1e-6) {
+            f.add(String.format(Locale.ROOT, "%s: not placed still on the start (%.5f,%.5f off %.6f, ground %s, h %.5f)", tag,
+                    rest[0], rest[2], startErr, rest[3] > 0, rest[4]));
+            return;
+        }
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(Ap3RuntimeTests.CONFIG), "setEnabled", true));
         int charges = MAX_CHARGES;
         int rc = 0;
         int minCharges = MAX_CHARGES;
@@ -233,7 +261,7 @@ final class SimBossEe3Route1109 {
             });
             Vec3 pos = new Vec3(s[0], s[1], s[2]);
             Vec3 eye = pos.add(0, 1.62, 0);
-            if (t0 < 0 && Math.hypot(s[0] - at[0], s[2] - at[2]) > 0.2 && t > 2) {
+            if (t0 < 0 && Math.hypot(s[0] - at[0], s[2] - at[2]) > 0.2) {
                 t0 = t;
             }
             if (lowAt < 0 && s[6] > 0) {
@@ -315,8 +343,9 @@ final class SimBossEe3Route1109 {
         say(String.format(Locale.ROOT, "RESULT %s: HEE2->EE3 arrive %d ticks, aligned %d ticks (start t%d); levers low t%d high t%d"
                         + " (now %s/%s); boom t%d, arch cells left %d, arch entered early t%d; picks broken %d of %d live, min charges %d,"
                         + " short %d%s",
-                tag, arrive < 0 || t0 < 0 ? -1 : arrive - t0, aligned < 0 || t0 < 0 ? -1 : aligned - t0, t0,
-                lowAt < 0 ? -1 : lowAt - t0, highAt < 0 ? -1 : highAt - t0, lev[0], lev[1], boomAt < 0 ? -1 : boomAt - t0, arch,
+                // ee3-casestart-1125: ticks count from AP3 turning on at rest on the start (as 1112-boss-ap3trace's T numbering);
+                // "start" is the first tick 0.2 off the start.
+                tag, arrive, aligned, t0, lowAt, highAt, lev[0], lev[1], boomAt, arch,
                 archBreach, broken.size(), live.size(), minCharges, shorts.size(),
                 shorts.isEmpty() ? "" : " first " + String.join(", ", shorts.subList(0, Math.min(6, shorts.size())))));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(Ap3RuntimeTests.EXEC, "stop", new Class<?>[]{String.class},

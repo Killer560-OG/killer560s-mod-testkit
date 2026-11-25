@@ -511,12 +511,34 @@ final class Ee3RouteGrimCases {
                 }
                 c.server().sync(30);
             }
-            // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
+            // ee3-casestart-1125: the start of a boss run as in a real one after AP3's Fast Align at HEE2 (stopped, feet on the
+            // point, <= 0.002 in 7 Hypixel runs) and as 1112-boss-ap3trace: AP3 off for the tp, standing still on the ground at
+            // the HEE2 node, yaw 117 pitch 46.3 (the route finder's start), then AP3 on, so the first node fires from rest.
+            // With AP3 on, the tp fired the route on his airborne landing tick (60.49,138.98 at tick 2): every run began
+            // 0.02-0.04 off the plan, and new routes fell off the start floor before the levers.
+            c.onClient(mc -> {
+                Mod.set("ap3.Ap3Config", "setEnabled", false);
+                return null;
+            });
             park(c);
             c.ctx().waitTicks(5);
-            // The start of a boss run: standing at the HEE2 node, yaw 117 pitch 46.3 (the route finder's sim start).
             walkRec = walkTrace != null;
             c.hx().call("dungeon.tp", "x", 60.5, "y", 132.0, "z", 139.0, "yaw", 117f, "pitch", 46.3f);
+            double[] rest = null;
+            for (int w = 0; w < 40; w++) {
+                c.ctx().waitTick();
+                rest = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getZ(), mc.player.onGround() ? 1 : 0,
+                        mc.player.getDeltaMovement().horizontalDistance()});
+                if (w >= 2 && rest[2] > 0 && rest[3] == 0) {
+                    break;
+                }
+            }
+            c.check(rest[2] > 0 && rest[3] == 0 && Math.hypot(rest[0] - 60.5, rest[1] - 139) < 1e-6, String.format(Locale.ROOT,
+                    "not placed still on HEE2 (%.5f,%.5f ground %s h %.5f)", rest[0], rest[1], rest[2] > 0, rest[3]));
+            c.onClient(mc -> {
+                Mod.set("ap3.Ap3Config", "setEnabled", true);
+                return null;
+            });
             int t0 = -1;
             int charges = 20;
             int recharge = 0;
