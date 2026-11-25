@@ -147,8 +147,10 @@ final class PvExact1124Cases {
             }
 
             // Every page draws in this style without an error (the client would stop on a render exception).
-            int pages = style.equals("NEU") ? 14 : 19; // SkyBlockPV adds Loadout, Fishing, Foraging, Chocolate Factory, Kills
-            for (int page = 0; page < pages; page++) {
+            // SkyBlockPV adds Loadout, Fishing, Foraging, Chocolate Factory, Kills (14-18); NEU Classic adds Trophy Fish (19).
+            int[] pageList = style.equals("NEU") ? new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 19}
+                    : java.util.stream.IntStream.range(0, 19).toArray();
+            for (int page : pageList) {
                 final int p = page;
                 c.ctx().runOnClient(mc -> Mod.call(s, "setPage", p));
                 c.ctx().waitTicks(4);
@@ -216,15 +218,16 @@ final class PvExact1124Cases {
         }
         // Tab order by real clicks: slot 2 is Extra (our Misc, 12), slot 4 Collections (4), slot 5 Pets (3).
         int[] order = c.onClient(mc -> ((int[]) Mod.field("profileviewer.screen.ProfileViewerScreen", "NEU_TAB_ORDER")).clone());
-        PvStyle1104Cases.look(bad, java.util.Arrays.equals(order, new int[]{0, 1, 12, 2, 4, 3, 5, 6, 7, 8, 9, 10, 11, 13}),
+        PvStyle1104Cases.look(bad, java.util.Arrays.equals(order, new int[]{0, 1, 12, 2, 4, 3, 5, 19, 6, 7, 8, 9, 10, 11, 13}),
                 "NEU: tab order " + java.util.Arrays.toString(order));
-        int[][] clicks = {{2, 12}, {4, 4}, {5, 3}, {0, 0}};
+        int[][] clicks = {{2, 12}, {4, 4}, {5, 3}, {7, 19}, {0, 0}};
         for (int[] k : clicks) {
             BazaarReskinCases.pressAt(c, new int[]{px + k[0] * 28, py - 28 + 4, 28, 19}, 0);
             int page = c.onClient(mc -> (Integer) Mod.field(s, "page"));
             PvStyle1104Cases.look(bad, page == k[1], "NEU: a click on tab slot " + k[0] + " opened page " + page + ", expected " + k[1]);
         }
         c.ctx().waitTicks(3);
+        neuTrophy(c, s, bad, scale);
 
         // Basic page content, built once (NeuBasic).
         Object nb = c.onClient(mc -> Mod.field(s, "neuBasic"));
@@ -293,6 +296,49 @@ final class PvExact1124Cases {
             }
         }
         PvStyle1104Cases.look(bad, white >= 10, "NEU: " + white + " name pixels at y 54 (want 10+)");
+    }
+
+    /** 1124h: NEU Classic's Trophy Fish page (the fixture caught 3 Bronze Sulphur Skitters). */
+    private static void neuTrophy(Session c, Screen s, List<String> bad, double scale) throws Exception {
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 19));
+        Object page = c.onClient(mc -> Mod.field(s, "neuTrophy"));
+        Object m = null;
+        for (int i = 0; i < 40 && m == null; i++) {
+            c.ctx().waitTicks(2);
+            m = c.onClient(mc -> {
+                java.util.concurrent.CompletableFuture<?> f = (java.util.concurrent.CompletableFuture<?>) Mod.field(page, "model");
+                return f != null && f.isDone() ? f.getNow(null) : null;
+            });
+        }
+        c.check(m != null, "NEU: the Trophy Fish page built no content");
+        c.ctx().waitTicks(4);
+        BufferedImage img = BazaarReskinCases.shot(c, "neu-trophy");
+        Object model = m;
+        List<?> fish = c.onClient(mc -> (List<?>) Mod.field(model, "fish"));
+        PvStyle1104Cases.look(bad, fish.size() == 18, "NEU trophy: " + fish.size() + " fish slots, expected 18");
+        Object f0 = fish.get(0);
+        String f0s = Mod.field(f0, "name") + " best " + Mod.field(f0, "best") + " at " + Mod.field(f0, "x") + "," + Mod.field(f0, "y")
+                + " total " + Mod.field(f0, "total");
+        PvStyle1104Cases.look(bad, f0s.equals("Sulphur_skitter best 0 at 277,46 total 3"), "NEU trophy: first slot " + f0s);
+        Object f17 = fish.get(17);
+        PvStyle1104Cases.look(bad, (Integer) Mod.field(f17, "best") == -1 && (Integer) Mod.field(f17, "x") == 277 && (Integer) Mod.field(f17, "y") == 142,
+                "NEU trophy: last slot " + Mod.field(f17, "name") + " best " + Mod.field(f17, "best"));
+        String[] helm = c.onClient(mc -> (String[]) Mod.field(model, "helmetText"));
+        PvStyle1104Cases.look(bad, "§c1/15".equals(helm[0]) && "§c0/18".equals(helm[3]), "NEU trophy: helmet counts " + String.join(",", helm));
+        long caught = c.onClient(mc -> (Long) Mod.field(model, "totalCaught"));
+        PvStyle1104Cases.look(bad, caught == 3, "NEU trophy: Total Caught " + caught);
+        String tip0 = c.onClient(mc -> text((List<?>) Mod.call(page, "tip", model, 0, f0)));
+        PvStyle1104Cases.look(bad, tip0.startsWith("§fSulphur Skitter|") && tip0.contains("|§bDiamond: §c✖|") && tip0.contains("|§8Bronze: §63|")
+                && tip0.endsWith("|§7Total: §63"), "NEU trophy: Sulphur Skitter hover " + tip0);
+        String tip17 = c.onClient(mc -> text((List<?>) Mod.call(page, "tip", model, 17, f17)));
+        PvStyle1104Cases.look(bad, tip17.contains("|§c§c✖ Not Discovered|"), "NEU trophy: missing fish hover " + tip17);
+        // The first slot's ring is pv_elements' cell tinted bronze (FF8200): its gray edge reads orange.
+        int px = c.onClient(mc -> (Integer) Mod.field(s, "panelX")), py = c.onClient(mc -> (Integer) Mod.field(s, "panelY"));
+        int ring = gp(img, scale, px + 275 + 10, py + 44);
+        int r = ring >> 16 & 0xFF, gr = ring >> 8 & 0xFF, b = ring & 0xFF;
+        PvStyle1104Cases.look(bad, r > gr + 25 && gr >= b, "NEU trophy: bronze ring pixel " + String.format("%06X", ring));
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
+        c.ctx().waitTicks(3);
     }
 
     private static void sbpv(Session c, Screen s, List<String> bad, BufferedImage img, double scale, int[] g, String style) throws Exception {
