@@ -2636,10 +2636,10 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/compactorpreview/CompactorPreviewFeature.java",
    "line": 45,
-   "regex": "^PERSONAL_(COMPACTOR|DELETOR)_(?:([A-Z]{1,16})_)?(\\d{1,5})$",
+   "regex": "^PERSONAL_DELETOR_(\\d{1,5})$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^PERSONAL_(COMPACTOR|DELETOR)_(?:([A-Z]{1,16})_)?(\\\\d{1,5})$\""
+   "expr": "\"^PERSONAL_DELETOR_(\\\\d{1,5})$\""
   },
   {
    "id": "crashreport.CrashReportFeature#SERVER_ARG",
