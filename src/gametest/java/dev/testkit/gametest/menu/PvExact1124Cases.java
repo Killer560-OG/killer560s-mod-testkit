@@ -428,7 +428,7 @@ final class PvExact1124Cases {
                 if (x.split("\\|", 2)[0].equals("Mining Speed")) speedTip = x;
             }
         }
-        PvStyle1104Cases.look(bad, speedTip.contains("Level 10/50") && !speedTip.matches("(?s).*%[a-z_]+%.*") && speedTip.contains("Powder Spent") && speedTip.contains("+200"),
+        PvStyle1104Cases.look(bad, speedTip.startsWith("Mining Speed|Level 50|") && !speedTip.matches("(?s).*%[a-z_]+%.*") && speedTip.contains("+1,000"),
                 style + ": Mining Speed node hover (level and filled perk text) '" + speedTip + "'");
         PvStyle1104Cases.look(bad, full != null && (int) Mod.field(full, "w") > (int) Mod.field(hotm, "w"),
                 style + ": full HotM tree has no tier column");
