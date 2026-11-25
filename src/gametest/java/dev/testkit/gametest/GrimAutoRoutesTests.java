@@ -5342,10 +5342,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
                     .armedBy(() -> logHas(m, armLine)));
         }
-        start.run();
+        // 62-argrim-1125-hype-resync: as Auto Clear starts (its first hop needs the Hyperion) the server rewrites the
+        // Hyperion's slot with the AOTV (what GrimAC's resync of a refused block click wrote while the server thread still
+        // held the AOTV, f2-q1-def-2) and puts the Hyperion back RESYNC_TICKS later; Auto Clear must wait, not stop.
+        int[] resync = {-1};
+        Runnable resyncTick = () -> {
+            if (resync[0] > 0 && resync[0]++ == RESYNC_TICKS) {
+                ctx.runOnClient(mc -> acSlot(mc, acHype.copy()));
+            }
+        };
+        if (acResync) {
+            resync[0] = 1;
+            ctx.runOnClient(mc -> {
+                acSlot(mc, mc.player.getInventory().getItem(0).copy());
+                ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                        java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+                        (java.util.function.Consumer<String>) gaveUp::set});
+            });
+        } else {
+            start.run();
+        }
         int[] tpSpam = {6};
         boolean[] restarted = {false};
         boolean firstCast = waitFor(ctx, 100, () -> {
+            resyncTick.run();
             if (armed && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, armLine) && tpSpam[0]-- > 0) {
                 c.server().command("execute as @a at @s run tp @s ~ ~ ~");   // only from the chain on: before it, it moved the plan
             }
@@ -5384,19 +5404,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             start.run();
         }
         int[] shoveAt = {-1};
-        // 62-argrim-1125-hype-resync: from the first cast on, the server rewrites the Hyperion's slot with the AOTV (what
-        // GrimAC's resync of a refused block click wrote while the server thread still held the AOTV, f2-q1-def-2) and puts
-        // the Hyperion back RESYNC_TICKS later; Auto Clear must wait for it, not stop.
-        int[] resync = {acResync ? 0 : -1};
         boolean finished = waitFor(ctx, 600, () -> {
+            resyncTick.run();
             // On the plan etherwarp's landing, standing between two plan steps (a move during the trip is the trip's
             // own to plan again: run q1-def-moved), as his Hyperion click after a landing did in fin3-def-2.
-            if (resync[0] == 0) {
-                resync[0] = 1;
-                ctx.runOnClient(mc -> acSlot(mc, mc.player.getInventory().getItem(0).copy()));
-            } else if (resync[0] > 0 && resync[0]++ == RESYNC_TICKS) {
-                ctx.runOnClient(mc -> acSlot(mc, acHype.copy()));
-            }
             if (acPlanShove && plan && shoveAt[0] < 0 && logHas(m, "[Path] arrived")) {
                 shoveAt[0] = LogTap.since(m).size();
                 tpRel(ctx, 16.5, 15.5, -90f, 0f);
@@ -5413,6 +5424,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         if (hits) {
             c.server().command("kill @e[tag=achypehit]");
+        }
+        if (resync[0] > 0 && resync[0] <= RESYNC_TICKS) {
+            resync[0] = RESYNC_TICKS + 1;
+            ctx.runOnClient(mc -> acSlot(mc, acHype.copy()));
         }
         if (!finished) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
