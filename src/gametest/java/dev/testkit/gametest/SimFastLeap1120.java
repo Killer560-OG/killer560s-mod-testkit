@@ -38,7 +38,8 @@ final class SimFastLeap1120 {
 
     /** Completes {@code stage} in the tracker's own listener path: the P3 leap the feature makes for it. */
     private static void completed(ClientGameTestContext ctx, String stage) {
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "handleP3Leap", new Class<?>[]{classOf(STAGE)}, new Object[]{ModUnderTest.enumValue(STAGE, stage)}));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "handleP3Leap", new Class<?>[]{classOf(STAGE), boolean.class, classOf(CFG + "$LeapMode")},
+                new Object[]{ModUnderTest.enumValue(STAGE, stage), false, ModUnderTest.enumValue(CFG + "$LeapMode", "AUTO")}));
         ctx.waitTicks(30);
     }
 
@@ -57,6 +58,15 @@ final class SimFastLeap1120 {
                 new Object[]{ModUnderTest.enumValue(TARGET, target), ModUnderTest.enumValue(CLASS, cls)});
     }
 
+    /** Every P3 row ON in Auto, or OFF (each row has its own switch since leap-p3-rowswitch-1124). */
+    private static void rows(Object cfg, boolean on) {
+        for (String t : new String[]{"I3", "S1", "S2", "S3", "S4"}) {
+            ModUnderTest.call(cfg, "setRowOn", new Class<?>[]{classOf(TARGET), boolean.class}, new Object[]{ModUnderTest.enumValue(TARGET, t), on});
+            ModUnderTest.call(cfg, "setRowMode", new Class<?>[]{classOf(TARGET), classOf(CFG + "$LeapMode")},
+                    new Object[]{ModUnderTest.enumValue(TARGET, t), ModUnderTest.enumValue(CFG + "$LeapMode", "AUTO")});
+        }
+    }
+
     static void run(ClientGameTestContext ctx, List<String> f) throws Exception {
         Object cfg = ModUnderTest.config(CFG);
         boolean wasOn = (Boolean) ModUnderTest.call(cfg, "isEnabledSetting", new Class<?>[]{}, new Object[]{});
@@ -69,6 +79,7 @@ final class SimFastLeap1120 {
             ModUnderTest.call(cfg, "setUseClassTargets", new Class<?>[]{boolean.class}, new Object[]{false});
             pick(cfg, "S2", "HEALER");
             pick(cfg, "S3", "TANK");
+            rows(cfg, true);
             SimLeap1116.give(ctx, "INFINITE_SPIRIT_LEAP", 1);
             ctx.waitTicks(45);
             expect(f, "no Sim Teammate placed", SimLeap1116.mates(ctx).size(), 0);
@@ -106,6 +117,7 @@ final class SimFastLeap1120 {
             println(NAME, "done");
         } finally {
             ctx.runOnClient(mc -> mc.player.closeContainer());
+            rows(cfg, false);
             ModUnderTest.call(cfg, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{wasOn});
             ModUnderTest.call(cfg, "setUseClassTargets", new Class<?>[]{boolean.class}, new Object[]{wasClassTargets});
         }
