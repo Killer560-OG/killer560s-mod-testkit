@@ -5341,6 +5341,22 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             c.note("plan moves " + planMoves + ", plan casts " + planCasts + ", use_item ticks on the wire " + useTicks(s).size()
                     + (act == dev.testkit.gametest.SameTick.Act.USE_CLICK ? ", hops held for his click "
                     + LogTap.since(m).stream().filter(l -> l.contains("hop held a tick: his right click")).count() : ""));
+            if (act == dev.testkit.gametest.SameTick.Act.USE_CLICK) {
+                // His use in the tick Auto Clear turns for a cast flew HIS Wither Impact the cast's way, unheard by the
+                // server, and killed its mob first (plan casts 0, acoptimal-next4-1125-fix): the turn waits for his click.
+                List<String> ridden = new ArrayList<>();
+                java.util.regex.Pattern rp = java.util.regex.Pattern.compile(
+                        "\\[RightClick\\] use seq \\d+ with HYPERION.*? rot (-?[\\d.]+)/(-?[\\d.]+) \\| server look (-?[\\d.]+)/(-?[\\d.]+)");
+                for (String l : LogTap.since(m)) {
+                    java.util.regex.Matcher rm = rp.matcher(l);
+                    if (rm.find() && (Math.abs(net.minecraft.util.Mth.wrapDegrees(Float.parseFloat(rm.group(1)) - Float.parseFloat(rm.group(3)))) > 1f
+                            || Math.abs(Float.parseFloat(rm.group(2)) - Float.parseFloat(rm.group(4))) > 1f)) {
+                        ridden.add(l.replaceAll("^.*?\\[RightClick\\] ", "").replaceAll(" \\| shift.*", ""));
+                    }
+                }
+                c.note("Hyperion uses on a look the server had not heard " + ridden.size() + (ridden.isEmpty() ? "" : " e.g. " + ridden.get(0)));
+                check(ridden.isEmpty(), "his right click went out on Auto Clear's unheard turn: " + ridden);
+            }
             check(planMoves >= 2 && planCasts >= 1, "the room kill plan did not act (plan moves " + planMoves + ", plan casts "
                     + planCasts + "): the plan rows tested nothing");
             check(useTicks(s).size() >= planCasts, "a plan cast never reached the wire: plan casts " + planCasts
