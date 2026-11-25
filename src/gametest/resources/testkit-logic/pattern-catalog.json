@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T17:16:01",
- "modSource": "lane-beaconalert-color-1125",
- "modGitSha": "969ba88b4cd92672100b88473a57088eaa1ebfdc",
+ "generatedAt": "2026-11-25T17:26:16",
+ "modSource": "lane-arwarpclick-1125",
+ "modGitSha": "74be273eab015b88d58acb020cd543265112fbb7",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
