@@ -9261,10 +9261,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 // A warp goes no sooner than RouteExecutor.CLICK_TO_WARP_TICKS after a block click made with the same item
                 // (mod c81e0cf0, 2026-10-19: 2; arwrong-1118: 3). On Hypixel 45 of 69 warps one tick after such a click got
                 // no teleport, and his 2026-11-18 routes had 15 of 74 refused two ticks after, 30 of 30 landing at three.
-                // So the third tick end after the click is the first one Hypixel reliably takes: sooner is the refusal, later a wasted
-                // tick. The click leaves a tick before the node fires, so that is 2 ticks after firing (origin's gap of 2: 1).
-                check(same.actedAfterFiring() == 2, "the warp after the lever click went " + same.actedAfterFiring()
-                        + " tick(s) after firing - it must go on the click-gap's tick (2 after firing, 3 after the click)");
+                // So the third tick end after the click is the first one Hypixel reliably takes: sooner is the refusal. The click
+                // leaves a tick before the node fires, so the click gap alone is 2 ticks after firing. But the warp's sneak goes
+                // out IN the firing tick (a sneaking player cannot click his secret), and a warp cast within 2 ticks of its sneak
+                // needs a look that lands from both eyes or waits one tick (mod 814beef0a, standeye-ar-1123: Hypixel cast such
+                // warps from the standing eye and landed a block or two past). This 8-block warp has no such look, so the
+                // first send is 3 after firing; 2 would be the standing-eye cast, 4 or later a wasted tick (arwarpclick-1125).
+                check(same.actedAfterFiring() == 3,
+                        "the warp after the lever click went " + same.actedAfterFiring()
+                        + " tick(s) after firing - it must go on the first tick both the click gap and the sneak age allow (3 after firing)");
                 check(item.acted() && item.dropped() == 0 && item.landTick() >= 0 && !item.turnedFirst(),
                         "the warp after an item pickup did not go and land at once (landed " + item.landTick()
                                 + ", ignored " + item.dropped() + ", turned first " + item.turnedFirst() + ")");
