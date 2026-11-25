@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T17:34:50",
- "modSource": "lane-leap-p3-rowswitch-1124b",
- "modGitSha": "1e5fa41411aa829c611b1050da23785cefc89a7e",
+ "generatedAt": "2026-11-24T18:17:01",
+ "modSource": "lane-pv-styles-exact-1124b",
+ "modGitSha": "6fa7be48bec06adc4b29cd72ab1597e4adfc2bdc",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
