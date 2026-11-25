@@ -230,6 +230,7 @@ final class PvExact1124Cases {
         }
         c.ctx().waitTicks(3);
         neuTrophy(c, s, bad, scale);
+        neuBingo(c, s, bad);
 
         // Basic page content, built once (NeuBasic).
         Object nb = c.onClient(mc -> Mod.field(s, "neuBasic"));
@@ -341,6 +342,42 @@ final class PvExact1124Cases {
         PvStyle1104Cases.look(bad, r > gr + 25 && gr >= b, "NEU trophy: bronze ring pixel " + String.format("%06X", ring));
         c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
         c.ctx().waitTicks(3);
+    }
+
+    /** 1124i: NEU Classic's Bingo page: its tab only on a Bingo profile, and the page built from fixture event and goal answers. */
+    private static void neuBingo(Session c, Screen s, List<String> bad) throws Exception {
+        int[] order = c.onClient(mc -> ((int[]) Mod.field("profileviewer.screen.ProfileViewerScreen", "NEU_TAB_ORDER_BINGO")).clone());
+        PvStyle1104Cases.look(bad, java.util.Arrays.equals(order, new int[]{0, 1, 12, 2, 4, 3, 5, 20, 19, 6, 7, 8, 9, 10, 11, 13}),
+                "NEU bingo: tab order " + java.util.Arrays.toString(order));
+        // The fixture is an ironman profile: setting the Bingo page sends it back to page 0 on the next frame.
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 20));
+        c.ctx().waitTicks(3);
+        int back = c.onClient(mc -> (Integer) Mod.field(s, "page"));
+        PvStyle1104Cases.look(bad, back == 0, "NEU bingo: a non-Bingo profile stayed on the Bingo page (" + back + ")");
+        String goals = "{\"id\":42,\"goals\":[{\"id\":\"g1\",\"name\":\"Fish\",\"lore\":\"§7Catch a fish.\"},"
+                + "{\"id\":\"c1\",\"name\":\"Mine\",\"progress\":500,\"tiers\":[100,1000]},{\"id\":\"g2\",\"name\":\"Kill\",\"lore\":\"§7Kill.\"},"
+                + "{\"id\":\"g3\",\"name\":\"A\",\"lore\":\"\"},{\"id\":\"g4\",\"name\":\"B\",\"lore\":\"\"},{\"id\":\"g5\",\"name\":\"C\",\"lore\":\"\"}]}";
+        String info = "{\"events\":[{\"key\":41},{\"key\":42,\"points\":7,\"completed_goals\":[\"g1\"]}]}";
+        Class<?> page = Class.forName("com.killer560.hub.profileviewer.screen.NeuBingoPage", true, s.getClass().getClassLoader());
+        java.lang.reflect.Method build = page.getDeclaredMethod("build", com.google.gson.JsonObject.class, com.google.gson.JsonObject.class);
+        build.setAccessible(true);
+        com.google.gson.JsonObject gj = com.google.gson.JsonParser.parseString(goals).getAsJsonObject();
+        Object m = build.invoke(null, com.google.gson.JsonParser.parseString(info).getAsJsonObject(), gj);
+        PvStyle1104Cases.look(bad, Boolean.FALSE.equals(Mod.field(m, "noData")) && "§bCollected Points: §f7".equals(Mod.field(m, "points"))
+                && "§bPersonal Goals: §f1§6/§f20".equals(Mod.field(m, "goals")), "NEU bingo: header " + Mod.field(m, "points") + " / " + Mod.field(m, "goals"));
+        List<?> cells = (List<?>) Mod.field(m, "cells");
+        StringBuilder pos = new StringBuilder();
+        for (Object o : cells) pos.append(Mod.field(o, "x")).append(',').append(Mod.field(o, "y")).append(' ')
+                .append(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(((net.minecraft.world.item.ItemStack) Mod.field(o, "icon")).getItem())).append(';');
+        // Done personal goal: lime dye, nudged -1 x; the community goal (500 of 1000, tier 1 of 2): iron, nudged -1/-1, and every later cell keeps both nudges.
+        PvStyle1104Cases.look(bad, pos.toString().equals("230,46 minecraft:lime_dye;254,45 minecraft:iron_block;278,45 minecraft:paper;"
+                + "302,45 minecraft:paper;326,45 minecraft:paper;230,69 minecraft:paper;"), "NEU bingo: cells " + pos);
+        String t0 = text((List<?>) Mod.field(cells.get(0), "tip")), t1 = text((List<?>) Mod.field(cells.get(1), "tip"));
+        PvStyle1104Cases.look(bad, t0.equals("§aFish|§8Personal Goal||§7Catch a fish.||§7Reward|§61 Bingo Point||§aGOAL REACHED"), "NEU bingo: done goal hover " + t0);
+        PvStyle1104Cases.look(bad, t1.startsWith("§aMine 1|§8Community Goal||§7Progress to Mine 2: §e50§6%|§2") && !t1.contains("GOAL REACHED"),
+                "NEU bingo: community goal hover " + t1);
+        Object none = build.invoke(null, com.google.gson.JsonParser.parseString("{\"events\":[{\"key\":41}]}").getAsJsonObject(), gj);
+        PvStyle1104Cases.look(bad, Boolean.TRUE.equals(Mod.field(none, "noData")), "NEU bingo: an older event only did not read as no data");
     }
 
     /** NeuTrophyPage.tip(Model, int, Fish): Mod.call does not match an int parameter. */
@@ -528,7 +565,9 @@ final class PvExact1124Cases {
             + "\"resources_collected\":{\"WHEAT\":1000},\"garden_upgrades\":{\"MAX_OCCUPANCY\":1},"
             + "\"commission_data\":{\"visits\":{\"adventurer\":3},\"completed\":{\"adventurer\":2},\"unique_npcs_served\":1},"
             + "\"active_commissions\":{\"adventurer\":{\"position\":1,\"status\":\"STARTED\",\"requirement\":[{\"original_item\":\"WHEAT\","
-            + "\"original_amount\":64,\"item\":\"WHEAT\",\"amount\":32}]}}}";
+            + "\"original_amount\":64,\"item\":\"WHEAT\",\"amount\":32}]}},"
+            + "\"composter_data\":{\"organic_matter\":1000,\"fuel_units\":2000,\"compost_items\":3,\"last_save\":0,\"upgrades\":{\"speed\":2}},"
+            + "\"unlocked_plots_ids\":[\"beginner_1\"],\"selected_barn_skin\":\"default_1\",\"greenhouse_slots\":[{},{}]}";
 
     /** SkyBlockPV's Farming page: Information, Visitors, Visitor Queue, Contests, Chips and Crop, all from the seeded garden. */
     private static void farming(Session c, Screen s, Object pages, Object m, List<String> bad, String style) throws Exception {
@@ -592,7 +631,37 @@ final class PvExact1124Cases {
             Object g = Mod.field(f, "gear");
             return g != null && ((java.util.concurrent.Future<?>) g).isDone();
         }, 400);
-        for (int sub = 0; sub < 4; sub++) {
+        // 1124i: the Composter category (Information, Greenhouse, Upgrades, Plots) and its bundled tables.
+        String ci = String.join(" | ", (String[]) Mod.field(f, "compInfo")), gh = String.join(" | ", (String[]) Mod.field(f, "greenhouse"));
+        PvStyle1104Cases.look(bad, ci.startsWith("Organic Matter Stored: §a1,000 | Fuel Stored: §22,000 | Compost Stored: §c3 | Last Update: §8")
+                && gh.startsWith("Spaces: §a14§2/§a100 | §8"), style + ": Composter Information " + ci + " / Greenhouse " + gh);
+        String speed = text(((List<?>[]) Mod.field(f, "compUpTips"))[0]);
+        PvStyle1104Cases.look(bad, speed.startsWith("§lComposter Speed|§7Increases composter production|speed by §a40%§7.||§7Level §a2§2/§a25||§7Copper needed|")
+                && speed.contains("Crops needed") && speed.contains("Rare Crops needed") && "2".equals(((String[]) Mod.field(f, "compUpText"))[0]),
+                style + ": Composter Speed hover " + speed);
+        List<?>[] plotTips = (List<?>[]) Mod.field(f, "plotTips");
+        String p11 = plotTips[11] == null ? "none" : text(plotTips[11]), p7 = plotTips[7] == null ? "none" : text(plotTips[7]),
+                p12 = plotTips[12] == null ? "none" : text(plotTips[12]);
+        PvStyle1104Cases.look(bad, p11.equals("§aPlot§7 - §b2") && p7.startsWith("§ePlot§7 - §b1|") && p7.endsWith("§8 x2") && !p12.startsWith("§c"),
+                style + ": plots " + p11 + " / " + p7 + " / barn " + p12);
+        // The forge slot click: a reminder kept under its slot's id (the slot fields filled here, the fixture has no forge).
+        long end = System.currentTimeMillis() + 3_600_000;
+        setObj(m, "forgeEnd", new long[]{end});
+        setObj(m, "forgeName", new String[]{"§aTest Item"});
+        setObj(m, "forgeNo", new int[]{3});
+        c.ctx().runOnClient(mc -> {
+            try {
+                java.lang.reflect.Method fc = pages.getClass().getDeclaredMethod("forgeClick", m.getClass(), int.class);
+                fc.setAccessible(true);
+                fc.invoke(null, m, 0);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        Object rem = c.onClient(mc -> Mod.staticCall("profileviewer.PvReminders", "get", "forge_slot_3"));
+        PvStyle1104Cases.look(bad, rem != null && (Long) Mod.field(rem, "at") == end && "§7Forge Process for §aTest Item§7 is done!".equals(Mod.field(rem, "message")),
+                style + ": forge reminder " + rem);
+        for (int sub = 0; sub < 5; sub++) {
             int v = sub;
             c.ctx().runOnClient(mc -> setInt(s, "subView", v));
             c.ctx().waitTicks(3);
@@ -617,6 +686,16 @@ final class PvExact1124Cases {
         PvStyle1104Cases.look(bad, ((net.minecraft.world.item.ItemStack) queue0).has(net.minecraft.core.component.DataComponents.PROFILE),
                 style + ": the Visitor Queue's Combat Merchant has no skin");
         c.ctx().runOnClient(mc -> setInt(s, "subView", 0));
+    }
+
+    private static void setObj(Object target, String name, Object v) {
+        try {
+            java.lang.reflect.Field f = target.getClass().getDeclaredField(name);
+            f.setAccessible(true);
+            f.set(target, v);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("cannot set " + name, e);
+        }
     }
 
     private static void setInt(Object target, String name, int v) {

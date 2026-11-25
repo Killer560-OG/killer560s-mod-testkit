@@ -427,8 +427,10 @@ final class HxPvNickCases {
             c.note(info);
             List<int[]> tabs = c.onClient(mc -> new ArrayList<>((List<int[]>) Mod.field(s, "tabRects")));
             int panelW = c.onClient(mc -> i(s, "panelW"));
-            int pages = c.onClient(mc -> ((String[]) Mod.field(SCREEN, "PAGES")).length);
-            c.check(tabs.size() == pages, tabs.size() + " tab rects for " + pages + " pages");
+            // The Default style draws its own 14 pages (DEFAULT_PAGES); the pages after them belong to the other styles only.
+            int pages = c.onClient(mc -> (Integer) Mod.field(SCREEN, "DEFAULT_PAGES"));
+            c.check(pages == 14, "the Default style has " + pages + " pages, not its 14");
+            c.check(tabs.size() == pages, tabs.size() + " tab rects for " + pages + " Default pages");
             for (int[] t : tabs) {
                 c.check(t[1] >= 0 && t[1] <= 1, "a tab is on row " + t[1] + " (only rows 0 and 1 allowed)");
                 c.check(t[0] >= 6 && t[0] + t[2] <= panelW - 5, "a tab runs outside the panel: x " + t[0] + " w " + t[2] + " panel " + panelW);
