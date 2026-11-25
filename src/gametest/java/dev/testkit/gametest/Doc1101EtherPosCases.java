@@ -40,6 +40,67 @@ final class Doc1101EtherPosCases {
         s.test("1101-ew-carpet", Doc1101EtherPosCases::carpet);
         s.test("1101-ew-crosshair", Doc1101EtherPosCases::crosshair);
         s.test("1101-advpos-vy", Doc1101EtherPosCases::velocity);
+        s.test("1125-ew-dripleaf-stem", Doc1101EtherPosCases::dripleafStem);
+    }
+
+    /**
+     * mod etherwarp-vines-1125 (killer560 11-25: "vine things on galatea that i can etherwarp through but the etherwarp
+     * overlay doesnt think I can"). His logger showed AOTV etherwarps in Galatea's mangrove marsh landing past
+     * big_dripleaf_stem blocks (the hanging "vines" the server places with each regrown mangrove tree). Here a
+     * big_dripleaf_stem column stands in the ray to a floor block 8 ahead: the overlay and TeleportUtils must both land on
+     * the floor block past it, not on the stem.
+     */
+    private static void dripleafStem(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        double z = Ap3RuntimeTests.lane();
+        int tx = LANE_X0 + 8;
+        int sx = LANE_X0 + 3;
+        int bz = (int) Math.floor(z);
+        Object was = onClient(ctx, mc -> ModUnderTest.call(ModUnderTest.config(EWC), "isEnabled", new Class<?>[]{}, new Object[]{}));
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(EWC), "setEnabled", true));
+        String floorWas = onClient(ctx, mc -> net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(
+                mc.level.getBlockState(new net.minecraft.core.BlockPos(sx, FLOOR, bz)).getBlock()).toString());
+        try {
+            aimFromLane(c, z, tx, FLOOR + 0.95);
+            // a whole plant, so the stems survive: moss under them, a leaf on top above the ray
+            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:moss_block", sx, FLOOR, bz));
+            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:big_dripleaf_stem", sx, FLOOR + 1, bz));
+            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:big_dripleaf_stem", sx, FLOOR + 2, bz));
+            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:big_dripleaf", sx, FLOOR + 3, bz));
+            c.server().sync(10);
+            ctx.waitTicks(5);
+            String outcome = onClient(ctx, mc -> (String) ModUnderTest.staticCall(EW, "lastOutcome"));
+            String routes = onClient(ctx, mc -> {
+                Vec3 eye = new Vec3(mc.player.getX(), mc.player.getY() + 1.27, mc.player.getZ());
+                Object r = ModUnderTest.staticCall(TP, "getEtherPos", new Class<?>[]{Vec3.class, float.class, float.class,
+                        double.class}, new Object[]{eye, mc.player.getYRot(), mc.player.getXRot(), 57.0});
+                return String.valueOf(r);
+            });
+            // the stem cell the ray crosses: the eye's line at the stem column's middle
+            boolean[] crossed = onClient(ctx, mc -> {
+                Vec3 eye = new Vec3(mc.player.getX(), mc.player.getY() + 1.27, mc.player.getZ());
+                Vec3 look = mc.player.getLookAngle();
+                double t = (sx + 0.5 - eye.x) / look.x;
+                int y = (int) Math.floor(eye.y + look.y * t);
+                var st = mc.level.getBlockState(new net.minecraft.core.BlockPos(sx, y, bz));
+                return new boolean[]{st.getBlock() instanceof net.minecraft.world.level.block.BigDripleafStemBlock};
+            });
+            String target = tx + ", " + FLOOR + ", " + bz;
+            c.note("stem column at " + sx + " (in the ray: " + crossed[0] + "), target " + target + ": overlay '" + outcome
+                    + "', TeleportUtils " + routes);
+            c.check(crossed[0], "the ray does not cross a big_dripleaf_stem (setup)");
+            c.check(outcome.equals("drawn " + target + " ok"), "the overlay did not land past the big_dripleaf_stem on "
+                    + target + ": " + outcome);
+            c.check(routes.contains("succeeded=true") && routes.contains("x=" + tx + ", y=" + FLOOR + ", z=" + bz),
+                    "TeleportUtils (Auto Routes / ZPEW) did not land past the big_dripleaf_stem: " + routes);
+        } finally {
+            ctx.getInput().releaseKey(o -> o.keyShift);
+            for (int y = FLOOR + 3; y >= FLOOR + 1; y--) {
+                c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:air", sx, y, bz));
+            }
+            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d %s", sx, FLOOR, bz, floorWas));
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(EWC), "setEnabled", (boolean) (Boolean) was));
+        }
     }
 
     /** Puts him at the lane start sneaking with an ethermerged AOTV in slot 0, looking at (tx + 0.5, ty, z) from the
