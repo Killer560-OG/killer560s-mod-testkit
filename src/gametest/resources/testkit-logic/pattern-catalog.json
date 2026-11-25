@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T00:23:48",
- "modSource": "lane-treeregen-lingers-1124",
- "modGitSha": "a77dd80ade5c4d7769d2383a18201848b7e9c568",
+ "generatedAt": "2026-11-25T00:34:09",
+ "modSource": "lane-pv-leftovers-1124",
+ "modGitSha": "e8fa4f23952a3b9b64a2f10ae017b13cfe8a1df7",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
