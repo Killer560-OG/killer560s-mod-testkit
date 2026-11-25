@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T02:07:38",
- "modSource": "lane-beacon-ready-hud-draw-1125",
- "modGitSha": "aa5ddae47b40b807d0d368564bad22f2a70aca1f",
+ "generatedAt": "2026-11-25T02:32:56",
+ "modSource": "lane-argrim-planuse-exp-1125",
+ "modGitSha": "cf1d912b7d604e8049da7665a9c2bb746b8e69e1",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
