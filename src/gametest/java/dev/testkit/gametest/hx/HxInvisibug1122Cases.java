@@ -22,6 +22,8 @@ final class HxInvisibug1122Cases {
         s.test("1122-invisibug-circles", HxInvisibug1122Cases::circles);
         s.test("1122-invisibug-lookalikes", HxInvisibug1122Cases::lookalikes);
         s.test("1124-invisibug-norange-drops", HxInvisibug1122Cases::norangeDrops);
+        s.test("1124-invisibug-catch-drop", HxInvisibug1122Cases::catchDrop);
+        s.test("1124-invisibug-first-box", HxInvisibug1122Cases::firstBox);
         s.test("1124-foraging-switches-in-category", HxInvisibug1122Cases::switchesInCategory);
     }
 
@@ -119,6 +121,86 @@ final class HxInvisibug1122Cases {
             c.check(count(c, "boxCount") == 1, "a far bug was not boxed: " + count(c, "boxCount") + " (no range setting)");
             c.ctx().waitTicks(20);
             c.check(count(c, "boxCount") == 0, "box still drawn 20 ticks after the bug's particles stopped: " + count(c, "boxCount"));
+        }
+    }
+
+    /** Forgets the spots earlier cases taught (an origin jar has no such hook and nothing to forget). */
+    private static void forget(Session c) {
+        c.onClient(mc -> {
+            try {
+                Mod.staticCall(K, "forgetLearnedSpots");
+            } catch (RuntimeException | AssertionError none) {
+                // origin jar
+            }
+            return null;
+        });
+    }
+
+    /**
+     * invisibug-finder-1124 (killer560 11-24: "it seems to hold on a long time after i capture it"): his 11-24 recording has
+     * the catch line 0-5 ticks after the bug's last crit, and the origin box stayed 8-13 ticks after the line (12 after the
+     * last crit). Now the box nearest the player goes on the catch line, a late crit of the caught bug starts no box, and
+     * the bug that comes back to the same spot (his log: 26 ticks later) is boxed from its first crit.
+     */
+    private static void catchDrop(Session c) {
+        BlockPos p = c.onClient(mc -> mc.player.blockPosition());
+        BlockPos at = p.offset(-18, 0, 0);
+        try (Settings set = on(c, true)) {
+            island(c, "Galatea", "GALATEA");
+            forget(c);
+            for (int i = 0; i < 8; i++) {
+                send(c, B, i, 118.90, at);
+                c.ctx().waitTicks(i < 7 ? 5 : 1);
+            }
+            c.check(count(c, "boxCount") == 1, "the bug next to the player was not boxed: " + count(c, "boxCount"));
+            c.hx().call("chat", "text", "The Invisibug was more visible than it thought...", "overlay", false);
+            c.hx().call("chat", "text", "You caught x2 Invisibug Shards!", "overlay", false);
+            c.ctx().waitTicks(2);
+            c.check(count(c, "boxCount") == 0, "box still drawn 2 ticks after the catch line (3 after its last crit): "
+                    + count(c, "boxCount"));
+            send(c, B, 8, 118.90, at);
+            c.ctx().waitTicks(3);
+            c.check(count(c, "boxCount") == 0, "a late crit of the caught bug drew its box again");
+            c.ctx().waitTicks(25);
+            send(c, B, 9, 118.90, at);
+            c.ctx().waitTicks(2);
+            c.check(count(c, "boxCount") == 1, "a bug back at the caught spot was not boxed from its first crit: "
+                    + count(c, "boxCount"));
+            c.ctx().waitTicks(20);
+        }
+    }
+
+    /**
+     * invisibug-finder-1124 ("take a long time to find them"): ticks from a new bug's first crit to its box. Origin needed 7
+     * points (30 ticks; his 11-24 bugs 29-30); now 3 points (10 ticks). Replaying his 11-24 log through the 3-point rule
+     * boxed only real bugs (every box within 0.1 of a spot). Then the spot is remembered: with the box gone it is drawn as a
+     * mark, and one crit there boxes it again at once.
+     */
+    private static void firstBox(Session c) {
+        BlockPos p = c.onClient(mc -> mc.player.blockPosition());
+        BlockPos at = p.offset(0, 0, 40);
+        try (Settings set = on(c, true)) {
+            island(c, "Galatea", "GALATEA");
+            forget(c);
+            int first = -1;
+            for (int i = 0; i < B.length / 2; i++) {
+                send(c, B, i, 118.90, at);
+                c.ctx().waitTicks(i == 0 ? 1 : 5);
+                if (first < 0 && count(c, "boxCount") > 0) {
+                    first = i;
+                }
+            }
+            c.note("first box " + (first < 0 ? "never" : (first * 5) + " ticks after the first crit (point " + (first + 1) + ")"));
+            c.check(first >= 0 && first <= 2, "first box at point " + (first + 1) + " (want by the 3rd point, 10 ticks)");
+            c.check(near(centers(c), -592.90, 87.60 + 40, p), "box is not at the circle's center");
+            c.waitUntil("the box expires after the particles stop", mc -> count(c, "boxCount") == 0, 40);
+            c.check(near(c.onClient(mc -> (double[][]) Mod.staticCall(K, "spotCenters")), -592.90, 87.60 + 40, p),
+                    "the confirmed spot was not remembered");
+            c.check(count(c, "markCount") >= 1, "no possible-spot mark drawn once the box was gone");
+            send(c, B, 4, 118.90, at);
+            c.ctx().waitTicks(2);
+            c.check(count(c, "boxCount") == 1, "one crit at a remembered spot did not box it: " + count(c, "boxCount"));
+            c.ctx().waitTicks(20);
         }
     }
 
