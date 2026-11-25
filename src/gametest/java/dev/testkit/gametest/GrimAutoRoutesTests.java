@@ -442,8 +442,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     check(walks > 0, "Auto Clear never walked (the walk row tested nothing)");
                 });
                 s.test("62-argrim-1122-planprobe", GrimAutoRoutesTests::casePlanProbe);
-                // acnohype-1125: the server rewrites the Hyperion's slot with another item for 3 ticks after the first cast (as
-                // GrimAC's resync of a refused block click did in f2-q1-def-2); Auto Clear waits for it instead of stopping.
+                // acnohype-1125: the server rewrites the Hyperion's slot with another item until Auto Clear reaches for it, and
+                // for 3 ticks more (as GrimAC's resync of a refused block click did in f2-q1-def-2); Auto Clear waits for it
+                // instead of stopping (an origin jar stops: "no Hyperion in the hotbar").
                 s.test("62-argrim-1125-hype-resync", c -> {
                     acResync = true;
                     try {
@@ -451,27 +452,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     } finally {
                         acResync = false;
                     }
-                });
-                // DIAG acnohype-1125 (scratch, removed before the ready line)
-                s.test("62-argrim-1125-diag-use-x8", c -> {
-                    int bad = 0;
-                    for (int i = 0; i < 8; i++) {
-                        try {
-                            caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.USE_CLICK, false, false, true);
-                            println("DIAGLOOP " + i + " ok");
-                        } catch (AssertionError e) {
-                            bad++;
-                            println("DIAGLOOP " + i + " FAIL " + e.getMessage());
-                        }
-                    }
-                    check(bad == 0, bad + " of 8 failed");
-                });
-                s.test("62-argrim-1125-diag-probe-priced", c -> {
-                    c.ctx().runOnClient(mc -> {
-                        java.util.Arrays.fill((double[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripMean"), 300);
-                        java.util.Arrays.fill((int[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripSeen"), 1);
-                    });
-                    casePlanProbe(c);
                 });
             }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
@@ -5138,7 +5118,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(20);
             int moves0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "killPlanMoves"));
             long m = LogTap.mark();
-            if (li == 0) startSampling(ctx);   // DIAG acnohype-1125
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
                     Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> { },
                     (java.util.function.Consumer<String>) x -> { }}));
@@ -5148,12 +5127,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             int moves = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "killPlanMoves")) - moves0;
             took += moves > 0 ? 1 : 0;
-            if (li == 0) {   // DIAG acnohype-1125
-                for (Sample x : stopSampling(ctx)) {
-                    println(String.format(Locale.ROOT, "  PROBEDIAG t%d shift=%s sprint=%s pos %.4f/%.4f/%.4f %s", x.tick(), x.shift(), x.sprint(),
-                            x.pos().x, x.pos().y, x.pos().z, x.out()));
-                }
-            }
             StringBuilder lay = new StringBuilder();
             for (double[] sp : PLAN_LAYOUTS[li]) {
                 lay.append(" ").append(sp[0]).append("/").append(sp[1]);
@@ -5168,6 +5141,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(5);
         }
         c.note("layouts where the plan acted: " + took + " of " + PLAN_LAYOUTS.length);
+        try {   // acnohype-1125: walks whose first keys waited out a teleport's own tick (absent on an older jar)
+            c.note("walk starts held off a teleport tick: " + ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                    "com.killer560.hub.pathfinding.ShortWalk", "teleportHolds")));
+        } catch (RuntimeException e) {
+            c.note("walk starts held off a teleport tick: n/a");
+        }
     }
 
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
@@ -5188,9 +5167,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static double acTripPrice;
     /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
     private static boolean acPlanShove;
-    /** 62-argrim-1125-hype-resync: the Hyperion's slot shows the AOTV for {@link #RESYNC_TICKS} ticks after the first cast. */
+    /** 62-argrim-1125-hype-resync: the Hyperion's slot shows the AOTV until Auto Clear needs it, then RESYNC_TICKS more. */
     private static boolean acResync;
     private static final int RESYNC_TICKS = 3;
+    /** Ticks the AOTV stays in the Hyperion's slot at most when Auto Clear never asks for the Hyperion. */
+    private static final int RESYNC_CAP = 60;
     private static net.minecraft.world.item.ItemStack acHype = net.minecraft.world.item.ItemStack.EMPTY;
 
     /** The server's set_slot for hotbar slot 5 (inventory menu slot 40), through the client's own packet handler. */
@@ -5203,65 +5184,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         println("resync: hotbar slot 5 now " + acId(mc.player.getInventory().getItem(4)));
     }
 
-    /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
-    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
-            boolean plan, String tripArm) {
-        ClientGameTestContext ctx = c.ctx();
-        acDiag(true);
-        try {
-            caseAutoClearHype0(c, act, second, chain, plan, tripArm);
-        } finally {
-            acDiag(false);
-        }
-    }
-
-    private static volatile boolean acDiagOn;
-    private static boolean acDiagHooked;
-    private static String acDiagLast = "";
-
-    /** DIAG acnohype-1125: every inbound inventory packet and every change of the hotbar at a tick's end. */
-    private static void acDiag(boolean on) {
-        acDiagOn = on;
-        if (on && !acDiagHooked) {
-            acDiagHooked = true;
-            ClientTickEvents.END_CLIENT_TICK.register(mc -> {
-                if (!acDiagOn || mc.player == null) return;
-                StringBuilder sb = new StringBuilder("sel ").append(mc.player.getInventory().getSelectedSlot()).append(':');
-                for (int i = 0; i < 9; i++) {
-                    var st = mc.player.getInventory().getItem(i);
-                    var d = st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-                    sb.append(' ').append(i).append('=').append(st.isEmpty() ? "-" : d == null ? st.getItem().toString()
-                            : d.copyTag().getStringOr("id", "?"));
-                }
-                sb.append(" off=").append(mc.player.getOffhandItem().isEmpty() ? "-" : mc.player.getOffhandItem().getItem().toString());
-                String s = sb.toString();
-                if (!s.equals(acDiagLast)) {
-                    acDiagLast = s;
-                    System.out.println("[acdiag] tick " + dev.testkit.harness.PacketTrace.tickCount() + " hotbar " + s);
-                }
-            });
-        }
-        PacketTrace.inTap = on ? p -> {
-            if (p instanceof net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket sp) {
-                System.out.println("[acdiag] in set_slot c" + sp.getContainerId() + " s" + sp.getSlot() + " " + acId(sp.getItem()));
-            } else if (p instanceof net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket cp) {
-                System.out.println("[acdiag] in set_content c" + cp.containerId() + " n" + cp.items().size() + (cp.items().size() > 44 ? " hot36-44 " + cp.items().subList(36, 45).stream().map(GrimAutoRoutesTests::acId).toList() : ""));
-            } else if (p instanceof net.minecraft.network.protocol.game.ClientboundSetPlayerInventoryPacket ip) {
-                System.out.println("[acdiag] in set_player_inventory s" + ip.slot() + " " + acId(ip.contents()));
-            } else if (p instanceof net.minecraft.network.protocol.game.ClientboundSetHeldSlotPacket hp) {
-                System.out.println("[acdiag] in set_held_slot " + hp.slot());
-            } else if (p instanceof net.minecraft.network.protocol.game.ClientboundRespawnPacket) {
-                System.out.println("[acdiag] in respawn");
-            }
-        } : null;
-    }
-
     private static String acId(net.minecraft.world.item.ItemStack st) {
         var d = st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
         return st.isEmpty() ? "-" : d == null ? st.getItem().toString() : d.copyTag().getStringOr("id", "?");
     }
 
-    private static void caseAutoClearHype0(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
+    /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
+    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
             boolean plan, String tripArm) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
@@ -5344,15 +5273,26 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         // 62-argrim-1125-hype-resync: as Auto Clear starts (its first hop needs the Hyperion) the server rewrites the
         // Hyperion's slot with the AOTV (what GrimAC's resync of a refused block click wrote while the server thread still
-        // held the AOTV, f2-q1-def-2) and puts the Hyperion back RESYNC_TICKS later; Auto Clear must wait, not stop.
-        int[] resync = {-1};
+        // held the AOTV, f2-q1-def-2) and keeps it there until Auto Clear reaches for the Hyperion (its wait line, or
+        // its stop on a jar without the wait), then puts the Hyperion back RESYNC_TICKS later; Auto Clear must wait, not stop.
+        int[] resync = {-1};   // ticks the AOTV has been in the slot, -2 once the Hyperion is back
+        int[] restoreAt = {-1};
         Runnable resyncTick = () -> {
-            if (resync[0] > 0 && resync[0]++ == RESYNC_TICKS) {
+            if (resync[0] < 0) {
+                return;
+            }
+            resync[0]++;
+            if (restoreAt[0] < 0 && (resync[0] >= RESYNC_CAP || logHas(m, "waiting up to")
+                    || logHas(m, "stopped: no Hyperion"))) {
+                restoreAt[0] = resync[0] + RESYNC_TICKS;
+            }
+            if (restoreAt[0] >= 0 && resync[0] >= restoreAt[0]) {
+                resync[0] = -2;
                 ctx.runOnClient(mc -> acSlot(mc, acHype.copy()));
             }
         };
         if (acResync) {
-            resync[0] = 1;
+            resync[0] = 0;
             ctx.runOnClient(mc -> {
                 acSlot(mc, mc.player.getInventory().getItem(0).copy());
                 ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
@@ -5425,8 +5365,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (hits) {
             c.server().command("kill @e[tag=achypehit]");
         }
-        if (resync[0] > 0 && resync[0] <= RESYNC_TICKS) {
-            resync[0] = RESYNC_TICKS + 1;
+        if (resync[0] >= 0) {
+            resync[0] = -2;
             ctx.runOnClient(mc -> acSlot(mc, acHype.copy()));
         }
         if (!finished) {
@@ -5489,10 +5429,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         if (acResync) {
             // The resync went in while Auto Clear still had mobs to cast at, it waited, and it carried on with the Hyperion.
-            c.note("resync ticks " + resync[0] + ", waited: " + logHas(m, "waiting up to") + ", back: "
+            c.note("resync restore at tick " + restoreAt[0] + ", waited: " + logHas(m, "waiting up to") + ", back: "
                     + LogTap.since(m).stream().filter(l -> l.contains("is back in the hotbar")).findFirst()
                     .map(l -> l.replaceAll("^.*?\\[AutoClear\\] ", "")).orElse("never"));
-            check(resync[0] > RESYNC_TICKS, "the slot resync never went in (the case tested nothing)");
+            check(restoreAt[0] >= 0 && restoreAt[0] < RESYNC_CAP, "Auto Clear never reached for the Hyperion while the AOTV"
+                    + " was in its slot (the case tested nothing)");
             check(!logHas(m, "stopped: no Hyperion in the hotbar"), "Auto Clear stopped on the slot resync (no Hyperion in the hotbar)");
             check(logHas(m, "is back in the hotbar"), "Auto Clear never needed the Hyperion during the resync (the case tested nothing)");
         }
