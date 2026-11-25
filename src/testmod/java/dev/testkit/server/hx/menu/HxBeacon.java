@@ -77,6 +77,12 @@ final class HxBeacon implements HxMenus.Ticking {
     private int clicks;
     private int steps;
     private int tick;
+    /**
+     * {@code answerLag} ticks: a click takes effect that many ticks later and the old buttons are sent back at once (recorded
+     * 11-25 4:54 PM: a Speed click answered 4 ticks later, the click's own pickup undone first).
+     */
+    private int answerLag;
+    private final List<int[]> due = new ArrayList<>();
     private boolean done;
     private boolean dirty = true;
 
@@ -116,6 +122,7 @@ final class HxBeacon implements HxMenus.Ticking {
         HxBeacon h = new HxBeacon(upgrade, a.has("onStep") && a.get("onStep").getAsBoolean());
         read(a.getAsJsonArray("beacon"), h.beacon);
         read(a.getAsJsonArray("mine"), h.mine);
+        h.answerLag = a.has("answerLag") ? a.get("answerLag").getAsInt() : 0;
         HxChestMenu menu = HxMenus.open(player, 6, Component.literal(upgrade ? "Upgrade Signal Strength" : "Tune Frequency"),
                 HxMenus.filled(server, 6), SCRIPT, h);
         h.render(server, menu);
@@ -169,6 +176,18 @@ final class HxBeacon implements HxMenus.Ticking {
             return;
         }
         tick++;
+        for (int i = 0; i < due.size() && !done; ) {
+            int[] c = due.get(i);
+            if (c[0] <= tick) {
+                due.remove(i);
+                apply(menu, player, c[1], c[2], c[3], c[4]);
+            } else {
+                i++;
+            }
+        }
+        if (done) {
+            return;
+        }
         for (Beat b : beacon) {
             dirty |= advance(player, b);
         }
@@ -263,8 +282,21 @@ final class HxBeacon implements HxMenus.Ticking {
             if (k < 0) {
                 continue;
             }
-            Beat b = h.mine.get(g);
             int d = button == 1 ? -1 : 1;
+            if (h.answerLag > 0) {
+                h.due.add(new int[]{h.tick + h.answerLag, g, k, d, slot});
+                menu.sendAllDataToRemote(); // the old buttons back, the answer later
+            } else {
+                h.apply(menu, player, g, k, d, slot);
+            }
+            return;
+        }
+    }
+
+    private void apply(HxChestMenu menu, ServerPlayer player, int g, int k, int d, int slot) {
+        HxBeacon h = this;
+        {
+            Beat b = h.mine.get(g);
             switch (k) {
                 case 0 -> b.color = Math.floorMod(b.color + d, 13);
                 case 1 -> b.speed = Math.floorMod(b.speed - 1 + d, 5) + 1;

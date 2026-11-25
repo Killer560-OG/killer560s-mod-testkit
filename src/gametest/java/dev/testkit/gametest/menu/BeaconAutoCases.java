@@ -84,6 +84,19 @@ final class BeaconAutoCases {
             + "{\"color\":\"white\",\"speed\":5,\"pitch\":2,\"idx\":4,\"since\":0}],\"mine\":[{\"color\":\"green\",\"speed\":1,\"pitch\":0,\"idx\":5,\"since\":1},"
             + "{\"color\":\"cyan\",\"speed\":4,\"pitch\":1,\"idx\":1,\"since\":1}]}";
 
+    /** His Tune Frequency of 11-25 4:54 PM as it opened, the server answering each click 6 ticks late (it took 4 there). */
+    private static final String STALE = "{\"answerLag\":6,\"beacon\":[{\"color\":\"purple\",\"speed\":1,\"pitch\":2,\"idx\":6,\"since\":0}],"
+            + "\"mine\":[{\"color\":\"light_blue\",\"speed\":4,\"pitch\":0,\"idx\":1,\"since\":0}]}";
+
+    /**
+     * His upgrade T7 of 11-25 4:54 PM as it opened: both beacon beats magenta speed 3 stepping together (pitches High at 0 and
+     * Normal at 3, only heard together), his two white panes at speed 4 and 2, Normal. Auto Tune paired the pitches the wrong
+     * way round and gave up; he finished it by hand.
+     */
+    private static final String T7 = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"magenta\",\"speed\":3,\"pitch\":2,\"idx\":0,\"since\":0},"
+            + "{\"color\":\"magenta\",\"speed\":3,\"pitch\":1,\"idx\":3,\"since\":0}],\"mine\":[{\"color\":\"white\",\"speed\":4,\"pitch\":1,\"idx\":6,\"since\":0},"
+            + "{\"color\":\"white\",\"speed\":2,\"pitch\":1,\"idx\":2,\"since\":20}]}";
+
     private BeaconAutoCases() {
     }
 
@@ -107,6 +120,13 @@ final class BeaconAutoCases {
             inStep(c, r, "slow 10 behind");
             c.check(r.btn().stream().anyMatch(k -> k[1] == 48), "a pane 10 ticks behind a speed 1 beacon was not run at Speed 5 (it waited the lap)");
         });
+        MenuSuite.test(s, "1125-menu-autotune-stale", c -> {
+            Result r = run(c, STALE, true, 4, null, 900, 0, false);
+            int first = r.btn().stream().filter(k -> k[1] != 48).mapToInt(k -> k[0]).min().orElse(Integer.MAX_VALUE);
+            long speed = r.btn().stream().filter(k -> k[1] == 48 && k[0] < first).count();
+            c.check(speed <= 3, "Speed was clicked " + speed + " times before anything else for a 2-click change (+1 to run at Speed 5): it clicked again on the old button");
+        });
+        MenuSuite.test(s, "1125-menu-autotune-t7", c -> run(c, T7, true, 4, null, 1400, 0, false));
         MenuSuite.test(s, "1125-menu-autotune-slowwait", c -> {
             Result r = run(c, phase("cyan", 1, 1, -4), true, 4, null, 600, 160, false);
             inStep(c, r, "slow 4 ahead");
@@ -143,6 +163,10 @@ final class BeaconAutoCases {
 
     private static boolean button(Packet<?> p) {
         return p instanceof ServerboundContainerClickPacket cp && cp.slotNum() >= 37 && cp.slotNum() <= 52;
+    }
+
+    private static long chat(long mark, String needle) {
+        return dev.testkit.gametest.LogTap.since(mark).stream().filter(l -> l.contains("[CHAT]") && l.contains(needle)).count();
     }
 
     /** The server's beacon.done event (null: never done) and the button clicks on the wire as {client tick, slot}. */
@@ -201,6 +225,7 @@ final class BeaconAutoCases {
             boolean upgrade = args.has("mode");
             String title = upgrade ? "Upgrade Signal Strength" : "Tune Frequency";
             long mark = c.hx().head();
+            long logMark = dev.testkit.gametest.LogTap.mark();
             WireCapture.start();
             PacketTrace.tap = tap;
             if (act != null) {
@@ -279,6 +304,11 @@ final class BeaconAutoCases {
                         + " swap " + Mod.field(TUNER, "swap"));
             }
             c.check(done, "the tune never completed in " + maxTicks + " ticks (clicks " + served + ")");
+            if (done) { // 11-25 4:54 PM: tunes completed on a Speed click said "stopped, the menu closed"
+                c.waitUntil("Auto Tune's last line", mc -> chat(logMark, "[Auto Tune] done") + chat(logMark, "[Auto Tune] stopped") > 0, 40);
+                c.check(chat(logMark, "[Auto Tune] done") == 1 && chat(logMark, "[Auto Tune] stopped") == 0,
+                        "a completed tune did not end with Auto Tune's 'done' line");
+            }
             if (budget > 0 && done) {
                 int took = c.hx().events(mark, "beacon.done").get(0).get("tick").getAsInt();
                 c.note("autotune took " + took + " ticks (his hand tune " + budget + ")");
