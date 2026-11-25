@@ -28,6 +28,9 @@ import java.util.function.Consumer;
  *   <li>1123-menu-autotune-wraps / -pause / -right / -upgrade: start states needing every wrap, only Pause alignment, right
  *       clicks, and the two-beat upgrade; Click Delay 2 (its fastest) and at most one click a tick, never closer than the delay.</li>
  *   <li>1124-menu-autotune-samecolor: his 11-24 upgrade's start, both beacon beats brown, at the default Click Delay 4.</li>
+ *   <li>1124-menu-autotune-run1 / -run2: his two slow Auto Tunes of 11-24 11:16 PM as they opened (607 and 458 ticks; the
+ *       second with both beacon beats stepping together, so their pitches are only heard together); each must complete
+ *       faster than his own hand tune that night (324 ticks).</li>
  *   <li>1123-menu-autotune-off: OFF (and the legit jar, which has no such setting) sends nothing.</li>
  *   <li>1123-same-autotune-click / -swap / -close: his own container click, hotbar swap and menu close in the SAME client tick
  *       as an Auto Tune click ({@link SameTick}); run on default and experimental GrimAC (separate checkouts).</li>
@@ -50,6 +53,17 @@ final class BeaconAutoCases {
             + "{\"color\":\"brown\",\"speed\":4,\"pitch\":2,\"idx\":3}],\"mine\":[{\"color\":\"blue\",\"speed\":1,\"pitch\":1,\"idx\":6},"
             + "{\"color\":\"orange\",\"speed\":2,\"pitch\":2,\"idx\":2}]}";
 
+    /** His slow Auto Tune of 11-24 11:16 PM as it opened (logger session of that night): beacon green speed 3 Low and orange speed 4 High, his light blue speed 2 Low and green speed 5 Normal; it took 607 ticks. */
+    private static final String RUN1 = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"green\",\"speed\":3,\"pitch\":0,\"idx\":1,\"since\":0},"
+            + "{\"color\":\"orange\",\"speed\":4,\"pitch\":2,\"idx\":5,\"since\":1}],\"mine\":[{\"color\":\"light_blue\",\"speed\":2,\"pitch\":0,\"idx\":2,\"since\":1},"
+            + "{\"color\":\"green\",\"speed\":5,\"pitch\":1,\"idx\":5,\"since\":1}]}";
+    /** The next one (11:16:57 PM, 458 ticks, the first click at 201): both beacon beats speed 4 stepping together (pink High, light blue Normal), his magenta speed 1 Normal and cyan speed 5 High. */
+    private static final String RUN2 = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"pink\",\"speed\":4,\"pitch\":2,\"idx\":1,\"since\":1},"
+            + "{\"color\":\"light_blue\",\"speed\":4,\"pitch\":1,\"idx\":5,\"since\":1}],\"mine\":[{\"color\":\"magenta\",\"speed\":1,\"pitch\":1,\"idx\":5,\"since\":1},"
+            + "{\"color\":\"cyan\",\"speed\":5,\"pitch\":2,\"idx\":1,\"since\":1}]}";
+    /** His own hand tune that night took 324 ticks from the menu opening (11:14:57.9 to 11:15:14.1 PM): Auto Tune must beat it. */
+    private static final int HAND = 324;
+
     private BeaconAutoCases() {
     }
 
@@ -63,6 +77,8 @@ final class BeaconAutoCases {
         MenuSuite.test(s, "1123-menu-autotune-right", c -> run(c, RIGHT, true, 3, null, 1800));
         MenuSuite.test(s, "1123-menu-autotune-upgrade", c -> run(c, UPGRADE, true, 2, null, 2600));
         MenuSuite.test(s, "1124-menu-autotune-samecolor", c -> run(c, SAME_COLOR, true, 4, null, 2600));
+        MenuSuite.test(s, "1124-menu-autotune-run1", c -> run(c, RUN1, true, 4, null, 1400, HAND));
+        MenuSuite.test(s, "1124-menu-autotune-run2", c -> run(c, RUN2, true, 4, null, 1400, HAND));
         MenuSuite.test(s, "1123-same-autotune-click", c -> run(c, WRAPS, true, 2, SameTick.Act.CLICK, 1800));
         MenuSuite.test(s, "1123-same-autotune-swap", c -> run(c, PAUSE, true, 2, SameTick.Act.SWAP, 1800));
         MenuSuite.test(s, "1123-same-autotune-close", c -> run(c, PAUSE, true, 2, SameTick.Act.CLOSE, 400));
@@ -97,6 +113,11 @@ final class BeaconAutoCases {
     }
 
     private static void run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks) throws Exception {
+        run(c, spec, auto, delay, act, maxTicks, 0);
+    }
+
+    /** {@code budget} > 0: the tune must complete within that many server ticks of the menu opening. */
+    private static void run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks, int budget) throws Exception {
         boolean has = Mod.isCheat();
         Object cfg = Mod.field(TUNER, "CFG");
         boolean wasOn = (Boolean) Mod.call(cfg, "on", "enabled");
@@ -181,6 +202,11 @@ final class BeaconAutoCases {
                 return;
             }
             c.check(done, "the tune never completed in " + maxTicks + " ticks (clicks " + served + ")");
+            if (budget > 0 && done) {
+                int took = c.hx().events(mark, "beacon.done").get(0).get("tick").getAsInt();
+                c.note("autotune took " + took + " ticks (his hand tune " + budget + ")");
+                c.check(took <= budget, "Auto Tune took " + took + " ticks, slower than his " + budget + "-tick hand tune");
+            }
             if (act != null) {
                 SameTick s2 = st;
                 st = null;
