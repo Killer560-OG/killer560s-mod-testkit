@@ -232,6 +232,7 @@ final class PvExact1124Cases {
         neuTrophy(c, s, bad, scale);
         neuBingo(c, s, bad);
         neuLevel(c, s, bad, scale);
+        neuDropdown(c, s, bad, scale);
 
         // Basic page content, built once (NeuBasic).
         Object nb = c.onClient(mc -> Mod.field(s, "neuBasic"));
@@ -344,20 +345,9 @@ final class PvExact1124Cases {
                 "NEU level: Slaying hover on screen " + shown);
         BufferedImage img = BazaarReskinCases.shot(c, "neu-level");
         // pv_levels.png over the panel: its pixels at a few opaque spots; the red bar name at Core Task.
-        BufferedImage lv = res("neu/pv_levels.png");
-        PvStyle1104Cases.look(bad, lv != null, "NEU level: no pv_levels.png in the jar");
-        if (lv != null) {
-            int hits = 0, tried = 0;
-            for (int x = 150; x < 290 && tried < 40; x += 7) {
-                for (int y = 140; y < 195 && tried < 40; y += 11) {
-                    int argb = lv.getRGB(x, y);
-                    if ((argb >>> 24) != 255) continue;
-                    tried++;
-                    hits += near(gp(img, scale, px + x, py + y), argb & 0xFFFFFF) ? 1 : 0;
-                }
-            }
-            PvStyle1104Cases.look(bad, tried > 0 && hits * 4 >= tried * 3, "NEU level: pv_levels pixels " + hits + "/" + tried);
-        }
+        // pv_levels.png (translucent boxes) over pv_bg: a row under the Skill Related bar, and one in the right column.
+        PvStyle1104Cases.neuOverlay(bad, "NEU level", img, scale, new int[]{px, py}, "neu/pv_levels.png", 133, 20, 140);
+        PvStyle1104Cases.neuOverlay(bad, "NEU level right", img, scale, new int[]{px, py}, "neu/pv_levels.png", 133, 296, 420);
         int red = 0;
         for (int x = px + 37; x < px + 90; x++) for (int y = py + 21; y < py + 29; y++) red += near(gp(img, scale, x, y), 0xFF5555) ? 1 : 0;
         PvStyle1104Cases.look(bad, red >= 10, "NEU level: " + red + " red name pixels at Core Task (want 10+)");
@@ -371,6 +361,35 @@ final class PvExact1124Cases {
         BazaarReskinCases.pressAt(c, new int[]{px, py - 28 + 4, 28, 19}, 0);
         view = c.onClient(mc -> (Integer) Mod.field(s, "subView"));
         PvStyle1104Cases.look(bad, view == 0, "NEU level: the Basic tab click left subView " + view);
+    }
+
+    /** 1124j: NEU Classic's profile list: a 100-wide button whose click opens the list (dropdown_list.png) under the panel,
+     *  names in the original's 217068, one row per profile; a click on the open profile's row closes it. */
+    private static void neuDropdown(Session c, Screen s, List<String> bad, double scale) throws Exception {
+        int[] g = c.onClient(mc -> new int[]{i(s, "panelX"), i(s, "panelY"), i(s, "panelH"), i(s, "profileButtonX"), i(s, "profileButtonY"),
+                i(s, "profileButtonH"), (int) mc.getWindow().getGuiScale()});
+        PvStyle1104Cases.look(bad, g[6] < 4, "NEU dropdown: GUI scale " + g[6] + " (the list only opens below 4)");
+        BazaarReskinCases.pressAt(c, new int[]{g[3] + 40, g[4] + 2, 20, g[5] - 4}, 0);
+        c.ctx().waitTicks(3);
+        boolean open = c.onClient(mc -> (Boolean) Mod.field(s, "dropdownOpen"));
+        PvStyle1104Cases.look(bad, open, "NEU dropdown: the profile button click did not open the list");
+        BufferedImage img = BazaarReskinCases.shot(c, "neu-dropdown");
+        int row = g[6] == 3 ? 10 : 20, y0 = g[1] + g[2] + 23, teal = 0;
+        for (int x = g[0]; x < g[0] + 100; x++) for (int y = y0; y < y0 + row; y++) teal += near(gp(img, scale, x, y), 0x217068) ? 1 : 0;
+        PvStyle1104Cases.look(bad, teal >= 10, "NEU dropdown: " + teal + " name pixels in 217068 on the first row (want 10+)");
+        BufferedImage dl = res("neu/dropdown_list.png");
+        PvStyle1104Cases.look(bad, dl != null, "NEU dropdown: no dropdown_list.png in the jar");
+        if (dl != null) {
+            int argb = dl.getRGB(2, 1), got = gp(img, scale, g[0] + 2, y0 - 2);
+            PvStyle1104Cases.look(bad, (argb >>> 24) != 255 || near(got, argb & 0xFFFFFF),
+                    "NEU dropdown: list top pixel " + String.format("%06X, expected %06X", got, argb & 0xFFFFFF));
+        }
+        int idx = c.onClient(mc -> (Integer) Mod.field(s, "profileIndex"));
+        BazaarReskinCases.pressAt(c, new int[]{g[0] + 70, y0 + row * idx + 2, 10, row - 4}, 0);
+        c.ctx().waitTicks(3);
+        open = c.onClient(mc -> (Boolean) Mod.field(s, "dropdownOpen"));
+        int after = c.onClient(mc -> (Integer) Mod.field(s, "profileIndex"));
+        PvStyle1104Cases.look(bad, !open && after == idx, "NEU dropdown: the open profile's row left open=" + open + " index " + after);
     }
 
     /** 1124h: NEU Classic's Trophy Fish page (the fixture caught 3 Bronze Sulphur Skitters). */
