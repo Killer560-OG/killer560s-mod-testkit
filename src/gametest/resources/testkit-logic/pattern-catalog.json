@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T20:21:36",
- "modSource": "lane-pv-styles-exact-1124f",
- "modGitSha": "8ec90eebf9477e064e691ea801da118ec3b14011",
+ "generatedAt": "2026-11-24T20:51:50",
+ "modSource": "lane-pv-styles-exact-1124gi",
+ "modGitSha": "e203c7539ece07281f2fc52b3708fb430dfc0fd9",
  "modSourceDirty": false,
- "count": 991,
+ "count": 992,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 871,
+  "field": 872,
   "local": 46
  },
  "unresolved": 161,
@@ -4514,6 +4514,18 @@
    "expr": "\"\\\\s([IVXLC]{1,8})$\""
   },
   {
+   "id": "itembrowser.NeuItemData#SKIN",
+   "cls": "itembrowser.NeuItemData",
+   "field": "SKIN",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/itembrowser/NeuItemData.java",
+   "line": 36,
+   "regex": "Value:\\\\?\"([A-Za-z0-9+/=]+)\\\\?\"",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"Value:\\\\\\\\?\\\"([A-Za-z0-9+/=]+)\\\\\\\\?\\\"\""
+  },
+  {
    "id": "itembrowser.SkyblockItemRepository#DESCRIPTION_TOKEN",
    "cls": "itembrowser.SkyblockItemRepository",
    "field": "DESCRIPTION_TOKEN",
@@ -7771,7 +7783,7 @@
    "field": "AUX_ID",
    "index": null,
    "file": "src/main/java/com/killer560/hub/profileviewer/api/ProfileViewerApi.java",
-   "line": 385,
+   "line": 387,
    "regex": "^[0-9a-fA-F-]{32,36}$",
    "flags": null,
    "kind": "field",
