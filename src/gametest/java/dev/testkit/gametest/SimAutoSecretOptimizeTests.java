@@ -73,7 +73,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             "\\[AutoSecret\\] (.+?): .*of the last-node wait \\(tick (\\d+)\\) - the next warp goes now");
     private static final String ROOM_STATUS = "com.killer560.hub.livemap.RoomStatus";
     private static final Pattern CLOSE_WAIT = Pattern.compile(
-            "\\[AutoSecret\\] (.+?): \\S+ secret\\(s\\) counted at the route's end, and (chest|essence) at .* is close");
+            "\\[AutoSecret\\] (.+?): \\S+ secret\\(s\\) counted at the route's end, and (?:the )?(chest|essence) at .* is close");
     private static final Pattern LEAVES_AT_END = Pattern.compile(
             "\\[AutoSecret\\] (.+?): every secret counted at the route's end.* - leaving this tick");
 
@@ -489,7 +489,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 }
                 String kind = (String) s[0];
                 BlockPos pos = (BlockPos) s[1];
-                if (pass == 0 && kindsTaken.contains(kind)) {
+                // The clear-wait case judges chests only: a clicked essence registers wherever he stands (acgaps2-1121).
+                if ((pass == 0 && kindsTaken.contains(kind)) || (injectClear && !"chest".equals(kind))) {
                     continue;
                 }
                 int id = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
