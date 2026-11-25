@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T02:25:56",
- "modSource": "lane-pv-panorama-upload-1125",
- "modGitSha": "2aa92ec8df918d51adae59015ff4e7a4b18706ea",
+ "generatedAt": "2026-11-25T02:32:56",
+ "modSource": "lane-argrim-planuse-exp-1125",
+ "modGitSha": "cf1d912b7d604e8049da7665a9c2bb746b8e69e1",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {

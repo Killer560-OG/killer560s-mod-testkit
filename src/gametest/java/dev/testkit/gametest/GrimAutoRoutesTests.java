@@ -403,7 +403,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1122-plan", c -> caseAutoClearHype(c, null, false, false, true));
                 s.test("62-argrim-1122-same-plan-second", c -> caseAutoClearHype(c, null, true, false, true));
                 // Names written out whole: the train's preflight looks each listed case up by its literal name.
-                s.test("62-argrim-1122-same-plan-use", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.USE, false, false, true));
+                // His right click is USE_CLICK (pressed between ticks, sent on the tick's own pick): the bare USE before the pick
+                // followed by Auto Clear's block click was a PacketOrderN no vanilla client sends (argrim-planuse-exp-1125).
+                s.test("62-argrim-1122-same-plan-use", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.USE_CLICK, false, false, true));
                 s.test("62-argrim-1122-same-plan-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false, false, true));
                 s.test("62-argrim-1122-same-plan-attack", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.ATTACK, false, false, true));
                 s.test("62-argrim-1122-same-plan-swap", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.SWAP, false, false, true));
@@ -5173,7 +5175,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         // The chain layout clears in about 8 ticks, so every action starts BEFORE Auto Clear and is armed by its chain line:
         // his action then goes in the ticks of the chained cast itself (not after the room is done). His USE is armed by
         // Auto Clear's first cast line in both layouts, so his own casts cannot clear the mobs before it acts.
-        boolean useFirst = act == dev.testkit.gametest.SameTick.Act.USE || armed && act != null;
+        boolean useFirst = (act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.USE_CLICK) || armed && act != null;
         boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
         // The plan's line ("kill plan for <room>: N step(s) ~T ticks ...") comes the tick the plan is taken, before its first step.
         String armLine = tripArm != null ? tripArm : plan ? " step(s) ~" : chain ? "[AutoClear] Wither Impact chain"
@@ -5187,7 +5189,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // Plan SWAP every third tick too: Auto Clear yields its tick to his swap, so a swap every tick left it no tick
             // at all (run 18: every mob skipped, plan moves 0) and the row tested nothing. OPEN_CLICK and ATTACK too: the
             // path's etherwarp yields to each (its sneak waits a tick after his menu packet, its hop after his queued attack).
-            int every = act == dev.testkit.gametest.SameTick.Act.USE || plan && (act == dev.testkit.gametest.SameTick.Act.SWAP
+            int every = (act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.USE_CLICK) || plan && (act == dev.testkit.gametest.SameTick.Act.SWAP
                     || act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK || act == dev.testkit.gametest.SameTick.Act.ATTACK) ? 3 : 1;
             st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
@@ -5221,7 +5223,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (act != null && !useFirst) {
             // His use every tick would leave Auto Clear no tick of its own (it yields to his use); every third tick it
             // still meets his casts. ATTACK every tick, counted only while the box is under his crosshair.
-            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1;
+            int every = (act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.USE_CLICK) ? 3 : 1;
             st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
                             || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8));
@@ -5261,7 +5263,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             dev.testkit.gametest.SameTick.judge(c, st, (plan ? "plan " : "achype ") + act, armed
                     && !(plan && act == dev.testkit.gametest.SameTick.Act.SWAP)
                     && act != dev.testkit.gametest.SameTick.Act.ATTACK
-                    && act != dev.testkit.gametest.SameTick.Act.USE
+                    && act != dev.testkit.gametest.SameTick.Act.USE && act != dev.testkit.gametest.SameTick.Act.USE_CLICK
                     && act != dev.testkit.gametest.SameTick.Act.TP
                     ? dev.testkit.gametest.SameTick.Expect.SHARE : dev.testkit.gametest.SameTick.Expect.ACTED);
         }
@@ -5312,7 +5314,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             for (String l : LogTap.since(m)) {
                 planCasts += l.contains("[AutoClear] Wither Impact (room plan)") ? 1 : 0;
             }
-            c.note("plan moves " + planMoves + ", plan casts " + planCasts + ", use_item ticks on the wire " + useTicks(s).size());
+            c.note("plan moves " + planMoves + ", plan casts " + planCasts + ", use_item ticks on the wire " + useTicks(s).size()
+                    + (act == dev.testkit.gametest.SameTick.Act.USE_CLICK ? ", hops held for his click "
+                    + LogTap.since(m).stream().filter(l -> l.contains("hop held a tick: his right click")).count() : ""));
             check(planMoves >= 2 && planCasts >= 1, "the room kill plan did not act (plan moves " + planMoves + ", plan casts "
                     + planCasts + "): the plan rows tested nothing");
             check(useTicks(s).size() >= planCasts, "a plan cast never reached the wire: plan casts " + planCasts
