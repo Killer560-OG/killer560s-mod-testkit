@@ -4,6 +4,7 @@ import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.Machine;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
+import dev.testkit.gametest.ui.ThemeAssetFeed;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.awt.image.BufferedImage;
@@ -18,12 +19,12 @@ import static dev.testkit.gametest.menu.PvStyle1104Cases.*;
 /**
  * pv-styles-exact-1124k: NEU Classic's panorama behind the Basic page's player (BasicPage: the box at 23, 44, 81 x 108,
  * turning on its own and dragged by a held mouse button). The pictures are the mod's on-demand {@code pv-panorama} group
- * (not in the jar, release not uploaded yet). 1124-menu-pvexact-neupano checks:
+ * (not in the jar; the published pv-panorama-1 release, served by ThemeAssetFeed). 1124-menu-pvexact-neupano checks:
  * <ul>
- * <li>with no files in the cache the page opens and draws, nothing is downloaded (the group is unpublished), and the
- * box shows the page's own plain background;</li>
- * <li>with the "unknown" set's six files placed in the client's sandbox store (from the mod checkout's theme-assets/),
- * the panorama is decoded, uploaded and drawn: the box's pixels change from the plain shot and turn over time;</li>
+ * <li>with corrupt downloads (sha256 rejected, nothing kept) the page opens and draws, and the box shows the page's own
+ * plain background;</li>
+ * <li>with the feed serving the "unknown" set, its six files are downloaded, byte-equal to the release's, decoded,
+ * uploaded and drawn: the box's pixels change from the plain shot and turn over time;</li>
  * <li>a real press in the box and a release 30 px right adds 30 degrees; a status in mode mining_3 picks that set.</li>
  * </ul>
  */
@@ -104,8 +105,13 @@ final class PvPanorama1124Cases {
                 return null;
             });
             seedWith(c, PvExact1124Cases.EXACT_PROFILE);
+            ThemeAssetFeed.start(); // the published pv-panorama-1 release, served from the mod checkout's theme-assets/pv-panorama
+            for (int i = 0; i < 6; i++) {
+                ThemeAssetFeed.CORRUPT.add("pvpano_unknown_" + i + ".webp");
+                ThemeAssetFeed.CORRUPT.add("pvpano_mining_3_" + i + ".webp");
+            }
 
-            // 1. No files: the page draws, nothing goes out, the box is plain.
+            // 1. Every download arrives corrupt (rejected by the sha256 check): the page draws, the box is plain.
             Screen s = open(c);
             int[] geo = c.onClient(mc -> new int[]{i(s, "panelX"), i(s, "panelY"), s.width});
             String st0 = pano(c, s);
@@ -113,16 +119,18 @@ final class PvPanorama1124Cases {
             c.check(st0.startsWith("unknown waiting"), "with no files the panorama reads " + st0 + ", expected the unknown set waiting");
             int downloads = c.onClient(mc -> (Integer) Mod.staticCall(TA, "downloadsForTest"));
             String state0 = c.onClient(mc -> String.valueOf(Mod.staticCall(TA, "stateForTest", "pvpano_unknown_0.webp")));
-            c.check(downloads == 0, downloads + " downloads started with the pv-panorama release unpublished");
-            c.check("FAILED".equals(state0), "unknown_0 is " + state0 + ", expected FAILED (looked for in the cache only)");
+            int rejected = c.onClient(mc -> (Integer) Mod.staticCall(TA, "rejectedForTest"));
+            c.check(downloads >= 1 && rejected >= 1, downloads + " downloads, " + rejected + " rejected: the published release was not asked for the corrupt files");
+            c.check("FAILED".equals(state0), "unknown_0 is " + state0 + ", expected FAILED (corrupt download rejected)");
+            c.check(!Files.exists(placed[0]), "a rejected file was kept in the cache");
             BufferedImage plain = BazaarReskinCases.shot(c, "neupano-plain");
             double scale = plain.getWidth() / (double) geo[2];
             c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
 
             // 2. The unknown set placed in the sandbox store: decoded, uploaded and drawn.
+            ThemeAssetFeed.CORRUPT.clear();
             for (int i = 0; i < 6; i++) {
-                Files.createDirectories(placed[i].getParent());
-                Files.copy(src.resolve("pvpano_unknown_" + i + ".webp"), placed[i], StandardCopyOption.REPLACE_EXISTING);
+                ThemeAssetFeed.CORRUPT.add("pvpano_mining_3_" + i + ".webp"); // step 5's set stays waiting
             }
             c.onClient(mc -> {
                 try {
@@ -144,7 +152,10 @@ final class PvPanorama1124Cases {
             c.note("box difference from the plain page: " + String.format("%.1f", d0));
             c.check(d0 > 20, "the box looks like the plain page (mean difference " + String.format("%.1f", d0) + ")");
             int downloads2 = c.onClient(mc -> (Integer) Mod.staticCall(TA, "downloadsForTest"));
-            c.check(downloads2 == 0, downloads2 + " downloads started (the files were in the cache)");
+            c.check(downloads2 == 6, downloads2 + " downloads for the unknown set, expected its six files from the feed");
+            for (int i = 0; i < 6; i++) {
+                c.check(Files.mismatch(placed[i], src.resolve("pvpano_unknown_" + i + ".webp")) == -1L, "downloaded unknown_" + i + " differs from the release file");
+            }
 
             // 3. It turns on its own, and a drag of 30 px turns it 30 degrees more.
             Object p = c.onClient(mc -> Mod.field(s2, "neuPanorama"));
