@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T01:02:46",
- "modSource": "lane-acoptimal-next-1124",
- "modGitSha": "b3c833d604183e0ead6b0c369cc754c8fb94c0c8",
+ "generatedAt": "2026-11-25T01:21:44",
+ "modSource": "lane-autotuner-slow-1124",
+ "modGitSha": "462a66299553d443feec427869c6f3bf5dc86d1f",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
