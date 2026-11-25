@@ -80,6 +80,7 @@ final class PvPanorama1124Cases {
         Object oldStyle = c.onClient(mc -> Mod.call(Mod.cfg(PVCFG), "getStyle"));
         boolean oldRemember = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(PVCFG), "isRememberLastPage"));
         Path[] placed = new Path[6];
+        java.util.List<Path> extraPlaced = new java.util.ArrayList<>();
         try (SocialCases.Env env = new SocialCases.Env(c)) {
             BazaarV3Cases.setWindow(c, 1600, 900, 2);
             c.ctx().runOnClient(mc -> {
@@ -169,21 +170,24 @@ final class PvPanorama1124Cases {
             c.note("box difference after the turn: " + String.format("%.1f", d1));
             c.check(d1 > 5, "the box did not change after turning (" + String.format("%.1f", d1) + ")");
 
-            // 4. A status in mode mining_3 shows that set (not placed: waiting, the unknown textures released).
-            c.ctx().runOnClient(mc -> {
-                try {
-                    Class<?> sr = Mod.cls(API + "$StatusResult");
-                    Class<?> ss = Mod.cls(API + "$StatusState");
-                    Object r = sr.getDeclaredConstructor(ss, String.class, long.class, long.class, String.class)
-                            .newInstance(Mod.enumValue(API + "$StatusState", "ONLINE"), "SkyBlock: Dwarven Mines", 0L,
-                                    System.currentTimeMillis(), "mining_3");
-                    @SuppressWarnings("unchecked")
-                    Map<UUID, Object> cache = (Map<UUID, Object>) Mod.field(API, "STATUS_CACHE");
-                    cache.put(ID, r);
-                } catch (ReflectiveOperationException e) {
-                    throw new AssertionError(e);
+            // 4. A hub status shows the hub set of the current SkyBlock half day (both placed): a shot for the eye (horizon level).
+            for (String set : new String[]{"hub_day", "hub_night"}) {
+                for (int i = 0; i < 6; i++) {
+                    final String n = "pvpano_" + set + "_" + i + ".webp";
+                    Path f = c.onClient(mc -> (Path) Mod.staticCall(TA, "fileForTest", n));
+                    Files.createDirectories(f.getParent());
+                    Files.copy(src.resolve(n), f, StandardCopyOption.REPLACE_EXISTING);
+                    extraPlaced.add(f);
                 }
-            });
+            }
+            status(c, "hub");
+            c.waitUntil("the hub panorama is up", mc -> String.valueOf(Mod.call(s2, "panoramaForTest")).matches("hub_(day|night) ready.*"), 200);
+            c.ctx().waitTicks(5);
+            c.note("hub status: " + pano(c, s2));
+            BazaarReskinCases.shot(c, "neupano-hub");
+
+            // 5. A status in mode mining_3 shows that set (not placed: waiting, the unknown textures released).
+            status(c, "mining_3");
             c.ctx().waitTicks(5);
             String st2 = pano(c, s2);
             c.note("mining_3 status: " + st2);
@@ -201,6 +205,25 @@ final class PvPanorama1124Cases {
             for (Path f : placed) {
                 if (f != null) Files.deleteIfExists(f);
             }
+            for (Path f : extraPlaced) Files.deleteIfExists(f);
         }
+    }
+
+    /** Puts an online SkyBlock status in {@code mode} into the PV's status cache for the test player. */
+    private static void status(Session c, String mode) {
+            c.ctx().runOnClient(mc -> {
+                try {
+                    Class<?> sr = Mod.cls(API + "$StatusResult");
+                    Class<?> ss = Mod.cls(API + "$StatusState");
+                    Object r = sr.getDeclaredConstructor(ss, String.class, long.class, long.class, String.class)
+                            .newInstance(Mod.enumValue(API + "$StatusState", "ONLINE"), "SkyBlock: Dwarven Mines", 0L,
+                                    System.currentTimeMillis(), mode);
+                    @SuppressWarnings("unchecked")
+                    Map<UUID, Object> cache = (Map<UUID, Object>) Mod.field(API, "STATUS_CACHE");
+                    cache.put(ID, r);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
     }
 }

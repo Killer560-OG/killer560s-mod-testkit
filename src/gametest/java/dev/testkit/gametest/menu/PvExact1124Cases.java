@@ -516,6 +516,8 @@ final class PvExact1124Cases {
                 style + ": Net Worth hover " + wt);
         String wt0 = c.onClient(mc -> text((List<?>) Mod.staticCall(pvs, "sbpvWorthTip", 4_000_000_000L, null, null, false, false)));
         PvStyle1104Cases.look(bad, wt0.equals("§7Click for the Networth page"), style + ": Net Worth hover with no cookie price " + wt0);
+        String plabel = c.onClient(mc -> String.valueOf(Mod.staticCall(pvs, "sbpvProfileLabel", Mod.call(s, "profile"))));
+        PvStyle1104Cases.look(bad, plabel.startsWith("§f§n◆ ") && plabel.endsWith(" ♻"), style + ": profile entry " + plabel + ", expected the selected diamond and the ironman mark");
         String tag = c.onClient(mc -> { Object t = Mod.field(s, "sbpvTag"); return t == null ? "none" : ((Component) t).getString(); });
         PvStyle1104Cases.look(bad, tag.equals("[123] PvStyleTest"), style + ": name tag over the model " + tag);
         // Tabs in SkyBlockPV's order; Combat holds Dungeons, Bestiary and Crimson Isle as right-edge category tabs.
