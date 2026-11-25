@@ -404,7 +404,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
                         case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
                         case "1123-arholds-graphfirst" -> ArRangeCases.graphFirst(ctx);
-                        case "1125-arstuck-hold" -> ArRangeCases.stuckHold(ctx);
+                        case "1125-arstuck-hold" -> ArNodesCases.stuckHold(ctx);
                         case "1115-acslow2-await" -> ArMainServerCases.acslow2AwaitNothing(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
@@ -7246,6 +7246,81 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         }
 
+        /**
+         * arstuck-1125 (killer560 2026-11-25: "my auto routes continuously get stuck ... freezing and it wont let me move").
+         * A warp held with no limit of its own kept the node acting: every fresh movement key was "overridden for its
+         * action" (26 s on his Pressure Plates #24, again on Slime #14 ETHERWARP), and his left click - the one the chat
+         * line asks for - went out as a dig because the AIM step's attack hand-back exempted only a missing landing block
+         * and a pick. 659's line: a start ew node (8,10) -> (16,10) with a stone at (12,F,10). Pass 1 and 2: a node from
+         * before placeEye, held by the aim check ("no look from here lands on"); pass 3: a placed node, held for the new
+         * block in its line. Pass 1: a fresh strafe stops the route and he moves. Passes 2 and 3: one left click sends the
+         * warp (one use_item, "Left click on node #1 ETHERWARP: released its wait") and is never handed to vanilla.
+         */
+        static void stuckHold(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            float yaw = relYawTo(8, 10, 16, 10);
+            float pitch = pitchTo(8, 10, 16, 10);
+            try {
+                setBlocks(ctx, Map.of(new int[]{12, F, 10}, Blocks.STONE.defaultBlockState()));
+                for (int pass = 1; pass <= 3; pass++) {
+                    resetRoutes(ctx);
+                    writeRoute(ctx, List.of(pass == 3 ? ewPlaced(8, 10, 16, 10) : ew(8, 10, 16, 10, true)));
+                    String why = pass == 3 ? "was not there when the node was placed" : "no look from here lands on";
+                    tpRel(ctx, 8.5, 6.5, yaw, pitch);
+                    ctx.waitTicks(5);
+                    long m = LogTap.mark();
+                    tpRel(ctx, 8.5, 10.5, yaw, pitch);
+                    ctx.waitTicks(40);
+                    boolean held = running(ctx) && logHas(m, why);
+                    println("arstuck pass " + pass + ": held (" + why + ") " + held + " at " + relPos(ctx));
+                    check(held, "pass " + pass + " premise: the warp was not held (" + why + ") - the freeze did not happen");
+                    long mk = LogTap.mark();
+                    if (pass == 1) {
+                        Vec3 before = relPos(ctx);
+                        ctx.getInput().holdKey(o -> o.keyLeft);
+                        ctx.waitTicks(10);
+                        ctx.getInput().releaseKey(o -> o.keyLeft);
+                        ctx.waitTicks(3);
+                        Vec3 after = relPos(ctx);
+                        double moved = Math.hypot(after.x - before.x, after.z - before.z);
+                        boolean on = running(ctx);
+                        long overridden = LogTap.since(mk).stream().filter(l -> l.contains("overridden for its action")).count();
+                        println(String.format(Locale.US, "arstuck pass 1: strafe moved %.2f, route running after %s, "
+                                + "overridden lines %d", moved, on, overridden));
+                        check(!on && logHas(mk, "you moved"), "a fresh movement key did not end the held warp (it was "
+                                + "overridden - he could not move)");
+                        check(moved >= 0.5, String.format(Locale.US, "he moved only %.2f block(s) strafing 10 ticks while "
+                                + "the warp was held", moved));
+                    } else {
+                        startSampling(ctx);
+                        leftClick(ctx, 2);
+                        ctx.waitTicks(8);
+                        List<Sample> s = stopSampling(ctx);
+                        println("arstuck pass " + pass + ": use_item after the left click " + countOut(s, "use_item")
+                                + ", player_action " + countOut(s, "player_action") + ", released "
+                                + logHas(mk, "released its wait") + ", attack handed to vanilla "
+                                + logHas(mk, "your attack goes out this tick"));
+                        check(logHas(mk, "Left click on node #1 ETHERWARP: released its wait"), "pass " + pass
+                                + ": his left click did not release the held warp (the chat line says it sends it)");
+                        check(countOut(s, "use_item") == 1, "pass " + pass + ": " + countOut(s, "use_item")
+                                + " use_item after his left click on the held warp, expected 1");
+                        check(countOut(s, "player_action") == 0 && !logHas(mk, "your attack goes out this tick"), "pass "
+                                + pass + ": his left click went to vanilla as an attack instead of sending the held warp");
+                        stopRoute(ctx);
+                    }
+                }
+            } finally {
+                setBlocks(ctx, Map.of(new int[]{12, F, 10}, Blocks.AIR.defaultBlockState()));
+                stopRoute(ctx);
+            }
+        }
+
         private static JsonObject ewPlaced(int fx, int fz, int tx, int tz) {
             JsonObject o = ew(fx, fz, tx, tz, true);
             o.addProperty("placeEye", String.format(Locale.US, "%.3f %.3f %.3f", fx + 0.5, F + 1.27, fz + 0.5));
@@ -10879,85 +10954,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(twoPlus, "premise: the replan did not fly 2+ new warps (a 1-warp plan has no proof to skip)");
                 String proof = log.stream().filter(l -> l.contains("[Path] exact:")).findFirst().orElse(null);
                 check(proof == null, "the replan waited for an exact proof before flying the graph's plan: " + proof);
-            });
-        }
-
-        /**
-         * arstuck-1125 (killer560 2026-11-25: "my auto routes continuously get stuck ... freezing and it wont let me move").
-         * His Pressure Plates #24 PATH: hop 1's block could not be reached, both replans found no way, and the warp sat
-         * held 26 s ("held, sneak down, until one does; a left click sends it as it is") while every fresh movement key
-         * was "overridden for its action" and four left clicks went out as Dungeon Breaker digs. Here #2's floor block
-         * and the blocks round it get two stones stacked on them, so hop 2 (and any replan onto #2) cannot land. Pass 1: once both replans gave
-         * up, a fresh strafe stops the route and he moves. Pass 2: in the same hold, one left click sends the warp
-         * (a use_item, "Left click on node #1 PATH: released its wait"), and the click is not handed to vanilla.
-         */
-        static void stuckHold(ClientGameTestContext ctx) {
-            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
-                caseSkip = "Auto Routes fires nodes only in a cheat build";
-                return;
-            }
-            inMuseum(ctx, () -> {
-                setReplan(ctx, false);
-                writeTwoHopPair(ctx);
-                giveAotv(ctx, 0);
-                check(valid(ctx) && hopCount(ctx) == 2, "premise: the written pair is not 2 valid saved warps");
-                Map<int[], BlockState> cap = new HashMap<>();
-                for (int dx = -2; dx <= 2; dx++) {
-                    for (int dz = -2; dz <= 2; dz++) {
-                        cap.put(new int[]{OX + dx, F, EZ + dz}, Blocks.STONE.defaultBlockState());
-                        cap.put(new int[]{OX + dx, F + 1, EZ + dz}, Blocks.STONE.defaultBlockState());
-                    }
-                }
-                setBlocks(ctx, cap);
-                ctx.waitTicks(20);
-                for (int pass = 1; pass <= 2; pass++) {
-                    forgetRunMemory(ctx);
-                    tpRel(ctx, OX + 0.5, OZ + 3.5, 0f, 0f);
-                    ctx.waitTicks(10);
-                    long m = LogTap.mark();
-                    tpRel(ctx, OX + 0.5, OZ + 0.5, 0f, 0f);
-                    boolean held = waitFor(ctx, 200, () -> LogTap.since(m).stream()
-                            .filter(l -> l.contains("no way from here to the pair's end")).count() >= 2);
-                    ctx.waitTicks(20);
-                    boolean stillHeld = running(ctx) && logHas(m, "no look from here lands on");
-                    println("arstuck pass " + pass + ": both replans gave up " + held + ", still held 20 ticks later "
-                            + stillHeld + " at " + relPos(ctx));
-                    check(held && stillHeld, "pass " + pass + " premise: the hop was not held after both replans found "
-                            + "no way (the freeze did not happen)");
-                    long mk = LogTap.mark();
-                    if (pass == 1) {
-                        Vec3 before = relPos(ctx);
-                        ctx.getInput().holdKey(o -> o.keyLeft);
-                        ctx.waitTicks(10);
-                        ctx.getInput().releaseKey(o -> o.keyLeft);
-                        ctx.waitTicks(3);
-                        Vec3 after = relPos(ctx);
-                        double moved = Math.hypot(after.x - before.x, after.z - before.z);
-                        boolean on = running(ctx);
-                        println("arstuck pass 1: strafe moved " + fmt(moved) + ", route running after " + on
-                                + ", overridden lines " + LogTap.since(mk).stream()
-                                .filter(l -> l.contains("overridden for its action")).count());
-                        check(!on && logHas(mk, "you moved"), "a fresh movement key did not end the held warp (it was "
-                                + "overridden - he could not move)");
-                        check(moved >= 0.5, "he moved only " + fmt(moved) + " block(s) strafing 10 ticks while the warp "
-                                + "was held");
-                    } else {
-                        startSampling(ctx);
-                        leftClick(ctx, 2);
-                        ctx.waitTicks(8);
-                        List<Sample> s = stopSampling(ctx);
-                        int uses = useTicks(s).size();
-                        println("arstuck pass 2: uses after the left click " + uses + ", released "
-                                + logHas(mk, "released its wait") + ", attack handed to vanilla "
-                                + logHas(mk, "your attack goes out this tick"));
-                        check(logHas(mk, "Left click on node #1 PATH: released its wait"), "his left click did not "
-                                + "release the held warp (the chat line says it sends it)");
-                        check(uses >= 1, "no use_item went out after his left click on the held warp");
-                        check(!logHas(mk, "your attack goes out this tick"), "his left click was handed to vanilla as "
-                                + "an attack instead of sending the held warp");
-                        stopRoute(ctx);
-                    }
-                }
             });
         }
 

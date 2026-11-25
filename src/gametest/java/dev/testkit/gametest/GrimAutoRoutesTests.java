@@ -3776,47 +3776,28 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
-     * 62-argrim-1125-heldclick (arstuck-1125): the pair across the wall is planned, then two stones are stacked on #2's
-     * floor block, so its last saved warp cannot land and no replan reaches #2 ("no way from here to the pair's end"
-     * twice). The warp is held, sneak down, and the chat line says a left click sends it. His real left click is taken
-     * from vanilla in its own tick and the warp's use goes in that tick: one use_item, no player_action, no swing of its
-     * own (his 2026-11-25 clicks went out as Dungeon Breaker digs and the warp stayed held). GrimAC (default and
-     * experimental): nothing.
+     * 62-argrim-1125-heldclick (arstuck-1125): a start ew node (6,6) -> (14,6) with a stone at (10,F,6) set in its line
+     * after it was written, so the aim check holds the warp ("no look from here lands on", sneak down) and the chat line
+     * says a left click sends it. His real left click is taken from vanilla in its own tick and the warp's use goes in
+     * that tick: one use_item at least, no player_action, no swing of its own (his 2026-11-25 clicks went out as Dungeon
+     * Breaker digs and the warp stayed held). GrimAC (default and experimental): nothing.
      */
     private static void caseHeldClick(Session c) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
-        arena(ctx, true);
-        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+        arena(ctx, false);
         Map<int[], String> cap = new HashMap<>();
         try {
-            tpRel(ctx, 6.5, 20.5, 0f, 0f);
-            ctx.waitTicks(4);
-            long m = LogTap.mark();
-            cmd(ctx, "/ar add path");
-            ctx.waitTicks(5);
-            tpRel(ctx, 24.5, 10.5, 0f, 0f);
-            ctx.waitTicks(4);
-            cmd(ctx, "/ar add path");
-            check(waitFor(ctx, 400, () -> logHas(m, "planned by the floor planner")), "the pair was never planned");
-            tpRel(ctx, 6.5, 14.5, 0f, 0f);
-            ctx.waitTicks(4);
-            for (int x = 22; x <= 26; x++) {
-                for (int z = 8; z <= 12; z++) {
-                    cap.put(new int[]{x, F, z}, "minecraft:stone");
-                    cap.put(new int[]{x, F + 1, z}, "minecraft:stone");
-                }
-            }
+            writeRoute(ctx, List.of(ew(6, 6, 14, 6, true)));
+            cap.put(new int[]{10, F, 6}, "minecraft:stone");
             setBlocks(ctx, cap);
+            tpRel(ctx, 6.5, 2.5 + 1, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
             ctx.waitTicks(10);
             long mr = LogTap.mark();
-            walkOnto(ctx, 4.5, 20.5, 6, 20);
-            boolean held = waitFor(ctx, 300, () -> LogTap.since(mr).stream()
-                    .filter(l -> l.contains("no way from here to the pair's end")).count() >= 2);
-            ctx.waitTicks(10);
-            check(held && logHas(mr, "no look from here lands on") && ctx.computeOnClient(mc -> (Boolean)
-                    ModUnderTest.staticCall(EXECUTOR, "isRunning")), "premise: the last warp was not held after both "
-                    + "replans found no way");
+            tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+            ctx.waitTicks(40);
+            check(logHas(mr, "no look from here lands on") && ctx.computeOnClient(mc -> (Boolean)
+                    ModUnderTest.staticCall(EXECUTOR, "isRunning")), "premise: the warp was not held by the aim check");
             JsonObject before = stats();
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
             startSampling(ctx);
@@ -3835,7 +3816,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             println(c.name() + ": released " + logHas(mk, "released its wait") + ", uses " + useTicks(s).size()
                     + ", player_action " + count(s, "player_action") + ", stray swings " + stray + ", server etherwarps "
                     + delta(before, "etherwarps"));
-            check(logHas(mk, "Left click on node #1 PATH: released its wait"), "his left click did not send the held warp");
+            check(logHas(mk, "Left click on node #1 ETHERWARP: released its wait"), "his left click did not send the held warp");
             check(!logHas(mk, "your attack goes out this tick"), "his left click was handed to vanilla as an attack");
             check(useTicks(s).size() >= 1 && delta(before, "etherwarps") >= 1, "no etherwarp went out after his click");
             check(count(s, "player_action") == 0, "his click still sent " + count(s, "player_action") + " player_action");
