@@ -438,6 +438,8 @@ final class PvExact1124Cases {
             c.ctx().waitTicks(3);
             BazaarReskinCases.shot(c, style.toLowerCase() + "-mining" + sub);
         }
+        // 1124g: SkyBlockPV's Farming page (Main and Crop) from a seeded garden and the bundled garden tables.
+        farming(c, s, pages, m, bad, style);
         c.ctx().runOnClient(mc -> setInt(s, "subView", 0));
         for (int[] page : new int[][]{{17}, {16}, {14}}) {
             c.ctx().runOnClient(mc -> Mod.call(s, "setPage", page[0]));
@@ -457,6 +459,82 @@ final class PvExact1124Cases {
         c.ctx().waitTicks(3);
         BazaarReskinCases.shot(c, style.toLowerCase() + "-frogs");
         c.ctx().runOnClient(mc -> setInt(pages, "fishTab", 0));
+    }
+
+    private static final String GARDEN = "{\"garden_experience\":1000,\"crop_upgrade_levels\":{\"WHEAT\":9,\"CARROT_ITEM\":2},"
+            + "\"resources_collected\":{\"WHEAT\":1000},\"garden_upgrades\":{\"MAX_OCCUPANCY\":1},"
+            + "\"commission_data\":{\"visits\":{\"adventurer\":3},\"completed\":{\"adventurer\":2},\"unique_npcs_served\":1},"
+            + "\"active_commissions\":{\"adventurer\":{\"position\":1,\"status\":\"STARTED\",\"requirement\":[{\"original_item\":\"WHEAT\","
+            + "\"original_amount\":64,\"item\":\"WHEAT\",\"amount\":32}]}}}";
+
+    /** SkyBlockPV's Farming page: Information, Visitors, Visitor Queue, Contests, Chips and Crop, all from the seeded garden. */
+    private static void farming(Session c, Screen s, Object pages, Object m, List<String> bad, String style) throws Exception {
+        c.ctx().runOnClient(mc -> {
+            try {
+                java.lang.reflect.Field ef = s.getClass().getDeclaredField("extraPages");
+                ef.setAccessible(true);
+                Object ep = ef.get(s);
+                java.lang.reflect.Field af = ep.getClass().getDeclaredField("aux");
+                af.setAccessible(true);
+                Class<?> ar = Class.forName("com.killer560.hub.profileviewer.api.ProfileViewerApi$AuxResult", true, s.getClass().getClassLoader());
+                Object res = ar.getDeclaredConstructor(com.google.gson.JsonObject.class, String.class, long.class)
+                        .newInstance(com.google.gson.JsonParser.parseString(GARDEN).getAsJsonObject(), "test", 0L);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> aux = (Map<String, Object>) af.get(ep);
+                aux.put("GARDEN:p1", java.util.concurrent.CompletableFuture.completedFuture(res));
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+            Mod.call(s, "setPage", 10);
+            setInt(s, "subView", 0);
+        });
+        c.waitUntil("the Farming page is built", mc -> {
+            Object f = Mod.field(m, "farm");
+            return f != null && ((java.util.concurrent.Future<?>) f).isDone();
+        }, 400);
+        Object f = ((java.util.concurrent.Future<?>) Mod.field(m, "farm")).get();
+        PvStyle1104Cases.look(bad, f != null, style + ": no Farming model");
+        if (f == null) return;
+        String[] info = (String[]) Mod.field(f, "info");
+        List<?>[] infoTips = (List<?>[]) Mod.field(f, "infoTips");
+        String all = String.join(" | ", info);
+        PvStyle1104Cases.look(bad, info[1].equals("§8Garden Level: §25") && text(infoTips[1]).startsWith("§7To lvl 5: §2480§a/§2"),
+                style + ": Garden Level line " + info[1] + " / " + (infoTips[1] == null ? "no hover" : text(infoTips[1])));
+        PvStyle1104Cases.look(bad, info[3].equals("§8Medals: §c0§8/§70§8/§64") && info[5].equals("§8Farming Level Cap: §c0§8/10")
+                && info[6].equals("§8Double Drops: §a15§8/15") && infoTips[6] == null, style + ": Information " + all);
+        PvStyle1104Cases.look(bad, infoTips[5] != null && text(infoTips[5]).contains("§7Gold Medal: §20§a/§216§7 (§30%§7)"),
+                style + ": Farming Level Cap hover " + (infoTips[5] == null ? "none" : text(infoTips[5])));
+        String vis = String.join(" | ", (String[]) Mod.field(f, "visitors"));
+        PvStyle1104Cases.look(bad, vis.startsWith("§8Unique Served: §a1§8/§a146 | §8Total: §a2§8/§a3 | §aUncommon§8: §a2§8/§a3")
+                && vis.contains("§8Max Occupancy: §a1§2/§a5"), style + ": Visitors " + vis);
+        Object[] queue = (Object[]) Mod.field(f, "queue");
+        List<?>[] qTips = (List<?>[]) Mod.field(f, "queueTips");
+        String q = qTips.length == 0 ? "" : text(qTips[0]);
+        PvStyle1104Cases.look(bad, queue.length == 1 && (int) Mod.field(f, "queueRows") == 2 && q.startsWith("§a§lCombat Merchant")
+                && q.contains("§7Queue Position: §e#1") && q.contains("§7Status: §cStarted") && q.contains("§a32§7/§864"), style + ": Visitor Queue " + q);
+        String[][] cropText = (String[][]) Mod.field(f, "cropText");
+        List<?>[][] cropTips = (List<?>[][]) Mod.field(f, "cropTips");
+        String up = text(cropTips[0][0]), ms = text(cropTips[0][1]);
+        PvStyle1104Cases.look(bad, cropText[0][0].equals("§a9") && cropText[5][0].equals("§c2") && up.contains("Copper paid: §c7,685§6/§c7,685") && !up.contains("("),
+                style + ": Wheat crop upgrade " + cropText[0][0] + " " + up);
+        PvStyle1104Cases.look(bad, cropText[0][1].equals("§c5") && ms.startsWith("§lWheat Milestone|§7Progress: §c5§7/46|§7Progress to 6: §e"),
+                style + ": Wheat milestone " + ms);
+        String contest = text(((List<?>[]) Mod.field(f, "contestTips"))[0]);
+        PvStyle1104Cases.look(bad, contest.startsWith("§f§lWheat||§7Brackets: §c◌§7◌§6◌§3◌§b◌|§7Personal Best: §cNot Unlocked!|§7Contests participated: §e0"),
+                style + ": Wheat contest hover " + contest);
+        String chips = String.join(",", (String[]) Mod.field(f, "chipText")), chip = text(((List<?>[]) Mod.field(f, "chipTips"))[0]);
+        PvStyle1104Cases.look(bad, chips.equals("§c0,§c0,§c0,§c0,§c0,§c0,§c0,§c0,§c0,§c0") && chip.contains("§7Sowdust: §c0§7/§2"),
+                style + ": Chips " + chips + " / " + chip);
+        c.waitUntil("the Farming gear is built", mc -> {
+            Object g = Mod.field(f, "gear");
+            return g != null && ((java.util.concurrent.Future<?>) g).isDone();
+        }, 400);
+        for (int sub = 0; sub < 2; sub++) {
+            int v = sub;
+            c.ctx().runOnClient(mc -> setInt(s, "subView", v));
+            c.ctx().waitTicks(3);
+            BazaarReskinCases.shot(c, style.toLowerCase() + "-farming" + sub);
+        }
     }
 
     private static void setInt(Object target, String name, int v) {
