@@ -137,7 +137,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, SimAp3Trace1112.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimWardrobeKeep1120.NAME, SimMenus1118.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimBossTermZeeks1120.SEQ, SimBossTermZeeks1120.SEQ_NF, SimBossTermZeeks1120.SEQ_ODIN, SimFastLeap1120.NAME, SimFastLeapLegit1124.NAME, SimDevPractice1118.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, SimAp3Trace1112.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimWardrobeKeep1120.NAME, SimMenus1118.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimBossTermZeeks1120.SEQ, SimBossTermZeeks1120.SEQ_NF, SimBossTermZeeks1120.SEQ_ODIN, SimFastLeap1120.NAME, SimFastLeapLegit1124.NAME, SimDevPractice1118.NAME, SimBossBoomGate1124.DOWN, SimBossBoomGate1124.DIG, SimBossBoomGate1124.UP};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -153,7 +153,7 @@ public class SimBossTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimAp3Trace1112.NAME) || name.equals(SimI4Terror1116.NAME) || name.equals(SimBossTermFriend1119.NAME) || name.equals(SimBossTermNumbers1119.NAME) || name.startsWith("1119-boss-term-") || name.startsWith("1120-boss-term-")) &&!dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.startsWith("1124-boss-ee3boom-") || name.equals(SimAp3Trace1112.NAME) || name.equals(SimI4Terror1116.NAME) || name.equals(SimBossTermFriend1119.NAME) || name.equals(SimBossTermNumbers1119.NAME) || name.startsWith("1119-boss-term-") || name.startsWith("1120-boss-term-")) &&!dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -213,6 +213,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
                     case SimAp3Trace1112.NAME -> SimAp3Trace1112.run(ctx, f);
                     case SimBossEe3Route1109.NAME -> SimBossEe3Route1109.run(ctx, f);
+                    case SimBossBoomGate1124.DOWN, SimBossBoomGate1124.DIG, SimBossBoomGate1124.UP -> SimBossBoomGate1124.run(ctx, f, name);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
