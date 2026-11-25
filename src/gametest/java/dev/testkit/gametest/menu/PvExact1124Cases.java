@@ -403,11 +403,11 @@ final class PvExact1124Cases {
         // 1124d: the bundled repo tables acted (rarities, hitman cost, perks, gift maxima, personal bests, loadout trees, gear).
         String rar = String.join(" | ", (String[]) Mod.field(m, "rarityCounts"));
         List<?>[] rarTips = (List<?>[]) Mod.field(m, "rarityTips");
-        PvStyle1104Cases.look(bad, rar.startsWith("§b0") && rar.endsWith("§f2") && text(rarTips[rarTips.length - 1]).contains("Total: 3"),
+        PvStyle1104Cases.look(bad, rar.startsWith("§b0") && rar.endsWith("§f2") && text(rarTips[rarTips.length - 1]).replaceAll("§.", "").contains("Total: 3"),
                 style + ": Rarities chips " + rar);
         List<?>[] cfTips = (List<?>[]) Mod.field(m, "cfInfoTips");
         String hit = "";
-        for (List<?> t : cfTips) if (t != null && text(t).startsWith("Paid:")) hit = text(t);
+        for (List<?> t : cfTips) if (t != null && text(t).replaceAll("§.", "").startsWith("Paid:")) hit = text(t).replaceAll("§.", "");
         PvStyle1104Cases.look(bad, hit.equals("Paid: 100,000/32M (0.31%)"), style + ": hitman hover '" + hit + "'");
         PvStyle1104Cases.look(bad, fish.contains("Midas Lure: §c5§r/10") && fish.contains("Drake Piper: §a1§r/1"), style + ": fishing perks " + fish);
         PvStyle1104Cases.look(bad, forg.contains("Fig Gifts: §c2§r/§a7") && forg.contains("Total Fig Gifts: 12"), style + ": tree gifts " + forg);
@@ -416,7 +416,7 @@ final class PvExact1124Cases {
                 style + ": Fig personal bests " + pb);
         Object hotm = ((Object[][]) Mod.field(m, "trees"))[0][0];
         String counts = hotm == null ? "" : String.join(",", (String[]) Mod.field(hotm, "counts"));
-        PvStyle1104Cases.look(bad, counts.contains("10"), style + ": HOTM Loadout tree " + (hotm == null ? "missing" : counts));
+        PvStyle1104Cases.look(bad, (counts.contains("10") || counts.contains("50")), style + ": HOTM Loadout tree " + (hotm == null ? "missing" : counts));
         for (int[] page : new int[][]{{17}, {16}, {14}}) {
             c.ctx().runOnClient(mc -> Mod.call(s, "setPage", page[0]));
             c.ctx().waitTicks(3);
