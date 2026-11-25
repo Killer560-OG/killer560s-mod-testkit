@@ -410,6 +410,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1122-same-plan-attack", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.ATTACK, false, false, true));
                 s.test("62-argrim-1122-same-plan-swap", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.SWAP, false, false, true));
                 s.test("62-argrim-1122-same-plan-tp", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.TP, false, false, true));
+                // acoptimal-next4-1125-fix2: the server moves him off the plan when its etherwarp lands (as his own Hyperion
+                // click does); the plan is planned again from there and acts again, Grim clean.
+                s.test("62-argrim-1125-plan-moved", c -> {
+                    acPlanShove = true;
+                    try {
+                        caseAutoClearHype(c, null, false, false, true);
+                    } finally {
+                        acPlanShove = false;
+                    }
+                });
                 // The same corner layout with his container click armed by Auto Clear's first etherwarp line instead of the
                 // plan's: runs on a jar without the plan too (an origin jar shows whether a flag there is the plan's).
                 s.test("62-argrim-1122-trip-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
@@ -5138,6 +5148,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /** Trip price every plan row starts from (0 = none learned); the walk row prices every etherwarp trip out. */
     private static double acTripPrice;
+    /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
+    private static boolean acPlanShove;
 
     /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
@@ -5175,6 +5187,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(10);
         double[][] spots = plan ? PLAN_LAYOUTS[4] : chain ? new double[][]{{5.5, 15.5}, {17.5, 11.5}, {17.5, 19.5}}
                 : new double[][]{{10.5, 15.5}, {18.5, 15.5}, {21.5, 23.5}};
+        float[] hisLook = ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
         List<JsonObject> mobs = new ArrayList<>();
         for (double[] sp : spots) {
             Vec3 at = ctx.computeOnClient(mc -> {
@@ -5261,7 +5274,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (second && !armed) {
             start.run();
         }
+        int[] shoveAt = {-1};
         boolean finished = waitFor(ctx, 600, () -> {
+            // On the plan etherwarp's landing, standing between two plan steps (a move during the trip is the trip's
+            // own to plan again: run q1-def-moved), as his Hyperion click after a landing did in fin3-def-2.
+            if (acPlanShove && plan && shoveAt[0] < 0 && logHas(m, "[Path] arrived")) {
+                shoveAt[0] = LogTap.since(m).size();
+                tpRel(ctx, 16.5, 15.5, -90f, 0f);
+            }
             if (armed && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, chainLine)
                     && tpSpam[0]-- > 0) {
                 // The teleports keep coming through the chained cast's ticks, so one of his answers shares its tick.
@@ -5306,7 +5326,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         printTrace("achype", s);
         int impacts = delta(before, "witherImpacts");
         int warps = delta(before, "etherwarps");
-        boolean across = logHas(m, "[AutoClear] Wither Impact across");
+        // Since the room kill plan (3453a2b86, 11-22) takes this layout, its cast across logs "(room plan) ... 2 mob(s) in its
+        // blast" instead of "Wither Impact across" (achype-across-1125): both are one cast taking A and B.
+        boolean across = logHas(m, "[AutoClear] Wither Impact across") || LogTap.since(m).stream().anyMatch(l ->
+                l.contains("[AutoClear] Wither Impact (room plan)") && l.matches(".*: ([2-9]|\\d\\d+) mob\\(s\\) in its blast.*"));
         if (chain) {
             // The wire: the feature's own cast count (its room line) must be 2 or more with no etherwarp (the first cast, then
             // the chained one), and the trace must hold that many use_item ticks; the ones after the first are quoted.
@@ -5339,8 +5362,52 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 planCasts += l.contains("[AutoClear] Wither Impact (room plan)") ? 1 : 0;
             }
             c.note("plan moves " + planMoves + ", plan casts " + planCasts + ", use_item ticks on the wire " + useTicks(s).size()
+                    + ", planned again after a server move " + LogTap.since(m).stream()
+                    .filter(l -> l.contains("so it is planned again from here")).count()
                     + (act == dev.testkit.gametest.SameTick.Act.USE_CLICK ? ", hops held for his click "
                     + LogTap.since(m).stream().filter(l -> l.contains("hop held a tick: his right click")).count() : ""));
+            if (act == dev.testkit.gametest.SameTick.Act.USE_CLICK) {
+                // His use in the tick Auto Clear turns for a cast flew HIS Wither Impact the cast's way, unheard by the
+                // server, and killed its mob first (plan casts 0, acoptimal-next4-1125-fix): the turn waits for his click.
+                List<String> ridden = new ArrayList<>();
+                java.util.regex.Pattern rp = java.util.regex.Pattern.compile(
+                        "\\[RightClick\\] use seq \\d+ with HYPERION.*? rot (-?[\\d.]+)/(-?[\\d.]+) \\| server look (-?[\\d.]+)/(-?[\\d.]+)");
+                // Only while a mob is left: after the last death Auto Clear hands his own look back (90/0 here), and his
+                // click on that is his (fin-def-4/5, exp-1/4 counted it).
+                List<String> since = LogTap.since(m);
+                int last = since.size();
+                for (int i = 0; i < since.size(); i++) {
+                    last = since.get(i).contains("starred kill(s) this run") ? i : last;
+                }
+                for (String l : since.subList(0, Math.min(last, since.size()))) {
+                    java.util.regex.Matcher rm = rp.matcher(l);
+                    // A use on HIS own look (the one he started with, handed back after a path warp's turn: fin3-def-2 seq 18,
+                    // rot 90/0 | server look -14.93/4.79) is his click, not a ride on Auto Clear's turn.
+                    if (rm.find() && (Math.abs(net.minecraft.util.Mth.wrapDegrees(Float.parseFloat(rm.group(1)) - Float.parseFloat(rm.group(3)))) > 1f
+                            || Math.abs(Float.parseFloat(rm.group(2)) - Float.parseFloat(rm.group(4))) > 1f)
+                            && (Math.abs(net.minecraft.util.Mth.wrapDegrees(Float.parseFloat(rm.group(1)) - hisLook[0])) > 1f
+                            || Math.abs(Float.parseFloat(rm.group(2)) - hisLook[1]) > 1f)) {
+                        ridden.add(l.replaceAll("^.*?\\[RightClick\\] ", "").replaceAll(" \\| shift.*", ""));
+                    }
+                }
+                c.note("Hyperion uses on a look the server had not heard " + ridden.size() + (ridden.isEmpty() ? "" : " e.g. " + ridden.get(0)));
+                check(ridden.isEmpty(), "his right click went out on Auto Clear's unheard turn: " + ridden);
+            }
+            if (shoveAt[0] >= 0) {
+                // The feature acted: the plan left for the server's move is planned again from there, and a plan step
+                // (a cast across or the plan's etherwarp) goes after it.
+                List<String> after = LogTap.since(m);
+                after = after.subList(Math.min(shoveAt[0], after.size()), after.size());
+                int keep = -1;
+                for (int i = 0; i < after.size() && keep < 0; i++) {
+                    keep = after.get(i).contains("so it is planned again from here") ? i : -1;
+                }
+                long stepsAfter = keep < 0 ? 0 : after.subList(keep, after.size()).stream().filter(l ->
+                        l.contains("[AutoClear] Wither Impact (room plan)") || l.contains("- the plan's block")).count();
+                c.note("moved by the server: planned again " + (keep >= 0) + ", plan steps after it " + stepsAfter);
+                check(keep >= 0, "the server's move did not get the plan planned again from where it put him");
+                check(stepsAfter >= 1, "no plan step after the plan was planned again from where the server put him");
+            }
             check(planMoves >= 2 && planCasts >= 1, "the room kill plan did not act (plan moves " + planMoves + ", plan casts "
                     + planCasts + "): the plan rows tested nothing");
             check(useTicks(s).size() >= planCasts, "a plan cast never reached the wire: plan casts " + planCasts
