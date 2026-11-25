@@ -129,6 +129,9 @@ final class PvPanorama1124Cases {
 
             // 2. The unknown set placed in the sandbox store: decoded, uploaded and drawn.
             ThemeAssetFeed.CORRUPT.clear();
+            for (int i = 0; i < 6; i++) {
+                ThemeAssetFeed.CORRUPT.add("pvpano_mining_3_" + i + ".webp"); // step 5's set stays waiting
+            }
             c.onClient(mc -> {
                 try {
                     Mod.staticCall(TA, "resetForTest");
