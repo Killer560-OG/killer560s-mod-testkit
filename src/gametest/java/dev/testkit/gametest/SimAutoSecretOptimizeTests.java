@@ -52,6 +52,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private static final String LASTSECRET = "147-sim-autosecret-lastsecret";
     private static final String PREBLOOD = "1018-sim-autosecret-preblood";
     private static final String SMALL = "1018-autosecret-small-rooms";
+    private static final String CLEARWAIT = "1125-sim-acleave-clearwait";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
@@ -70,6 +71,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private static final Pattern FINISHED = Pattern.compile("\\[AutoSecret\\] route (.+?) finished \\(tick (\\d+)\\)");
     private static final Pattern GOES_NOW = Pattern.compile(
             "\\[AutoSecret\\] (.+?): .*of the last-node wait \\(tick (\\d+)\\) - the next warp goes now");
+    private static final String ROOM_STATUS = "com.killer560.hub.livemap.RoomStatus";
+    private static final Pattern CLOSE_WAIT = Pattern.compile(
+            "\\[AutoSecret\\] (.+?): \\S+ secret\\(s\\) counted at the route's end, and (chest|essence) at .* is close");
     private static final Pattern LEAVES_AT_END = Pattern.compile(
             "\\[AutoSecret\\] (.+?): every secret counted at the route's end.* - leaving this tick");
 
@@ -84,7 +88,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         boolean last = !Scenario.skip(LASTSECRET);
         boolean preblood = !Scenario.skip(PREBLOOD);
         boolean small = !Scenario.skip(SMALL);
-        if (!handoff && !order && !arrival && !last && !preblood && !small) {
+        boolean clearWait = !Scenario.skip(CLEARWAIT);
+        if (!handoff && !order && !arrival && !last && !preblood && !small && !clearWait) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -109,6 +114,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
             if (small) {
                 Scenario.skipped(SMALL, "needs real room captures and room database");
+            }
+            if (clearWait) {
+                Scenario.skipped(CLEARWAIT, "needs real room captures and room database");
             }
             return;
         }
@@ -153,6 +161,13 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         if (small) {
             try {
                 runCase(ctx, SMALL, (c, f) -> orderBody(c, f, true));
+            } catch (AssertionError e) {
+                failed.add(e.getMessage());
+            }
+        }
+        if (clearWait) {
+            try {
+                runCase(ctx, CLEARWAIT, SimAutoSecretOptimizeTests::clearWaitBody);
             } catch (AssertionError e) {
                 failed.add(e.getMessage());
             }
@@ -386,6 +401,12 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         String name = LASTSECRET + " floor " + lastFloor;
         enterFloor(ctx);
         awaitWarmGraph(ctx, LASTSECRET);
+        auraOn(ctx);
+        lastSecretRooms(ctx, name, failures, LAST_ROOMS, false);
+    }
+
+    /** Secret Aura on with his settings (range 4.5, skull 4.5, cooldown 150 ms), and Auto Close Chest's Auto. */
+    private static void auraOn(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             Object cfg = ModUnderTest.config(CHEAT_CFG);
             ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
@@ -402,6 +423,35 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                     true);
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
         });
+    }
+
+    /**
+     * 1125-sim-acleave-clearwait (mod acleave-early-1125). His 11-25 runs (Carpets 15:31:48, Slime 15:38:03, Slabs 16:55:43,
+     * Small Waterfall 16:56:26): a route ends with a chest or essence still in Secret Aura's reach, the last-node wait
+     * starts, and Autopilot's next pick is a clear of a room next door, which went straight to Auto Clear; a running Auto
+     * Clear stops Secret Aura's clicks, so the wait read "none close any more" a tick later and the clear took him out with
+     * the secret left. Here: 147's scaffolding (one-node routes by one secret left, two rooms), Auto Clear on, and the tick
+     * the first chest/essence wait begins, Auto Secret's own goClear(..., 1 room away) for another room - the exact logged
+     * call. 147's checks then judge that room (its secret registered before the warp out, the hold let go the tick it
+     * did), and the clear must have gone to Auto Clear only after the secret registered.
+     */
+    private static void clearWaitBody(ClientGameTestContext ctx, List<String> failures) {
+        lastFloor = 1;
+        enterFloor(ctx);
+        awaitWarmGraph(ctx, CLEARWAIT);
+        auraOn(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"),
+                "setEnabled", true));
+        try {
+            lastSecretRooms(ctx, CLEARWAIT, failures, 2, true);
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.autoclear.AutoClearConfig", "setEnabled"));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void lastSecretRooms(ClientGameTestContext ctx, String name, List<String> failures, int maxRooms,
+            boolean injectClear) {
         List<SimAutoSecretTests.Room> eligible = notPreBlood(ctx, eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms)));
         Map<Integer, SimAutoSecretTests.Room> byId = new HashMap<>();
         for (SimAutoSecretTests.Room r : eligible) {
@@ -431,10 +481,10 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         List<LastCase> cases = new ArrayList<>();
         java.util.Set<String> kindsTaken = new java.util.HashSet<>();
         // Two passes: one room per kind first, so a floor tries every kind it has, then any.
-        for (int pass = 0; pass < 2 && cases.size() < LAST_ROOMS; pass++) {
+        for (int pass = 0; pass < 2 && cases.size() < maxRooms; pass++) {
             java.util.Collections.shuffle(secrets, new java.util.Random(lastFloor * 31L + pass));
             for (Object[] s : secrets) {
-                if (cases.size() >= LAST_ROOMS) {
+                if (cases.size() >= maxRooms) {
                     break;
                 }
                 String kind = (String) s[0];
@@ -494,6 +544,10 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         Map<String, Long> finishedAt = new HashMap<>();
         Map<String, Long> releasedAt = new HashMap<>();
         Map<String, Long> registeredAt = new HashMap<>();
+        String[] waitRoom = {null};
+        String[] clearRoom = {null};
+        String[] waitEnd = {null};
+        long[] handTick = {-1};
         for (int t = 0; t < 20 * 150; t++) {
             ctx.waitTicks(1);
             long now = tick(ctx);
@@ -515,6 +569,45 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 if (e.find() && !releasedAt.containsKey(e.group(1)) && finishedAt.containsKey(e.group(1))) {
                     releasedAt.put(e.group(1), finishedAt.get(e.group(1)));
                 }
+                Matcher w = CLOSE_WAIT.matcher(l);
+                if (injectClear && waitRoom[0] == null && w.find()) {
+                    waitRoom[0] = w.group(1);
+                }
+                if (clearRoom[0] != null && handTick[0] < 0
+                        && l.contains("[AutoSecret] handing " + clearRoom[0] + " to Auto Clear")) {
+                    handTick[0] = now;
+                }
+                if (waitRoom[0] != null && l.contains("[AutoSecret] " + waitRoom[0] + ": ") && l.contains("last-node wait")) {
+                    waitEnd[0] = l;
+                }
+            }
+            if (waitRoom[0] != null && clearRoom[0] == null) {
+                // The tick the wait began: Autopilot's pick of a clear one room away, as goClear makes it.
+                java.util.Set<String> routed = new java.util.HashSet<>();
+                cases.forEach(c -> routed.add(c.room()));
+                clearRoom[0] = ctx.computeOnClient(mc -> {
+                    try {
+                        Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+                        for (Object r : (List<?>) ModUnderTest.staticCall(ROOM_STATUS, "rooms")) {
+                            String n = (String) r.getClass().getMethod("name").invoke(r);
+                            boolean cleared = (Boolean) r.getClass().getMethod("cleared").invoke(r);
+                            if (cleared || routed.contains(n) || eligible.stream().noneMatch(x -> x.name().equals(n))) {
+                                continue;
+                            }
+                            int id = (Integer) r.getClass().getMethod("room").invoke(r);
+                            ModUnderTest.staticCall(EXECUTOR, "cancel");
+                            ModUnderTest.staticCall(EXECUTOR, "setHold", new Class<?>[]{boolean.class}, new Object[]{true});
+                            ModUnderTest.staticCall(AS, "goClear", new Class<?>[]{Class.forName(LAYOUT), r.getClass(),
+                                    Map.class, String.class}, new Object[]{layout, r, Map.of(id, 1), "autopilot: "});
+                            return n;
+                        }
+                    } catch (ReflectiveOperationException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                    return "";
+                });
+                println(name, "the last-node wait of " + waitRoom[0] + " began; picked a clear of " + clearRoom[0]
+                        + " (1 room away) at tick " + now);
             }
             boolean allDone = cases.stream().allMatch(c -> finishedAt.containsKey(c.room()));
             if (allDone && t > 0 && finishedAt.values().stream().mapToLong(Long::longValue).max().orElse(0) + 120 < now) {
@@ -578,6 +671,23 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         }
         if (checked < 2) {
             failures.add("only " + checked + " route(s) ran to their end");
+        }
+        if (injectClear) {
+            Long reg = waitRoom[0] == null ? null : registeredAt.get(waitRoom[0]);
+            println(name, "clear wait: room " + waitRoom[0] + ", clear of " + clearRoom[0] + " handed to Auto Clear at "
+                    + handTick[0] + ", its secret registered " + reg + ", wait ended: " + waitEnd[0]);
+            if (waitRoom[0] == null || clearRoom[0] == null || clearRoom[0].isEmpty()) {
+                failures.add("no chest/essence last-node wait with another room to clear (" + waitRoom[0] + ", "
+                        + clearRoom[0] + ") - nothing judged");
+            } else if (handTick[0] < 0) {
+                failures.add("the clear of " + clearRoom[0] + " never went to Auto Clear");
+            } else if (reg == null || handTick[0] < reg) {
+                failures.add(clearRoom[0] + " went to Auto Clear on tick " + handTick[0] + ", before " + waitRoom[0]
+                        + "'s last secret registered (" + reg + ")");
+            }
+            if (waitEnd[0] != null && waitEnd[0].contains("none close any more")) {
+                failures.add(waitRoom[0] + "'s wait ended with its secret not taken: " + waitEnd[0]);
+            }
         }
     }
 
