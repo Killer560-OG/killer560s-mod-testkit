@@ -410,7 +410,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1122-same-plan-attack", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.ATTACK, false, false, true));
                 s.test("62-argrim-1122-same-plan-swap", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.SWAP, false, false, true));
                 s.test("62-argrim-1122-same-plan-tp", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.TP, false, false, true));
-                // acoptimal-next4-1125-fix2: the server moves him off the plan after its first cast (as his own Hyperion
+                // acoptimal-next4-1125-fix2: the server moves him off the plan when its etherwarp lands (as his own Hyperion
                 // click does); the plan is planned again from there and acts again, Grim clean.
                 s.test("62-argrim-1125-plan-moved", c -> {
                     acPlanShove = true;
@@ -5148,7 +5148,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /** Trip price every plan row starts from (0 = none learned); the walk row prices every etherwarp trip out. */
     private static double acTripPrice;
-    /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena 4 ticks after the plan's first cast. */
+    /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
     private static boolean acPlanShove;
 
     /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
@@ -5274,10 +5274,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (second && !armed) {
             start.run();
         }
-        int[] shoveIn = {acPlanShove && plan ? 4 : -1};
         int[] shoveAt = {-1};
         boolean finished = waitFor(ctx, 600, () -> {
-            if (shoveIn[0] >= 0 && shoveIn[0]-- == 0) {
+            // On the plan etherwarp's landing, standing between two plan steps (a move during the trip is the trip's
+            // own to plan again: run q1-def-moved), as his Hyperion click after a landing did in fin3-def-2.
+            if (acPlanShove && plan && shoveAt[0] < 0 && logHas(m, "[Path] arrived")) {
                 shoveAt[0] = LogTap.since(m).size();
                 tpRel(ctx, 16.5, 15.5, -90f, 0f);
             }
