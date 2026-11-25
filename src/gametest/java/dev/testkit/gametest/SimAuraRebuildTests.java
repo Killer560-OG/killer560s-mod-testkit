@@ -69,6 +69,10 @@ public class SimAuraRebuildTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(NAME, "Secret Aura is cheat-only: a legit jar has no aura to test");
+            return;
+        }
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         auraOff(ctx);
