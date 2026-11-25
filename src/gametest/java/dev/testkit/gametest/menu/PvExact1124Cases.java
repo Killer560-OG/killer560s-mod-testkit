@@ -428,7 +428,11 @@ final class PvExact1124Cases {
                 if (x.startsWith("Mining Speed|")) speedTip = x;
             }
         }
-        PvStyle1104Cases.look(bad, speedTip.contains("Level 10/50") && !speedTip.matches("(?s).*%[a-z_]+%.*") && speedTip.contains("Powder Spent") && speedTip.contains("+200"),
+        // The shown profile may be this fixture's (level 10) or 1104's (50): the perk text must be filled for that level (20 a level).
+        java.util.regex.Matcher lv = java.util.regex.Pattern.compile("^Mining Speed\\|Level (\\d+)(/50)?\\|").matcher(speedTip);
+        int speedLevel = lv.find() ? Integer.parseInt(lv.group(1)) : -1;
+        PvStyle1104Cases.look(bad, speedLevel > 0 && !speedTip.matches("(?s).*%[a-z_]+%.*") && speedTip.contains("Powder Spent")
+                        && speedTip.matches("(?s).*Grants \\+" + String.format(java.util.Locale.ROOT, "%,d", 20 * speedLevel) + "[^0-9,].*"),
                 style + ": Mining Speed node hover (level and filled perk text) '" + speedTip + "'");
         PvStyle1104Cases.look(bad, full != null && (int) Mod.field(full, "w") > (int) Mod.field(hotm, "w"),
                 style + ": full HotM tree has no tier column");
