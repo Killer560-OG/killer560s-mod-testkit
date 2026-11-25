@@ -19,11 +19,11 @@ import java.util.Locale;
  * Two Interactive Map / Autopilot warp defects from his 26.3 log of 2026-11-25 (autopilot-warp-stray-1125), on the hx
  * server's etherwarp with the map's own executor ({@code ClearExecutor.clearPath} of {@code ClearNode.EtherNode}s).
  * <ul>
- *   <li>1125-hx-stray-landing (15:39:11): a queue of three warps is in flight (200 ms more round trip) when warp 1 lands
- *       off its aim (cast standing): one correction, the queue is dropped and a new one starts from there at once. The
- *       dropped queue's warps 2 and 3 still land after the new queue started; they are its own late landings, not a
- *       second correction (the old jar reported one and planned again). Then a real correction with no landing of a
- *       dropped queue due must still count.</li>
+ *   <li>1125-hx-stray-landing (15:39:11): queue A's two warps are in flight (250 ms more round trip, tick gap 3) when
+ *       warp 1 lands off its aim (cast standing): one correction, A is dropped and queue B starts from there at once.
+ *       A's warp 2 still lands after B started; it is A's own late landing, not a second correction (the old jar
+ *       reported one and planned again). Run twice: B's first warp held until the stray landed, and sent at once.
+ *       Then a real correction with no landing of a dropped queue due must still count.</li>
  *   <li>1125-hx-airborne-start (15:40:19): a one-warp queue planned in mid-air (falling) from where he is: the use goes a
  *       tick later from lower down. It must still land on the planned block (the old jar sent the look planned from the
  *       higher spot: "warp 1 never landed" there, a block or more short here).</li>
@@ -149,65 +149,94 @@ final class HxStray1125Cases {
         c.server().command("fill -470 150 -440 -430 163 -400 air");
     }
 
+    /**
+     * One round from (XA, z): queue A's warp 1 is cast standing (lands ~2 blocks past its aim: a correction) while warp 2
+     * is already sent (Ticks Between Etherwarps 3, 250 ms more round trip: warp 3 never goes). The next queue B (one warp
+     * 8 blocks south) starts the moment the correction is seen; warp 2's landing arrives after it. {@code held}: B is held
+     * until that landing came (its first warp not sent yet: B must carry on from there and arrive on its block); else B's
+     * warp went first (it was cast from the wrong spot: B is dropped quietly). Either way: one correction, one late landing.
+     */
+    private static void strayRound(Session c, double z, boolean held) {
+        standAt(c, XA, Y, z);
+        int corr0 = count(c, "serverCorrections");
+        int stray0 = count(c, "strayLandings");
+        int warps0 = warps(c);
+        c.hx().call("dungeon.standingEye", "warps", 1);
+        c.onClient(mc -> {
+            run(mc, nodes(mc.player.position(), floor(XA + 8, z), floor(XA + 16, z), floor(XA + 24, z)));
+            return null;
+        });
+        int waited = 0;
+        while (waited++ < 80 && count(c, "serverCorrections") == corr0) {
+            c.ctx().waitTick();
+        }
+        c.check(count(c, "serverCorrections") == corr0 + 1, "warp 1 never drew its correction (" + waited + " ticks)");
+        Vec3 b0 = c.onClient(mc -> {
+            Vec3 at = mc.player.position();
+            run(mc, nodes(at, floor(at.x, at.z - 8)));
+            if (held) {
+                Mod.staticCall(CE, "setHold", true);
+            }
+            return at;
+        });
+        BlockPos bBlock = floor(b0.x, b0.z - 8);
+        if (held) {
+            for (int i = 0; i < 40 && count(c, "strayLandings") == stray0; i++) {
+                c.ctx().waitTick();
+            }
+            c.onClient(mc -> {
+                Mod.staticCall(CE, "setHold", false);
+                return null;
+            });
+        }
+        c.ctx().waitTicks(40);
+        int corr = count(c, "serverCorrections") - corr0;
+        int strays = count(c, "strayLandings") - stray0;
+        int warps = warps(c) - warps0;
+        Vec3 end = c.onClient(mc -> mc.player.position());
+        c.note(String.format(Locale.ROOT, "%s: queue B from %.2f,%.2f,%.2f to %s; server warps %d, corrections %d, late landings "
+                        + "of the dropped queue %d; ended %.2f,%.2f,%.2f", held ? "B held" : "B at once", b0.x, b0.y, b0.z,
+                bBlock.toShortString(), warps, corr, strays, end.x, end.y, end.z));
+        c.check(Math.abs(b0.x - (XA + 8)) > 0.6, "warp 1 landed on its aim: no correction to test");
+        c.check(warps >= 2, "want A's two warps cast by the server, got " + warps);
+        c.check(corr == 1, "want 1 correction (warp 1) - the dropped queue's late landing was read as a correction: " + corr);
+        c.check(strays == 1, "want the dropped queue's late landing recognized once, got " + strays);
+        if (held) {
+            c.check(Math.abs(end.x - (bBlock.getX() + 0.5)) < 0.1 && Math.abs(end.z - (bBlock.getZ() + 0.5)) < 0.1,
+                    "queue B did not carry on from the late landing onto its block " + bBlock.toShortString());
+        }
+    }
+
     private static void stray(Session c) {
         if (!Mod.isCheat()) {
             c.note("legit jar: the map's warps are cheat-only");
             return;
         }
-        try {
+        try (AutoCloseable gap = Mod.with("livemap.LiveMapConfig", "EtherwarpTickGap", 3)) {
             area(c);
-            standAt(c, XA, Y, ZA);
             c.onClient(mc -> {
-                Latency.install(200);
+                Latency.install(250);
                 return null;
             });
             c.ctx().waitTicks(20);
-            int corr0 = count(c, "serverCorrections");
-            int stray0 = count(c, "strayLandings");
-            int warps0 = warps(c);
-            // warp 1 is cast from the standing eye: it lands ~2 blocks past its aim, a correction; 2 and 3 are already sent
-            c.hx().call("dungeon.standingEye", "warps", 1);
-            c.onClient(mc -> {
-                run(mc, nodes(mc.player.position(), floor(XA + 8, ZA), floor(XA + 16, ZA), floor(XA + 24, ZA)));
-                return null;
-            });
-            int waited = 0;
-            while (waited++ < 80 && count(c, "serverCorrections") == corr0) {
-                c.ctx().waitTick();
-            }
-            int sentA = sends(c);
-            c.check(count(c, "serverCorrections") == corr0 + 1, "warp 1 never drew its correction (" + waited + " ticks)");
-            // the next queue starts at once from where warp 1 put him, as the map's replan does: one warp 8 blocks south
-            Vec3 b0 = c.onClient(mc -> {
-                Vec3 at = mc.player.position();
-                run(mc, nodes(at, floor(at.x, at.z - 8)));
-                return at;
-            });
-            c.ctx().waitTicks(40);
-            int corr = count(c, "serverCorrections") - corr0;
-            int strays = count(c, "strayLandings") - stray0;
-            int warps = warps(c) - warps0;
-            Vec3 end = c.onClient(mc -> mc.player.position());
-            c.note(String.format(Locale.ROOT, "queue A: %d hop(s) sent by the correction; queue B from %.2f,%.2f,%.2f; "
-                    + "server warps %d, corrections %d, late landings of the dropped queue %d; ended %.2f,%.2f,%.2f", sentA,
-                    b0.x, b0.y, b0.z, warps, corr, strays, end.x, end.y, end.z));
-            c.check(warps >= 3, "the dropped queue's warps did not reach the server (" + warps + " server warps)");
-            c.check(Math.abs(b0.x - (XA + 8)) > 0.6, "warp 1 landed on its aim: no correction to test");
-            c.check(corr == 1, "want 1 correction (warp 1) - the dropped queue's late landing was read as a correction: " + corr);
-            c.check(strays >= 1, "no late landing of the dropped queue was recognized (" + strays + ")");
+            strayRound(c, ZA, true);
+            c.ctx().waitTicks(60);
+            strayRound(c, ZA + 12, false);
             // a real correction, with no landing of a dropped queue still due, is still one
             c.ctx().waitTicks(60);
             int corr1 = count(c, "serverCorrections");
             c.hx().call("dungeon.standingEye", "warps", 1);
             c.onClient(mc -> {
                 Vec3 at = mc.player.position();
-                run(mc, nodes(at, floor(at.x, at.z + 8)));
+                run(mc, nodes(at, floor(at.x + 8, at.z)));
                 return null;
             });
             c.ctx().waitTicks(30);
             int real = count(c, "serverCorrections") - corr1;
             c.note("real correction afterwards: " + real);
             c.check(real == 1, "a real correction (no dropped queue's landing due) was not counted: " + real);
+        } catch (Exception e) {
+            throw new AssertionError("tick gap restore: " + e, e);
         } finally {
             cleanup(c);
         }
