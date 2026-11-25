@@ -577,7 +577,7 @@ final class PvStyle1104Cases {
     }
 
     /** Up to 8 pixels on one row where NEU's page texture changes pv_bg must show the page texture over pv_bg. */
-    private static void neuOverlay(List<String> bad, String what, BufferedImage img, double scale, int[] geo, String page,
+    static void neuOverlay(List<String> bad, String what, BufferedImage img, double scale, int[] geo, String page,
                                    int row, int x0, int x1) throws IOException {
         BufferedImage over = res(page), under = res("neu/panel.png");
         if (over == null || under == null) {
