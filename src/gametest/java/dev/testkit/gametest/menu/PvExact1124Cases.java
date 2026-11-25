@@ -1,0 +1,384 @@
+package dev.testkit.gametest.menu;
+
+import dev.testkit.compat.McCompat;
+import dev.testkit.gametest.hx.Session;
+import dev.testkit.gametest.mod.Mod;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static dev.testkit.gametest.menu.PvStyle1104Cases.*;
+
+/**
+ * pv-styles-exact-1124 (killer560, 2026-11-24: "look up the other profile viewer styles exactly and use them. every bit
+ * of it"): each non-Default /pv Style against its original's own numbers. One case per style opens every page on a
+ * seeded offline profile (slayers, essence, kills, ironman) and checks:
+ * <ul>
+ * <li>1124-menu-pvexact-neu: NEU Classic's frame (no Switch/Recent column; recent players as right-edge tabs from its
+ * sprite; the 100 px name box under the panel's right end; the ironman icon at -21, +5 under the panel; the profile
+ * name in teal; tab order Basic, Dungeon, Extra, Inventories, Collections, Pets ... by real clicks) and its Basic page
+ * (name strip, Senither and Lily weights, Net Worth, SkyBlock level 123 with 45/100, the 2 x 8 grid at 237 + 86c,
+ * 24 + 21r with Social at 132, 124, the boss-bar bars, the outlined colored names, NEU's hover lines).</li>
+ * <li>1124-menu-pvexact-sbpv{light,dark,clear}: SkyBlockPV's main page (Info 10 px down with Purse, Bank, SkyBlock
+ * Level, First Join, Skill Avg, Fairy Souls, K/D, Net Worth in that order, their hovers; Skills, Slayer and Essence
+ * chip sections with the original's chip hovers).</li>
+ * </ul>
+ * Each saves its Basic Info screenshot for the owner.
+ */
+final class PvExact1124Cases {
+    private PvExact1124Cases() {
+    }
+
+    static void register(Session s) {
+        MenuSuite.test(s, "1124-menu-pvexact-neu", c -> run(c, "NEU"));
+        MenuSuite.test(s, "1124-menu-pvexact-sbpvlight", c -> run(c, "SBPV_LIGHT"));
+        MenuSuite.test(s, "1124-menu-pvexact-sbpvdark", c -> run(c, "SBPV_DARK"));
+        MenuSuite.test(s, "1124-menu-pvexact-sbpvclear", c -> run(c, "SBPV_CLEAR"));
+    }
+
+    /** PvStyle1104Cases' profile plus an ironman game mode, essence, a Revenant slayer with tier kills, kill and death
+     *  stats, 12,345 SkyBlock XP (level 123, 45/100) and a first join. */
+    static final String EXACT_PROFILE = PROFILE
+            .replace("\"selected\":true,", "\"selected\":true,\"game_mode\":\"ironman\",")
+            .replace("{\"coin_purse\":123456}", "{\"coin_purse\":123456,\"essence\":{\"WITHER\":{\"current\":1234},\"DRAGON\":{\"current\":56}}}")
+            .replace("\"rift\":{", "\"slayer\":{\"slayer_bosses\":{\"zombie\":{\"xp\":1500000,\"boss_kills_tier_0\":10,\"boss_kills_tier_4\":3}}},"
+                    + "\"player_stats\":{\"kills\":{\"total\":500,\"zombie\":500},\"deaths\":{\"total\":20}},"
+                    + "\"leveling\":{\"experience\":12345},\"profile\":{\"first_join\":1600000000000,\"cookie_buff_active\":true},"
+                    + "\"jacobs_contest\":{\"perks\":{\"double_drops\":15},\"medals_inv\":{\"gold\":4}},\"rift\":{")
+            // 1124b: a maxed Social (NEU's maxed bar), a bank history, and a worn diamond set for the model's armor.
+            .replace("\"SKILL_FARMING\":3000000", "\"SKILL_FARMING\":3000000,\"SKILL_SOCIAL\":5000000")
+            .replace("\"banking\":{\"balance\":4200000}", "\"banking\":{\"balance\":4200000,\"transactions\":["
+                    + "{\"amount\":250000,\"timestamp\":1700000000000,\"action\":\"DEPOSIT\",\"initiator_name\":\"§bPvStyleTest\"},"
+                    + "{\"amount\":1000,\"timestamp\":1700000500000,\"action\":\"WITHDRAW\",\"initiator_name\":\"§bPvStyleTest\"}]}")
+            .replace("\"inv_contents\":{\"type\":0,\"data\":\"\"}", "\"inv_contents\":{\"type\":0,\"data\":\"\"},\"inv_armor\":{\"type\":0,\"data\":\""
+                    + armorB64() + "\"}");
+
+    /** Hypixel's legacy inventory blob for a worn diamond set, boots first: {i:[{id, Count, Damage}...]} gzipped, base64. */
+    private static String armorB64() {
+        try {
+            net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+            for (short id : new short[]{313, 312, 311, 310}) {
+                net.minecraft.nbt.CompoundTag t = new net.minecraft.nbt.CompoundTag();
+                t.putShort("id", id);
+                t.putByte("Count", (byte) 1);
+                t.putShort("Damage", (short) 0);
+                list.add(t);
+            }
+            net.minecraft.nbt.CompoundTag root = new net.minecraft.nbt.CompoundTag();
+            root.put("i", list);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            net.minecraft.nbt.NbtIo.writeCompressed(root, out);
+            return java.util.Base64.getEncoder().encodeToString(out.toByteArray());
+        } catch (java.io.IOException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void run(Session c, String style) throws Exception {
+        c.check(EXACT_PROFILE.contains("slayer_bosses") && EXACT_PROFILE.contains("ironman") && EXACT_PROFILE.contains("WITHER")
+                        && EXACT_PROFILE.contains("SKILL_SOCIAL") && EXACT_PROFILE.contains("transactions") && EXACT_PROFILE.contains("inv_armor"),
+                "the seed edits did not apply");
+        Object oldStyle = c.onClient(mc -> Mod.call(Mod.cfg(PVCFG), "getStyle"));
+        boolean oldRemember = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(PVCFG), "isRememberLastPage"));
+        try (SocialCases.Env env = new SocialCases.Env(c)) {
+            BazaarV3Cases.setWindow(c, 1600, 900, 2);
+            c.ctx().runOnClient(mc -> {
+                Object cfg = Mod.cfg(PVCFG);
+                Mod.call(cfg, "setRememberLastPage", false);
+                Mod.call(cfg, "setStyle", Mod.enumValue(PVCFG + "$Style", style));
+                Mod.call(cfg, "save");
+            });
+            seedWith(c, EXACT_PROFILE);
+            Screen s = c.onClient(mc -> {
+                try {
+                    Object target = Mod.cls("profileviewer.ProfileViewerFeature$Target")
+                            .getDeclaredConstructor(String.class, UUID.class).newInstance("PvStyleTest", ID);
+                    Screen pv = (Screen) Mod.cls("profileviewer.screen.ProfileViewerScreen")
+                            .getDeclaredConstructor(Screen.class, target.getClass()).newInstance(null, target);
+                    McCompat.setScreen(mc, pv);
+                    return pv;
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError("cannot open the PV: " + e, e);
+                }
+            });
+            c.waitUntil("the PV shows the offline profile", mc -> "READY".equals(String.valueOf(Mod.field(s, "state"))), 100);
+            c.waitUntil("the profile's extras are parsed", mc -> ((java.util.concurrent.Future<?>) Mod.call(Mod.call(s, "profile"), "extras")).isDone(), 400);
+            c.ctx().waitTicks(5);
+            c.check(style.equals(c.onClient(mc -> String.valueOf(Mod.field(s, "pvStyle")))), "the screen is not in style " + style);
+
+            List<String> bad = new ArrayList<>();
+            int[] geo = c.onClient(mc -> new int[]{i(s, "panelX"), i(s, "panelY"), i(s, "panelW"), i(s, "panelH"), i(s, "contentY"), s.width});
+            BufferedImage img = BazaarReskinCases.shot(c, style.toLowerCase() + "-basic"); // kept for the owner
+            double scale = img.getWidth() / (double) geo[5];
+            // The player model wears the profile's armor (NEU's fake player / SkyBlockPV's mannequin), not the bare skin widget.
+            c.waitUntil("the model widget is dressed", mc -> {
+                for (Object w : s.children()) {
+                    if (w.getClass().getSimpleName().equals("PvModel")) return Mod.field(w, "armor") != null;
+                }
+                return false;
+            }, 200);
+            String head = c.onClient(mc -> {
+                for (Object w : s.children()) {
+                    if (w.getClass().getSimpleName().equals("PvModel")) {
+                        Object e = Mod.field(w, "entity");
+                        return String.valueOf(Mod.call(e, "getItemBySlot", net.minecraft.world.entity.EquipmentSlot.HEAD));
+                    }
+                }
+                return "no model";
+            });
+            PvStyle1104Cases.look(bad, head.contains("diamond_helmet"), style + ": the model's head slot holds " + head + ", expected the diamond helmet");
+            if (style.equals("NEU")) {
+                neu(c, s, bad, img, scale, geo);
+            } else {
+                sbpv(c, s, bad, img, scale, geo, style);
+            }
+
+            // Every page draws in this style without an error (the client would stop on a render exception).
+            for (int page = 0; page < 14; page++) {
+                final int p = page;
+                c.ctx().runOnClient(mc -> Mod.call(s, "setPage", p));
+                c.ctx().waitTicks(4);
+                BazaarReskinCases.shot(c, style.toLowerCase() + "-page" + p); // every page per style, kept for the owner
+                boolean ok = c.onClient(mc -> McCompat.screen(mc) == s && "READY".equals(String.valueOf(Mod.field(s, "state")))
+                        && (Integer) Mod.field(s, "page") == p);
+                PvStyle1104Cases.look(bad, ok, style + ": page " + p + " did not stay open and ready");
+            }
+            c.note(style + ": " + bad.size() + " differences");
+            c.check(bad.isEmpty(), bad.size() + " differences: " + String.join("; ", bad));
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Object cfg = Mod.cfg(PVCFG);
+                Mod.call(cfg, "setStyle", oldStyle);
+                Mod.call(cfg, "setRememberLastPage", oldRemember);
+                Mod.call(cfg, "save");
+                ((Map<?, ?>) Mod.field(API, "CACHE")).remove(ID);
+            });
+        }
+    }
+
+    private static void neu(Session c, Screen s, List<String> bad, BufferedImage img, double scale, int[] g) throws Exception {
+        int px = g[0], py = g[1], pw = g[2], ph = g[3];
+        // Chrome: no Switch/Recent column; the name box at the panel's bottom right, 100 wide.
+        boolean side = c.onClient(mc -> Boolean.TRUE.equals(Mod.field(s, "sidebarVisible")));
+        PvStyle1104Cases.look(bad, !side, "NEU: the Switch/Recent column is drawn");
+        int[] box = c.onClient(mc -> {
+            Object b = Mod.field(s, "switchBox");
+            return b == null ? new int[]{-1, -1, -1} : new int[]{(Integer) Mod.call(b, "getX"), (Integer) Mod.call(b, "getY"), (Integer) Mod.call(b, "getWidth")};
+        });
+        // ThemedEditBox's text area sits 5 in and centered in its 100 x 20 frame: 90 x 9 at +5, +6.
+        PvStyle1104Cases.look(bad, box[0] == px + pw - 95 && box[1] == py + ph + 11 && box[2] == 90,
+                "NEU: name box text area at " + box[0] + "," + box[1] + " w" + box[2] + ", expected " + (px + pw - 95) + "," + (py + ph + 11) + " w90 (a 100 x 20 frame at " + (px + pw - 100) + "," + (py + ph + 5) + ")");
+        // The ironman icon at -21, +5 under the panel: an opaque pixel of pv_ironman.png.
+        BufferedImage iron = res("neu/pv_ironman.png");
+        PvStyle1104Cases.look(bad, iron != null, "NEU: no pv_ironman.png in the jar");
+        if (iron != null) {
+            int[] op = opaque(iron, 0, 0, 16, 16);
+            int got = gp(img, scale, px - 21 + op[0], py + ph + 5 + op[1]);
+            PvStyle1104Cases.look(bad, op[2] == 0 || near(got, op[2]), "NEU: ironman icon pixel " + String.format("%06X, expected %06X", got, op[2]));
+        }
+        // The profile name in NEU's teal (3FE0D0) on the profile button under the panel.
+        int teal = 0;
+        for (int x = px; x < px + 110; x++) {
+            for (int y = py + ph + 5; y < py + ph + 25; y++) {
+                teal += near(gp(img, scale, x, y), 0x3FE0D0) ? 1 : 0;
+            }
+        }
+        PvStyle1104Cases.look(bad, teal >= 10, "NEU: " + teal + " teal profile-name pixels under the panel (want 10+)");
+        // Your own head's tab, top right, from NEU's recent_top sprite (32 x 28 from its 30 x 28 cell, 3 px into the panel).
+        BufferedImage rt = res("neu/recent_top.png");
+        PvStyle1104Cases.look(bad, rt != null, "NEU: no recent_top.png in the jar");
+        if (rt != null) {
+            int hits = 0, tried = 0;
+            for (int dx = 25; dx < 31; dx++) {
+                for (int dy = 1; dy < 5; dy++) {
+                    int argb = rt.getRGB(dx * 30 / 32, dy);
+                    if ((argb >>> 24) != 255) continue;
+                    tried++;
+                    hits += near(gp(img, scale, px + pw - 3 + dx, py + dy), argb & 0xFFFFFF) ? 1 : 0;
+                }
+            }
+            PvStyle1104Cases.look(bad, tried > 0 && hits * 2 >= tried, "NEU: recent tab pixels " + hits + "/" + tried + " match recent_top.png");
+        }
+        // Tab order by real clicks: slot 2 is Extra (our Misc, 12), slot 4 Collections (4), slot 5 Pets (3).
+        int[] order = c.onClient(mc -> ((int[]) Mod.field("profileviewer.screen.ProfileViewerScreen", "NEU_TAB_ORDER")).clone());
+        PvStyle1104Cases.look(bad, java.util.Arrays.equals(order, new int[]{0, 1, 12, 2, 4, 3, 5, 6, 7, 8, 9, 10, 11, 13}),
+                "NEU: tab order " + java.util.Arrays.toString(order));
+        int[][] clicks = {{2, 12}, {4, 4}, {5, 3}, {0, 0}};
+        for (int[] k : clicks) {
+            BazaarReskinCases.pressAt(c, new int[]{px + k[0] * 28, py - 28 + 4, 28, 19}, 0);
+            int page = c.onClient(mc -> (Integer) Mod.field(s, "page"));
+            PvStyle1104Cases.look(bad, page == k[1], "NEU: a click on tab slot " + k[0] + " opened page " + page + ", expected " + k[1]);
+        }
+        c.ctx().waitTicks(3);
+
+        // Basic page content, built once (NeuBasic).
+        Object nb = c.onClient(mc -> Mod.field(s, "neuBasic"));
+        c.check(nb != null, "NEU: the Basic page built no content (neuBasic is null)");
+        String[] w = c.onClient(mc -> (String[]) Mod.field(nb, "weights"));
+        PvStyle1104Cases.look(bad, w[0].startsWith("§aSenither Weight: §6") && w[1].startsWith("§aLily Weight: §6"),
+                "NEU: weight lines " + w[0] + " | " + w[1]);
+        String worth = c.onClient(mc -> (String) Mod.field(nb, "worthLine"));
+        PvStyle1104Cases.look(bad, worth.startsWith("§aNet Worth: "), "NEU: net worth line " + worth);
+        String lvl = c.onClient(mc -> Mod.field(nb, "sbLevel") + " " + Mod.field(nb, "sbProgress"));
+        PvStyle1104Cases.look(bad, lvl.equals("123 45/100"), "NEU: SkyBlock level shows " + lvl + ", expected 123 45/100");
+        List<?> cells = c.onClient(mc -> (List<?>) Mod.field(nb, "cells"));
+        c.check(cells != null && cells.size() == 18, "NEU: " + (cells == null ? "no" : cells.size()) + " grid cells, expected 10 skills + Social + Hunting + 6 slayers");
+        String[] names = {"Taming", "Mining", "Foraging", "Enchanting", "Carpentry", "Farming", "Combat", "Fishing", "Alchemy",
+                "Runecrafting", "Social", "Hunting", "Rev Slayer", "Tara Slayer", "Sven Slayer", "Ender Slayer", "Blaze Slayer", "Vampire Slayer"};
+        int[][] at = {{237, 24}, {237, 45}, {237, 66}, {237, 87}, {237, 108}, {237, 129}, {237, 150}, {237, 171}, {323, 24}, {323, 45},
+                {132, 124}, {132, 145}, {323, 66}, {323, 87}, {323, 108}, {323, 129}, {323, 150}, {323, 171}};
+        for (int k = 0; k < 18; k++) {
+            Object cell = cells.get(k);
+            String nm = (String) Mod.field(cell, "name");
+            int cx = (Integer) Mod.field(cell, "x"), cy = (Integer) Mod.field(cell, "y");
+            PvStyle1104Cases.look(bad, names[k].equals(nm) && cx == at[k][0] && cy == at[k][1],
+                    "NEU: cell " + k + " is " + nm + " at " + cx + "," + cy + ", expected " + names[k] + " at " + at[k][0] + "," + at[k][1]);
+        }
+        PvStyle1104Cases.look(bad, !"0".equals(Mod.field(cells.get(6), "level")), "NEU: Combat (55M XP) shows level 0");
+        PvStyle1104Cases.look(bad, !"0".equals(Mod.field(cells.get(12), "level")), "NEU: Rev Slayer (1.5M XP) shows level 0");
+        String tam = tip(cells.get(0)), rev = tip(cells.get(12)), farm = tip(cells.get(5));
+        PvStyle1104Cases.look(bad, farm.contains("|§7Double Drops: §630%|§7Pelts: §e0| |§7§cBronze: §f0|§7§fSilver: §f0|§7§6Gold: §f4"),
+                "NEU: Farming hover lacks BasicPage's extras: " + farm);
+        PvStyle1104Cases.look(bad, Boolean.TRUE.equals(Mod.field(cells.get(10), "maxed")), "NEU: Social (5M XP) is not maxed");
+        PvStyle1104Cases.look(bad, Mod.field(nb, "pet") != null, "NEU: no active pet floating by the player (the profile has an active Ender Dragon)");
+        String nm = c.onClient(mc -> (String) Mod.field(nb, "name"));
+        PvStyle1104Cases.look(bad, nm.endsWith("PvStyleTest §7♲") && (nm.startsWith("§7PvStyleTest") || nm.contains("]")),
+                "NEU: name line " + nm + ", expected the rank-colored name and the ironman icon");
+        String mvp = (String) Mod.staticCall("profileviewer.screen.ExtraPages", "rankPrefix",
+                com.google.gson.JsonParser.parseString("{\"newPackageRank\":\"MVP_PLUS\",\"rankPlusColor\":\"GOLD\"}").getAsJsonObject());
+        PvStyle1104Cases.look(bad, "§b[MVP§6+§b]".equals(mvp), "NEU: MVP+ with a gold plus gives the prefix " + mvp);
+        // NEU's maxed bar is the make_gold shader's drifting rainbow: Social's bar row shows several hues, never one flat color.
+        java.util.Set<Integer> hues = new java.util.HashSet<>();
+        for (int x = 134; x < 211; x += 3) {
+            int rgb = gp(img, scale, px + x, py + 124 + 8);
+            float[] hsb = java.awt.Color.RGBtoHSB(rgb >> 16 & 0xFF, rgb >> 8 & 0xFF, rgb & 0xFF, null);
+            if (hsb[1] > 0.3f && hsb[2] > 0.3f) hues.add(Math.round(hsb[0] * 12) % 12);
+        }
+        PvStyle1104Cases.look(bad, hues.size() >= 3, "NEU: Social's maxed bar shows " + hues.size() + " hue bands (want 3+ for the rainbow)");
+        PvStyle1104Cases.look(bad, tam.startsWith("Taming|§7Progress: §5") && tam.contains("|§7Total XP: §5"), "NEU: Taming hover " + tam);
+        PvStyle1104Cases.look(bad, rev.contains("|§7T1 Kills: §c10") && rev.contains("|§7T5 Kills: §c3"), "NEU: Rev Slayer hover " + rev);
+
+        // Pixels: Taming's name in NEU's pink (FF55FF) right of its icon, its empty boss bar (magenta background) at y + 6,
+        // and the white name over its dark strip at y 54.
+        int pink = 0;
+        for (int x = 251; x < 290; x++) {
+            for (int y = 20; y < 29; y++) {
+                pink += near(gp(img, scale, px + x, py + y), 0xFF55FF) ? 1 : 0;
+            }
+        }
+        PvStyle1104Cases.look(bad, pink >= 10, "NEU: " + pink + " pink Taming-name pixels (want 10+)");
+        int bar = gp(img, scale, px + 277, py + 32);
+        int r = bar >> 16 & 0xFF, gr = bar >> 8 & 0xFF, b = bar & 0xFF;
+        PvStyle1104Cases.look(bad, r > gr + 20 && b > gr, "NEU: Taming's bar pixel " + String.format("%06X", bar) + " is not the boss bar's magenta");
+        int white = 0;
+        for (int x = 23; x < 104; x++) {
+            for (int y = 54; y < 62; y++) {
+                int rgb = gp(img, scale, px + x, py + y);
+                white += near(rgb, 0xAAAAAA) || near(rgb, 0xFFFFFF) || near(rgb, 0x55FFFF) ? 1 : 0;
+            }
+        }
+        PvStyle1104Cases.look(bad, white >= 10, "NEU: " + white + " name pixels at y 54 (want 10+)");
+    }
+
+    private static void sbpv(Session c, Screen s, List<String> bad, BufferedImage img, double scale, int[] g, String style) throws Exception {
+        Object m = c.onClient(mc -> Mod.field(s, "sbpvMain"));
+        c.check(m != null, style + ": the main page built no content (sbpvMain is null)");
+        String[] info = c.onClient(mc -> (String[]) Mod.field(m, "info"));
+        String all = String.join(" | ", info);
+        String[] starts = {"Purse: 123,456", "Bank: ", "Cookie Buff: §aActive", "SkyBlock Level: 123.45", "First Join: 2020.09.1", "Skill Avg: ",
+                "Fairy Souls: 0", "K/D: ", "Net Worth: "};
+        PvStyle1104Cases.look(bad, info.length == starts.length, style + ": " + info.length + " Info lines: " + all);
+        for (int k = 0; k < Math.min(info.length, starts.length); k++) {
+            PvStyle1104Cases.look(bad, info[k].startsWith(starts[k]), style + ": Info line " + k + " is " + info[k] + ", expected " + starts[k] + "...");
+        }
+        PvStyle1104Cases.look(bad, all.contains("K/D: 500/20 (25.00)"), style + ": K/D line in " + all);
+        List<?>[] tips = c.onClient(mc -> (List<?>[]) Mod.field(m, "infoTips"));
+        PvStyle1104Cases.look(bad, tips.length > 3 && tips[3] != null && text(tips[3]).contains("Progress: 45/100"),
+                style + ": SkyBlock Level hover " + (tips.length > 3 && tips[3] != null ? text(tips[3]) : "none"));
+        String bank = (tips.length > 1 && tips[1] != null ? text(tips[1]) : "none").replaceAll("§.", "");
+        PvStyle1104Cases.look(bad, bank.contains("Solo Bank:") && bank.contains("Profile Bank:") && bank.contains("Bank History:")
+                        && bank.indexOf("1,000 withdrawn by PvStyleTest") >= 0 && bank.indexOf("1,000 withdrawn") < bank.indexOf("250,000 deposited by PvStyleTest")
+                        && bank.contains("Date: 2023.11."),
+                style + ": Bank hover (newest first, with Bank History) " + bank);
+        String tag = c.onClient(mc -> { Object t = Mod.field(s, "sbpvTag"); return t == null ? "none" : ((Component) t).getString(); });
+        PvStyle1104Cases.look(bad, tag.equals("[123] PvStyleTest"), style + ": name tag over the model " + tag);
+        // Tabs in SkyBlockPV's order; Combat holds Dungeons, Bestiary and Crimson Isle as right-edge category tabs.
+        int[] order = c.onClient(mc -> ((int[]) Mod.field("profileviewer.screen.ProfileViewerScreen", "SBPV_TAB_ORDER")).clone());
+        PvStyle1104Cases.look(bad, java.util.Arrays.equals(order, new int[]{0, 1, 2, 4, 5, 3, 10, 8, 9, 11, 12, 13}), style + ": tab order " + java.util.Arrays.toString(order));
+        Object st = Mod.enumValue(PVCFG + "$Style", style);
+        String chrome = "profileviewer.screen.PvStyleChrome";
+        int x0 = g[0] + (Integer) Mod.staticCall(chrome, "tabX0", st), tw = (Integer) Mod.staticCall(chrome, "tabW", st),
+                th = (Integer) Mod.staticCall(chrome, "tabH", st), ty = g[1] - (Integer) Mod.staticCall(chrome, "tabRise", st);
+        int step = Math.min((Integer) Mod.staticCall(chrome, "tabStep", st), (g[0] + g[2] - x0) / order.length);
+        BazaarReskinCases.pressAt(c, new int[]{x0 + step + 2, ty + 2, tw - 4, th - 4}, 0);
+        int pg = c.onClient(mc -> (Integer) Mod.field(s, "page"));
+        PvStyle1104Cases.look(bad, pg == 1, style + ": the Combat tab opened page " + pg + ", expected Dungeons (1)");
+        int[][] side = {{1, 6}, {2, 7}, {0, 1}};
+        for (int[] k : side) {
+            BazaarReskinCases.pressAt(c, new int[]{g[0] + g[2] - 9 + 12, g[1] + 20 + 22 * k[0] + 4, 14, 12}, 0);
+            int got2 = c.onClient(mc -> (Integer) Mod.field(s, "page"));
+            PvStyle1104Cases.look(bad, got2 == k[1], style + ": Combat category tab " + k[0] + " opened page " + got2 + ", expected " + k[1]);
+        }
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 7));
+        c.ctx().waitTicks(2);
+        BazaarReskinCases.shot(c, style.toLowerCase() + "-crimson");
+        BazaarReskinCases.pressAt(c, new int[]{x0 + step + 2, ty + 2, tw - 4, th - 4}, 0);
+        int stay = c.onClient(mc -> (Integer) Mod.field(s, "page"));
+        PvStyle1104Cases.look(bad, stay == 7, style + ": the Combat tab on Crimson Isle moved to page " + stay + " (should stay)");
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
+        c.ctx().waitTicks(3);
+        List<?> sections = c.onClient(mc -> (List<?>) Mod.field(m, "sections"));
+        List<String> titles = new ArrayList<>();
+        for (Object sec : sections) titles.add((String) Mod.field(sec, "title"));
+        PvStyle1104Cases.look(bad, titles.equals(List.of("Skills", "Slayer", "Essence")), style + ": sections " + titles);
+        if (sections.size() >= 2) {
+            List<?>[] sk = (List<?>[]) Mod.field(sections.get(0), "tips");
+            String combat = text(sk[2]);
+            PvStyle1104Cases.look(bad, combat.startsWith("§eCombat|§7Exp: ") && combat.contains("|§7Progress: "), style + ": Combat chip hover " + combat);
+            List<?>[] sl = (List<?>[]) Mod.field(sections.get(1), "tips");
+            String zombie = "";
+            for (List<?> t : sl) if (t != null && text(t).contains("Kills: §710")) zombie = text(t);
+            PvStyle1104Cases.look(bad, zombie.contains("§8/§70§8/") && zombie.contains("|§7Exp: §e1,500,000"), style + ": Revenant chip hover " + zombie);
+        }
+        if (sections.size() >= 3) {
+            String[] ev = (String[]) Mod.field(sections.get(2), "values");
+            PvStyle1104Cases.look(bad, ev.length == 2, style + ": " + ev.length + " essence chips, expected 2");
+        }
+        // The Info title bar sits 10 px under the content top (MainScreen's spacer): its sprite's pixel at x + 5.
+        String theme = style.equals("SBPV_LIGHT") ? "light" : style.equals("SBPV_DARK") ? "dark" : "clear";
+        BufferedImage title = res("sbpv/" + theme + "/title.png");
+        int cy = g[4] + 10;
+        int got = gp(img, scale, g[0] + 5, cy + 10), exp = title == null ? -1 : blend(title.getRGB(25, 25), gp(img, scale, g[0] + 5, cy - 4));
+        PvStyle1104Cases.look(bad, near(got, exp), style + ": Info title bar at contentY + 20 is " + String.format("%06X, its sprite gives %06X", got, exp));
+    }
+
+    /** The first fully opaque pixel in the box: {x, y, rgb}; {0, 0, 0} when none. */
+    private static int[] opaque(BufferedImage im, int x0, int y0, int w, int h) {
+        for (int y = y0 + h / 2; y < y0 + h; y++) {
+            for (int x = x0 + w / 2; x < x0 + w; x++) {
+                int argb = im.getRGB(x, y);
+                if ((argb >>> 24) == 255 && (argb & 0xFFFFFF) != 0) return new int[]{x, y, argb & 0xFFFFFF};
+            }
+        }
+        return new int[]{0, 0, 0};
+    }
+
+    private static String tip(Object cell) {
+        return text((List<?>) Mod.field(cell, "tip"));
+    }
+
+    private static String text(List<?> lines) {
+        StringBuilder sb = new StringBuilder();
+        for (Object o : lines) {
+            if (sb.length() > 0) sb.append('|');
+            sb.append(((Component) o).getString());
+        }
+        return sb.toString();
+    }
+}

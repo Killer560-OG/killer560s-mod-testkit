@@ -232,7 +232,8 @@ final class PvStyle1104Cases {
                 BufferedImage img = BazaarReskinCases.shot(c, want.toLowerCase());
                 double scale = img.getWidth() / (double) geo[5];
                 int px = (int) ((geo[0] + 1) * scale + scale / 2);
-                int py = (int) ((geo[1] + geo[3] / 2) * scale + scale / 2);
+                // SkyBlockPV: low on the edge, under its Info box (which starts at the panel's left edge and reaches mid height).
+                int py = (int) ((geo[1] + (neu ? geo[3] / 2 : geo[3] - 12)) * scale + scale / 2);
                 int rgb = img.getRGB(px, py) & 0xFFFFFF;
                 int rgb0 = img.getRGB((int) (geo[0] * scale + scale / 2), py) & 0xFFFFFF;
                 c.note(want + ": panel " + geo[0] + "," + geo[1] + " " + geo[2] + "x" + geo[3] + ", content y " + geo[4]
@@ -308,16 +309,16 @@ final class PvStyle1104Cases {
         boolean neu = n == 1;
         int[] cg = c.onClient(mc -> new int[]{i(s, "contentX"), i(s, "contentY"), i(s, "contentW"), i(s, "contentH")});
         int cx = cg[0], cy = cg[1], cw = cg[2], ch = cg[3];
-        // The stat lines (SB Level, Fairy Souls, Purse, Bank, Networth): NEU's stats box, else SkyBlockPV's Info box.
-        // Round 3: SkyBlockPV's own main page puts them in its Info label (title bar 20 high, lines from 7 into the box).
-        int sx = neu ? geo[0] + 132 : geo[0] + 10;
-        int sy = neu ? geo[1] + 53 : cy + 27;
+        // The stat text: NEU's Senither / Lily / Net Worth lines over the player (pv-styles-exact-1124), else SkyBlockPV's
+        // Info label (title bar 20 high, lines from 7 into the box), 10 px under the content top like MainScreen.
+        int sx = neu ? geo[0] + 10 : geo[0] + 10;
+        int sy = neu ? geo[1] + 13 : cy + 37;
         if (!neu) {
             BufferedImage title = res("sbpv/" + (n == 2 ? "light" : n == 3 ? "dark" : "clear") + "/title.png");
-            int got = gp(img, scale, geo[0] + 5, cy + 10), exp = title == null ? -1 : blend(title.getRGB(25, 25), gp(img, scale, geo[0] + 5, cy - 4));
+            int got = gp(img, scale, geo[0] + 5, cy + 20), exp = title == null ? -1 : blend(title.getRGB(25, 25), gp(img, scale, geo[0] + 5, cy - 4));
             look(bad, near(got, exp), want + ": Info title bar at x + 5 is " + String.format("%06X, its sprite gives %06X", got, exp));
         }
-        double[] sh = shadowShare(img, scale, sx, sy, neu ? 85 : 110, Math.min(55, cy + ch - sy));
+        double[] sh = shadowShare(img, scale, sx, sy, neu ? 106 : 110, neu ? 30 : Math.min(55, cy + ch - sy));
         c.note(want + ": text " + (int) sh[1] + " px, shadowed share " + String.format("%.2f", sh[0]));
         look(bad, sh[1] >= 30, want + ": no stat text found at " + sx + "," + sy);
         look(bad, neu ? sh[0] > 0.15 : sh[0] < 0.05, want + ": text shadow share " + String.format("%.2f", sh[0])
@@ -629,11 +630,11 @@ final class PvStyle1104Cases {
         return new double[]{text == 0 ? 0 : shadowed / (double) text, text};
     }
 
-    private static int gp(BufferedImage img, double scale, int gx, int gy) {
+    static int gp(BufferedImage img, double scale, int gx, int gy) {
         return img.getRGB((int) (gx * scale + scale / 2), (int) (gy * scale + scale / 2)) & 0xFFFFFF;
     }
 
-    private static int blend(int argb, int bg) {
+    static int blend(int argb, int bg) {
         double a = (argb >>> 24) / 255.0;
         int out = 0;
         for (int sh = 0; sh <= 16; sh += 8) {
@@ -642,7 +643,7 @@ final class PvStyle1104Cases {
         return out;
     }
 
-    private static BufferedImage res(String path) throws IOException {
+    static BufferedImage res(String path) throws IOException {
         try (InputStream in = Mod.cls("profileviewer.screen.ProfileViewerScreen")
                 .getResourceAsStream("/assets/killer560smod/textures/gui/sprites/pv/" + path)) {
             return in == null ? null : ImageIO.read(in);
@@ -658,13 +659,13 @@ final class PvStyle1104Cases {
         return false;
     }
 
-    private static void look(List<String> bad, boolean ok, String what) {
+    static void look(List<String> bad, boolean ok, String what) {
         if (!ok) {
             bad.add(what);
         }
     }
 
-    private static boolean near(int a, int b) {
+    static boolean near(int a, int b) {
         for (int sh = 0; sh <= 16; sh += 8) {
             if (Math.abs(((a >> sh) & 0xFF) - ((b >> sh) & 0xFF)) > 8) {
                 return false;
