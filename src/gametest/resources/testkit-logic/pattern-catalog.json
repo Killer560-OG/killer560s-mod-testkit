@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T00:34:09",
- "modSource": "lane-pv-leftovers-1124",
- "modGitSha": "e8fa4f23952a3b9b64a2f10ae017b13cfe8a1df7",
+ "generatedAt": "2026-11-25T00:51:38",
+ "modSource": "lane-perf-origin-1124",
+ "modGitSha": "25b0732f9a2284b77cbc09a9d5bce8b243c6002c",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
