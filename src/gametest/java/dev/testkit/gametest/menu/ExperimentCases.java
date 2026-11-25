@@ -963,11 +963,58 @@ final class ExperimentCases {
             String late = stakesRun(c, "Metaphysical,Transcendent,Supreme", open);
             c.check(late.startsWith("10|") && late.contains("picked Metaphysical"), "top three tiers arriving late: " + late);
             String[] locked = {"§cEnchanting level too low!", "§cNot enough experience!", null, null, null, null};
-            String b = stakesRun(c, "", locked);
-            c.check(b.startsWith("12|") && b.contains("picked Supreme") && b.contains("Metaphysical: slot 10 LOCKED")
-                    && b.contains("Transcendent: slot 11 LOCKED") && b.contains("Not enough experience!"), "two locked: " + b);
-            c.note("stakes picks: " + r + " / " + late + " / " + b);
+            // Max Titanic Price 0 (never buy): a stake locked by XP stops the run with a chat line and plays no lower one
+            // (killer560 11-24: Auto E-Table ran the wrong experiment). The default is 1,000,000 since then.
+            cfg.set(CONFIG, "TitanicMaxPriceCoins", 0.0);
+            String b = stakesNoClick(c, locked);
+            c.check(b.startsWith("0|") && b.contains("Max Titanic Price is 0"), "two locked, price 0: " + b);
+            cfg.set(CONFIG, "TitanicMaxPriceCoins", 1_000_000.0);
+            String b2 = stakesNoClick(c, locked);
+            c.check(b2.startsWith("0|") && !b2.contains("Max Titanic Price is 0"), "two locked, price 1,000,000: " + b2);
+            // The Bottles screen: a Titanic under the limit is clicked (slot 11), one over it is not.
+            String buy = bottlesRun(c, "500,000.0");
+            c.check(buy.equals("11"), "Titanic at 500,000 with a limit of 1,000,000: clicked slot " + buy);
+            String dear = bottlesRun(c, "2,500,000.0");
+            c.check(dear.equals("none"), "Titanic at 2,500,000 over the limit: clicked slot " + dear);
+            c.note("stakes picks: " + r + " / " + late + " / " + b + " / " + b2 + " / bottles " + buy + " " + dear);
         }
+    }
+
+    /** A stakes screen with some tiers locked, played by the run: the tier clicks in 80 ticks and the chat lines. */
+    private static String stakesNoClick(Session c, String... locks) throws Exception {
+        MenuKit.reset(c);
+        c.ctx().runOnClient(mc -> Mod.setField(FEATURE, "armed", true)); // a stop disarms the run
+        int before = c.events("container.click").size();
+        long mark = dev.testkit.gametest.LogTap.mark();
+        JsonObject slots = new JsonObject();
+        for (int i = 0; i < TIERS.length; i++) slots.add(String.valueOf(TIER_SLOTS[i]), stakesItem(i, locks[i]));
+        JsonObject spec = MenuKit.obj("{\"title\":\"Superpairs ➜ Stakes\",\"rows\":6,\"fill\":true}");
+        spec.add("slots", slots);
+        MenuKit.show(c, spec);
+        c.ctx().waitTicks(80);
+        long tierClicks = c.events("container.click").stream().skip(before)
+                .filter(e -> java.util.Arrays.stream(TIER_SLOTS).anyMatch(s -> s == e.get("slot").getAsInt())).count();
+        String chat = dev.testkit.gametest.LogTap.since(mark).stream().filter(l -> l.contains("[CHAT]") && l.contains("Experiment Table automation"))
+                .findFirst().orElse("(no stop line)");
+        return tierClicks + "|" + chat;
+    }
+
+    /** The Bottles of Enchanting screen with one Titanic at the given Bazaar price: the slot the run clicks, or "none". */
+    private static String bottlesRun(Session c, String price) throws Exception {
+        MenuKit.reset(c);
+        c.ctx().runOnClient(mc -> Mod.setField(FEATURE, "armed", true));
+        int before = c.events("container.click").size();
+        JsonObject slots = new JsonObject();
+        slots.add("11", MenuKit.obj("{\"item\":\"minecraft:experience_bottle\",\"name\":\"§dTitanic Experience Bottle\","
+                + "\"lore\":[\"§7Bazaar Price: §6" + price + " Coins\",\"§eClick to buy now!\"]}"));
+        JsonObject on = new JsonObject();
+        on.add("11", MenuKit.obj("{\"close\":true}"));
+        JsonObject spec = MenuKit.obj("{\"title\":\"Bottles of Enchanting\",\"rows\":6,\"fill\":true}");
+        spec.add("slots", slots);
+        spec.add("on", on);
+        MenuKit.show(c, spec);
+        c.ctx().waitTicks(80);
+        return c.events("container.click").stream().skip(before).map(e -> e.get("slot").getAsString()).findFirst().orElse("none");
     }
 
     /** Auto E-Table end to end: main menu -> stakes -> game -> reward screen -> claim, all by the mod. */
