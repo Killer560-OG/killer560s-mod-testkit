@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T12:18:43",
- "modSource": "lane-ee3-rowfix-1125",
- "modGitSha": "faec91c488558fa3eca96e25e8e40811b1de8448",
+ "generatedAt": "2026-11-25T15:15:13",
+ "modSource": "lane-chestvalue-scroll-1125",
+ "modGitSha": "47c833d054b8c9bc311640c3edf81970525bd1af",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
