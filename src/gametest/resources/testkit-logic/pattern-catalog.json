@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T00:10:41",
- "modSource": "lane-treeregen-lingers-1124",
- "modGitSha": "f592a300ff788200e1d69d30811fae153d01c373",
+ "generatedAt": "2026-11-25T00:06:57",
+ "modSource": "lane-optimal-blocks-reachable-1124",
+ "modGitSha": "6e855ab325aa39bfcf7d9cc73134be48d2ed1efe",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
@@ -4099,7 +4099,7 @@
    "field": "SWEEP",
    "index": null,
    "file": "src/main/java/com/killer560/hub/foraging/SweepOverlay.java",
-   "line": 46,
+   "line": 51,
    "regex": "Sweep:\\D*?([\\d,]+(?:\\.\\d+)?)",
    "flags": null,
    "kind": "field",
