@@ -235,13 +235,13 @@ final class ChestValue1119Cases {
             head.set(DataComponents.CUSTOM_DATA, CustomData.of(ht));
             ItemStack[] slots = new ItemStack[54];
             for (int i = 0; i < 54; i++) {
-                slots[i] = new ItemStack(Items.BLACK_STAINED_GLASS_PANE);
+                slots[i] = new ItemStack(dev.testkit.compat.McItems.BLACK_STAINED_GLASS_PANE);
             }
             for (int i : new int[]{21, 22, 23, 24, 25, 30, 31, 32, 33, 34, 39, 40, 41, 42, 43}) {
                 slots[i] = ItemStack.EMPTY;
             }
             slots[4] = head;
-            slots[10] = new ItemStack(Items.LIME_STAINED_GLASS_PANE);
+            slots[10] = new ItemStack(dev.testkit.compat.McItems.BLACK_STAINED_GLASS_PANE);
             slots[19] = item("ENCHANTED_LAVA_BUCKET", "Enchanted Lava Bucket", 1);
             slots[28] = lore(item("ENCHANTED_HOPPER", "Enchanted Hopper", 1), "Held Coins: 1,500");
             slots[37] = item("SUPER_COMPACTOR_3000", "Super Compactor 3000", 1);
