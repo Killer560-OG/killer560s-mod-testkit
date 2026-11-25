@@ -22,16 +22,28 @@ import java.util.List;
  * tick, the kills Auto Clear counted and the ticks its warps went out on: a kill-to-first-warp gap of 0 is the fix acting.
  * Asserts the floor cleared, at least {@link #MIN_SAME_TICK} trips left on the kill's own tick, and
  * {@code AutoClearFeature.primedCastTicks} went up. Cheat only.
+ * <p>
+ * <b>1125-sim-ac-searchtick</b> (mod acoptimal-next2-1125), the same floor and probe: a trip whose path is SEARCHED (more than
+ * one warp) also leaves on the kill's own tick. Origin handed the planner thread's result to the client only after the tick
+ * ended (137 of 251 kill-to-warp gaps on the 6 floors were such trips, a tick each). Asserts the floor cleared,
+ * {@code ClearExecutor.searchesInTick} went up by at least {@link #MIN_SEARCHED} and at least {@link #MIN_SAME_TICK_SEARCH}
+ * trips left on the kill's own tick.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAcPreSneakTests implements FabricClientGameTest {
 
-    private static final String NAME = "1124-sim-ac-presneak";
+    private static final String PRESNEAK = "1124-sim-ac-presneak";
+    private static final String SEARCHTICK = "1125-sim-ac-searchtick";
+    private static String NAME = PRESNEAK;
     private static final String AUTO = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String EXEC = "com.killer560.hub.livemap.autoclear.ClearExecutor";
     private static final String CODE = "MC2:CxcIRW50cmFuY2UFTWluZXMFRmFpcnkFTW9zc3kSQ29iYmxlIFdhbGwgUGlsbGFyCEJhc2VtZW50BUJsb29kCE5ldyBUcmFwBk1pcnJvcglXYXRlcmZhbGwDRGlwC1ByaXNvbiBDZWxsB0J1dHRvbnMJT3Zlcmdyb3duBUNyeXB0B0JvdWxkZXIGRHVuY2FuC1RpYyBUYWMgVG9lDkxvdHMgT2YgRmxvb3JzDUNyZWVwZXIgQmVhbXMQT3Zlcmdyb3duIENoYWlucw5SYXJlIE92ZXJncm93bgdUb21pb2thABACAAAAAA0CAA0CAA0CAQAAABEBAAAAAAcCAwAAAAYBAQAAAAAAAA0CAA0CAA0CAAAAAAAAAAAAAAAAAAAAAQAAAA8DAAAAAA0CAA0CAA0CAAAAAAgCAAAAAAkAAAAAAAUBAA8DAAAAAAAAAAAAAQAAAAAAAQAAAAAAAQAAAAAAAQAAAA8DAAAAABcAAQAAAAQCAAQCAAQCAAQCAAQCAAQCAAQCAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAA4CAQAAABIBAAAAABQBAQAAABMCAAAAAAMCAAAAAAsBAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAQAAAAAAAQAAAAoAAAoAAAoAAAoAAAoAAAoAAAoAAQAAAAIDAAIDAAIDAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIDAAIDAAIDAAwDAQAAABUAAQAAABYCAAAAAAEABAAAAAIDAAIDAAID";
     /** Trips that left on the kill's own tick, at least (origin: 0). */
     private static final int MIN_SAME_TICK = 8;
+    /** Searched trips taken in the tick (origin: no counter, -1). */
+    private static final int MIN_SEARCHED = 5;
+    /** Same-tick trips with the searched ones in the tick too (presneak's floor: 11 before). */
+    private static final int MIN_SAME_TICK_SEARCH = 14;
 
     private static boolean registered;
     private static Field killsF;
@@ -43,9 +55,15 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
-            return;
+        for (String name : new String[]{PRESNEAK, SEARCHTICK}) {
+            if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(name)) {
+                NAME = name;
+                runOne(ctx, name.equals(SEARCHTICK));
+            }
         }
+    }
+
+    private void runOne(ClientGameTestContext ctx, boolean searchTick) {
         ModUnderTest.require("killer560smod");
         LogTap.install();
         ctx.runOnClient(mc -> install());
@@ -75,7 +93,11 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
         int primedBefore = primed(ctx);
-        ctx.runOnClient(mc -> java.util.Arrays.fill(GAPS, 0));
+        int searchedBefore = searched(ctx);
+        ctx.runOnClient(mc -> {
+            java.util.Arrays.fill(GAPS, 0);
+            killTick = -1;
+        });
         List<SimAutoClearSpeedTests.RoomTime> rooms = new ArrayList<>();
         List<String> problems = new ArrayList<>();
         try {
@@ -92,20 +114,27 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             }
         }
         int primedAfter = primed(ctx);
+        int searchedAfter = searched(ctx);
         int[] gaps = ctx.computeOnClient(mc -> GAPS.clone());
         int total = rooms.stream().mapToInt(SimAutoClearSpeedTests.RoomTime::ticks).sum();
         println("RESULT room ticks " + total + " over " + rooms.size() + " rooms; kill-to-first-warp gaps 0:" + gaps[0]
                 + " 1:" + gaps[1] + " 2:" + gaps[2] + " 3:" + gaps[3] + " 4:" + gaps[4] + " 5+:" + gaps[5]
-                + "; primed sneak ticks " + primedBefore + " -> " + primedAfter);
+                + "; primed sneak ticks " + primedBefore + " -> " + primedAfter + "; searched trips taken in the tick "
+                + searchedBefore + " -> " + searchedAfter);
         long notCleared = rooms.stream().filter(r -> !r.cleared()).count();
         if (rooms.size() < 10 || notCleared > 0) {
             problems.add(rooms.size() + " room line(s), " + notCleared + " not cleared - the floor was not cleared");
         }
-        if (gaps[0] < MIN_SAME_TICK) {
-            problems.add(gaps[0] + " trip(s) left on the kill's own tick, want at least " + MIN_SAME_TICK
+        int want = searchTick ? MIN_SAME_TICK_SEARCH : MIN_SAME_TICK;
+        if (gaps[0] < want) {
+            problems.add(gaps[0] + " trip(s) left on the kill's own tick, want at least " + want
                     + " (gaps 1:" + gaps[1] + " 2:" + gaps[2] + " 3+:" + (gaps[3] + gaps[4] + gaps[5]) + ")");
         }
-        if (primedBefore < 0 || primedAfter <= primedBefore) {
+        if (searchTick && (searchedBefore < 0 || searchedAfter - searchedBefore < MIN_SEARCHED)) {
+            problems.add("searched trips taken in the tick " + searchedBefore + " -> " + searchedAfter + ", want at least "
+                    + MIN_SEARCHED + " more");
+        }
+        if (!searchTick && (primedBefore < 0 || primedAfter <= primedBefore)) {
             problems.add("the sneak was never primed after a cast (primed ticks " + primedBefore + " -> " + primedAfter + ")");
         }
         if (!problems.isEmpty()) {
@@ -186,6 +215,16 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
                 return (Integer) ModUnderTest.staticCall(AUTO, "primedCastTicks");
             } catch (RuntimeException | Error e) {
                 return -1;   // origin: no primed sneak
+            }
+        });
+    }
+
+    private static int searched(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return (Integer) ModUnderTest.staticCall(EXEC, "searchesInTick");
+            } catch (RuntimeException | Error e) {
+                return -1;   // origin: a searched trip's result waited for the next tick
             }
         });
     }
