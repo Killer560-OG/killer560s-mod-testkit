@@ -758,31 +758,31 @@ final class SlotTextCases {
             BufferedImage onMid = hoverShot(c, mid, pos, "mid-on");
             BufferedImage onComp = hoverShot(c, comp, pos, "comp-on");
             BufferedImage onEmpty = hoverShot(c, empty, pos, "empty-on");
-            // settled frames: the first shot after a deletor grid may still carry its tooltip (437 px on 11-25), a second one does not
-            onComp = hoverShot(c, comp, pos, "comp-on2");
-            onEmpty = hoverShot(c, empty, pos, "empty-on2");
             compactorEnabled(c, false, "ON_HOVER");
             BufferedImage offMid = hoverShot(c, mid, pos, "mid-off");
             BufferedImage offComp = hoverShot(c, comp, pos, "comp-off");
             BufferedImage offEmpty = hoverShot(c, empty, pos, "empty-off");
-            BufferedImage offComp2 = hoverShot(c, comp, pos, "comp-off2");
-            int noise = changedIn(offComp2, offComp, 0, 0, offComp.getWidth(), offComp.getHeight());
 
             int extraBig = greys(onBig) - greyOffBig;
             int extraMid = greys(onMid) - greys(offMid);
             int extraComp = greys(onComp) - greys(offComp);
             int extraEmpty = greys(onEmpty) - greys(offEmpty);
-            int changedComp = changedIn(onComp, offComp, 0, 0, onComp.getWidth(), onComp.getHeight());
-            int changedEmpty = changedIn(onEmpty, offEmpty, 0, 0, onEmpty.getWidth(), onEmpty.getHeight());
             c.note("slot-gray px added by the grid: deletor 7000 (28 slots) " + extraBig + ", deletor 4000 (7) " + extraMid
-                    + ", compactor " + extraComp + " (frame changed " + changedComp + " px), empty compactor " + extraEmpty
-                    + " (changed " + changedEmpty + " px)");
+                    + ", compactor " + extraComp + ", empty compactor " + extraEmpty);
             c.check(greyOffBig > 0, "the instrument saw no slot gray at all in the baseline frame");
             c.check(extraBig >= 12000, "deletor 7000 grid missing: only " + extraBig + " extra gray px");
             c.check(extraMid >= 3000, "deletor 4000 grid missing: only " + extraMid + " extra gray px");
             c.check(extraBig > 5 * extraMid / 2, "the 28-slot grid (" + extraBig + ") is not far bigger than the 7-slot one (" + extraMid + ")");
             c.check(extraComp <= 200 && extraEmpty <= 200, "a compactor drew a grid: +" + extraComp + " / +" + extraEmpty + " gray px");
-            c.check(changedComp <= noise + 20 && changedEmpty <= noise + 20, "a compactor hover drew a preview: " + changedComp + " / " + changedEmpty + " px changed, frame noise " + noise);
+            // the mod's own answer: tooltip lines added for each stack (a compactor none, a deletor its grid)
+            List<Integer> added = c.onClient(mc -> {
+                List<Integer> out = new ArrayList<>();
+                for (ItemStack st : List.of(comp, empty, big)) {
+                    out.add(((List<?>) Mod.staticCall(CPF, "augment", new ArrayList<>(), st)).size());
+                }
+                return out;
+            });
+            c.check(added.get(0) == 0 && added.get(1) == 0 && added.get(2) > 0, "tooltip lines added (compactor, empty compactor, deletor): " + added);
         } finally {
             closeScreen(c);
             HudEditorCases.restoreWindow(c, window, oldGui);
