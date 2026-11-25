@@ -414,6 +414,23 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // plan's: runs on a jar without the plan too (an origin jar shows whether a flag there is the plan's).
                 s.test("62-argrim-1122-trip-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
                         false, false, true, "[AutoClear] etherwarp toward"));
+                // His container click while Auto Clear WALKS (every etherwarp trip priced out, as after failed trips): the
+                // server must not hear the walk's keys or sprint with the click (MultiActionsC; lane1125-0321 drew it on the
+                // trip row's walks after two failed trips, acoptimal-next2-1125b).
+                s.test("62-argrim-1125-walk-openclick", c -> {
+                    long w0 = c.ctx().computeOnClient(mc -> ((Number) ModUnderTest.staticCall(
+                            "com.killer560.hub.pathfinding.ShortWalk", "walksStarted")).longValue());
+                    acTripPrice = 300;
+                    try {
+                        caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false, false, true, "- walking (");
+                    } finally {
+                        acTripPrice = 0;
+                    }
+                    long walks = c.ctx().computeOnClient(mc -> ((Number) ModUnderTest.staticCall(
+                            "com.killer560.hub.pathfinding.ShortWalk", "walksStarted")).longValue()) - w0;
+                    c.note("Auto Clear walks " + walks);
+                    check(walks > 0, "Auto Clear never walked (the walk row tested nothing)");
+                });
                 s.test("62-argrim-1122-planprobe", GrimAutoRoutesTests::casePlanProbe);
             }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
@@ -5119,6 +5136,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         caseAutoClearHype(c, act, second, chain, plan, null);
     }
 
+    /** Trip price every plan row starts from (0 = none learned); the walk row prices every etherwarp trip out. */
+    private static double acTripPrice;
+
     /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
             boolean plan, String tripArm) {
@@ -5145,8 +5165,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // The trip prices Auto Clear learned in the rows before (a 3-tick 2-warp trip after the plain row) price the old
             // choice under the plan's margin, so no later row took the plan (2026-11-22 run 2): every plan row starts fresh.
             ctx.runOnClient(mc -> {
-                java.util.Arrays.fill((double[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripMean"), 0.0);
-                java.util.Arrays.fill((int[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripSeen"), 0);
+                java.util.Arrays.fill((double[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripMean"), acTripPrice);
+                java.util.Arrays.fill((int[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripSeen"), acTripPrice > 0 ? 1 : 0);
             });
         }
         int planMoves0 = plan && tripArm == null   // an origin jar has no killPlanMoves (trip row)
