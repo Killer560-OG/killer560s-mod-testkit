@@ -4,7 +4,6 @@ import dev.testkit.gametest.mod.Mod;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
 
 import java.util.List;
@@ -49,7 +48,7 @@ final class HxStarredMatch1125Cases {
     private static void zombie(Session c, int id, double x, double y, double z) {
         c.onClient(mc -> {
             net.minecraft.world.entity.monster.zombie.Zombie m = new net.minecraft.world.entity.monster.zombie.Zombie(
-                    EntityType.ZOMBIE, mc.level);
+                    dev.testkit.compat.McEntities.ZOMBIE, mc.level);
             m.setId(id);
             m.setPos(x, y, z);
             mc.level.addEntity(m);
