@@ -169,4 +169,68 @@ final class ChestValue1119Cases {
             Mod.staticCall("pricetooltip.PriceData", "clearForTest");
         }
     }
+
+    private static List<String> panel(UiCase c) {
+        @SuppressWarnings("unchecked")
+        List<String> l = c.onClient(mc -> (List<String>) Mod.staticCall(CV, "linesForTest"));
+        return l;
+    }
+
+    private static boolean wheel(UiCase c, double dx, double dy, double wheel) {
+        return (Boolean) c.onClient(mc -> Mod.staticCall(CV, "scrollForTest",
+                dx, dy, wheel));
+    }
+
+    /** 1125-ui-chestvalue-scroll: five lines, window of three: the wheel over the panel moves it, clamps, resets. */
+    static void scroll(UiCase c) throws Exception {
+        Object cfg = Mod.cfg(CFG);
+        boolean wasOn = (Boolean) Mod.call(cfg, "isEnabled");
+        Object wasSort = Mod.call(cfg, "getSort");
+        int wasLines = (Integer) Mod.call(cfg, "getMaxLines");
+        Class<?> price = Mod.cls("pricetooltip.PriceData");
+        try {
+            Mod.staticCall("pricetooltip.PriceData", "markStartedForTest");
+            Mod.staticCall("pricetooltip.PriceData", "clearForTest");
+            dev.testkit.gametest.ui.R.setStatic(price, "lowestBin", Map.of("ALPHA", 1000.0, "BETA", 250.0, "DELTA", 10.0,
+                    "EPSILON", 20.0));
+            Mod.set(CFG, "setSort", Mod.enumValue(CFG + "$Sort", "NAME"));
+            Mod.set(CFG, "setMaxLines", 3);
+            Mod.set(CFG, "setEnabled", true);
+            open(c, "Chest", chest());
+            int[] r = (int[]) c.onClient(mc -> Mod.staticCall(CV, "panelRectForTest"));
+            double in = r[0] + r[2] / 2.0, inY = r[1] + r[3] / 2.0;
+            c.note("rect " + java.util.Arrays.toString(r) + " lines " + panel(c));
+            c.check(r[2] > 8 && String.join("|", panel(c)).contains("Alpha") && String.join("|", panel(c)).contains("+2 more"),
+                    "panel not built as expected: " + panel(c));
+            c.check(!wheel(c, r[0] - 30, inY, -1), "the wheel outside the panel was consumed");
+            c.check(wheel(c, in, inY, -1), "the wheel over an overflowing panel was not consumed");
+            String s1 = String.join("|", panel(c));
+            c.check(!s1.contains("Alpha") && s1.contains("Beta") && s1.contains("+1 more") && s1.contains("1 above"), "after 1 notch: " + s1);
+            c.check(wheel(c, in, inY, -1), "second notch not consumed");
+            String s2 = String.join("|", panel(c));
+            c.check(s2.contains("Gamma") && !s2.contains("more") && s2.contains("2 above"), "after 2 notches: " + s2);
+            c.check(wheel(c, in, inY, -1) && String.join("|", panel(c)).equals(s2), "scrolling past the end moved or was not consumed");
+            c.check(wheel(c, in, inY, 1) && String.join("|", panel(c)).contains("Beta"), "scroll back up failed: " + panel(c));
+            wheel(c, in, inY, 1);
+            wheel(c, in, inY, 1);
+            c.check(String.join("|", panel(c)).contains("Alpha") && String.join("|", panel(c)).contains("+2 more"), "top clamp: " + panel(c));
+            wheel(c, in, inY, -1);
+            close(c);
+            open(c, "Chest", chest());
+            c.check(String.join("|", panel(c)).contains("Alpha"), "offset kept on a new container: " + panel(c));
+            close(c);
+            Mod.set(CFG, "setMaxLines", 10);
+            open(c, "Chest", chest());
+            int[] r2 = (int[]) c.onClient(mc -> Mod.staticCall(CV, "panelRectForTest"));
+            c.check(!wheel(c, r2[0] + r2[2] / 2.0, r2[1] + r2[3] / 2.0, -1), "a short list consumed the wheel");
+            close(c);
+            c.check(!wheel(c, in, inY, -1), "the wheel was consumed with no container open");
+        } finally {
+            close(c);
+            Mod.set(CFG, "setEnabled", wasOn);
+            Mod.set(CFG, "setSort", wasSort);
+            Mod.set(CFG, "setMaxLines", wasLines);
+            Mod.staticCall("pricetooltip.PriceData", "clearForTest");
+        }
+    }
 }
