@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T00:13:48",
- "modSource": "lane-invisibug-finder-1124",
- "modGitSha": "59d28acef5ff0e548fd3a97640fedebe7491d83a",
+ "generatedAt": "2026-11-25T00:51:38",
+ "modSource": "lane-perf-origin-1124",
+ "modGitSha": "25b0732f9a2284b77cbc09a9d5bce8b243c6002c",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
@@ -4099,7 +4099,7 @@
    "field": "SWEEP",
    "index": null,
    "file": "src/main/java/com/killer560/hub/foraging/SweepOverlay.java",
-   "line": 46,
+   "line": 51,
    "regex": "Sweep:\\D*?([\\d,]+(?:\\.\\d+)?)",
    "flags": null,
    "kind": "field",

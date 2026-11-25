@@ -190,20 +190,26 @@ final class HxSweepOverlay1124Cases {
                 mc.player.setXRot(0f);
             });
             c.waitUntil("21 boxes for the looked-at log", mc -> (Integer) Mod.staticCall(O, "overlayBoxes") == 21, 120);
-            // The whole plan at once: 30 logs at 21 a swing = 2 targets, the bottom end and the log after its 21.
+            // The whole plan at once: 30 logs at 21 a swing = 2 targets. The trunk runs from 10 below his eye (under the platform)
+            // to 19 above, so only trunk 9..14 (platform level to 4 up) can be hit from the ground (optimal-blocks-reachable-1124):
+            // the first target is the lowest of those, trunk 9 (fells 0..20), and the rest is one hard target, trunk 21.
             c.waitUntil("2 plan boxes", mc -> (Integer) Mod.staticCall(O, "optimalBoxes") == 2, 60);
             c.ctx().waitTicks(20);
             c.check(boxes(c, "boxFrames") > 0, "boxes built but never drawn");
             long[] p21 = c.onClient(mc -> (long[]) Mod.staticCall(O, "optimalPlan"));
-            c.check(p21.length == 2 && p21[0] == trunk.get(0).asLong() && p21[1] == trunk.get(21).asLong(),
-                    "plan at 21: " + java.util.Arrays.toString(p21) + ", wanted trunk 0 then 21");
-            // Sweep 9 = 3 logs a swing: 30 logs need 10 swings; all 10 boxes stand before any block is broken.
+            c.check(p21.length == 2 && p21[0] == trunk.get(9).asLong() && p21[1] == trunk.get(21).asLong(),
+                    "plan at 21: " + java.util.Arrays.toString(p21) + ", wanted trunk 9 then 21");
+            c.check(boxes(c, "optimalHard") == 1, "hard targets at 21: " + boxes(c, "optimalHard") + ", wanted 1 (trunk 21)");
+            // Sweep 9 = 3 logs a swing: 11 swings, the 3 the ground reaches first (trunk 9, 14, 11: each first takes the closed or out-of-reach logs it can), then 8 hard; all stand
+            // before any block is broken.
             c.ctx().runOnClient(mc -> Mod.call(cfg, "set", "sweep", 9));
-            c.waitUntil("10 plan boxes", mc -> (Integer) Mod.staticCall(O, "optimalBoxes") == 10, 60);
+            c.waitUntil("11 plan boxes", mc -> (Integer) Mod.staticCall(O, "optimalBoxes") == 11, 60);
             long[] p3 = c.onClient(mc -> (long[]) Mod.staticCall(O, "optimalPlan"));
-            for (int i = 0; i < 10; i++) {
-                c.check(p3.length == 10 && p3[i] == trunk.get(3 * i).asLong(), "plan at 3, target " + i + ": " + (p3.length > i ? BlockPos.of(p3[i]).toString() : "missing"));
+            int[] easy3 = {9, 14, 11};
+            for (int i = 0; i < 3; i++) {
+                c.check(p3.length == 11 && p3[i] == trunk.get(easy3[i]).asLong(), "plan at 3, target " + i + ": " + (p3.length > i ? BlockPos.of(p3[i]).toString() : "missing") + ", wanted trunk " + easy3[i]);
             }
+            c.check(boxes(c, "optimalHard") == 8, "hard targets at 3: " + boxes(c, "optimalHard") + ", wanted 8");
             long frames0 = boxes(c, "boxFrames");
             c.ctx().waitTicks(10);
             c.check(boxes(c, "boxFrames") > frames0, "plan boxes not drawn each frame");
@@ -213,13 +219,26 @@ final class HxSweepOverlay1124Cases {
             for (long f : fell) {
                 put(c, BlockPos.of(f), Blocks.AIR);
             }
-            c.waitUntil("9 plan boxes after the first swing", mc -> (Integer) Mod.staticCall(O, "optimalBoxes") == 9, 80);
+            // Planned again on what stands (the felled logs open new faces, so the order may change): no felled log in it.
+            c.waitUntil("a new plan after the first swing", mc -> {
+                long[] a = (long[]) Mod.staticCall(O, "optimalPlan");
+                return a.length > 0 && a[0] != p3[0];
+            }, 80);
             long[] after = c.onClient(mc -> (long[]) Mod.staticCall(O, "optimalPlan"));
-            c.check(after.length == 9 && after[0] == p3[1] && java.util.Arrays.equals(java.util.Arrays.copyOfRange(p3, 1, 10), after),
-                    "plan after the first swing: " + java.util.Arrays.toString(after) + ", wanted the old plan minus its first target");
+            Set<Long> felled = new HashSet<>();
+            for (long f : fell) {
+                felled.add(f);
+            }
+            c.check(after.length >= 10 && after.length <= 11 && java.util.Arrays.stream(after).noneMatch(felled::contains),
+                    "plan after the first swing: " + java.util.Arrays.toString(after) + ", wanted 10 or 11 targets, none felled");
             c.check(fell.length == 3, "a swing at 9 felled " + fell.length);
             c.ctx().runOnClient(mc -> Mod.call(cfg, "set", "sweep", 285));
             c.waitUntil("2 plan boxes on the 27 logs left", mc -> (Integer) Mod.staticCall(O, "optimalBoxes") == 2, 80);
+            // That swing felled the log he looks at (trunk 10); put the three back so the overlay below has a log to outline.
+            for (long f : fell) {
+                put(c, BlockPos.of(f), Blocks.STRIPPED_SPRUCE_WOOD);
+            }
+            c.waitUntil("21 boxes again for the looked-at log", mc -> (Integer) Mod.staticCall(O, "overlayBoxes") == 21, 60);
             c.ctx().runOnClient(mc -> Mod.call(cfg, "set", "thrown", true));
             c.waitUntil("10 boxes for a thrown axe", mc -> (Integer) Mod.staticCall(O, "overlayBoxes") == 10, 60);
             c.ctx().runOnClient(mc -> Mod.call(cfg, "set", "sweep", 9));
