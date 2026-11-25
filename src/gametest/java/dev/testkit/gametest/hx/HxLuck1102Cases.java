@@ -186,7 +186,7 @@ final class HxLuck1102Cases {
                 int id = summon(c, "[Lv73] Zealot 13,000/13,000❤", "luckmob");
                 hit(c, id);
                 c.waitUntil("the " + h[0] + " kill was counted", mc -> (Integer) Mod.field(LK, "killsCounted") == k0 + 1, 80);
-                String last = String.valueOf(c.onClient(mc -> Mod.field(LK, "lastKill")));
+                String last = String.valueOf((Object) c.onClient(mc -> (Object) Mod.field(LK, "lastKill")));
                 c.note(h[0] + ": " + last);
                 c.check(last.endsWith(" L" + h[1]), h[0] + " Looting " + h[1] + " not read, lastKill " + last);
             }
