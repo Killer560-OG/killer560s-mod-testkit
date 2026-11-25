@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T07:43:32",
- "modSource": "lane-acclick3-1125",
- "modGitSha": "4f8820f9c288491169a933e9a394aa8da1bb3b3a",
+ "generatedAt": "2026-11-25T10:08:18",
+ "modSource": "lane-acoptimal-next4-1125b",
+ "modGitSha": "ac8a495fe81709dfaa7bed54efa9b50c582a0522",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
@@ -547,7 +547,7 @@
    "field": "TAG_HEALTH",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autoclear/WeaponReach.java",
-   "line": 324,
+   "line": 327,
    "regex": "(\\d{1,4}(?:,\\d{3}){0,3}(?:\\.\\d{1,3})?)([kMB]?)(?:/\\d{1,4}(?:,\\d{3}){0,3}(?:\\.\\d{1,3})?[kMB]?)?❤\\s{0,2}$",
    "flags": null,
    "kind": "field",
