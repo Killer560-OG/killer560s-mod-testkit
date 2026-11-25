@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T15:59:55",
- "modSource": "lane-chestvalue-scroll-1125",
- "modGitSha": "058c725814d9073b1d9b0c24ba0213c57f2c60c6",
+ "generatedAt": "2026-11-25T16:27:06",
+ "modSource": "lane-etherwarp-galatea-vines-1125",
+ "modGitSha": "c10a3e0a69df5cd3969560cf22b94e585516aca4",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
