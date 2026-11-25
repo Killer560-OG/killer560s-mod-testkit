@@ -3801,8 +3801,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(waitFor(ctx, 400, () -> logHas(m, "planned by the floor planner")), "the pair was never planned");
             tpRel(ctx, 6.5, 14.5, 0f, 0f);
             ctx.waitTicks(4);
-            cap.put(new int[]{24, F, 10}, "minecraft:stone");
-            cap.put(new int[]{24, F + 1, 10}, "minecraft:stone");
+            for (int x = 22; x <= 26; x++) {
+                for (int z = 8; z <= 12; z++) {
+                    cap.put(new int[]{x, F, z}, "minecraft:stone");
+                    cap.put(new int[]{x, F + 1, z}, "minecraft:stone");
+                }
+            }
             setBlocks(ctx, cap);
             ctx.waitTicks(10);
             long mr = LogTap.mark();

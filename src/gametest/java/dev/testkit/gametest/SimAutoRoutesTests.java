@@ -10887,7 +10887,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
          * His Pressure Plates #24 PATH: hop 1's block could not be reached, both replans found no way, and the warp sat
          * held 26 s ("held, sneak down, until one does; a left click sends it as it is") while every fresh movement key
          * was "overridden for its action" and four left clicks went out as Dungeon Breaker digs. Here #2's floor block
-         * gets two blocks stacked on it, so hop 2 (and any replan onto #2) cannot land. Pass 1: once both replans gave
+         * and the blocks round it get two stones stacked on them, so hop 2 (and any replan onto #2) cannot land. Pass 1: once both replans gave
          * up, a fresh strafe stops the route and he moves. Pass 2: in the same hold, one left click sends the warp
          * (a use_item, "Left click on node #1 PATH: released its wait"), and the click is not handed to vanilla.
          */
@@ -10902,8 +10902,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 giveAotv(ctx, 0);
                 check(valid(ctx) && hopCount(ctx) == 2, "premise: the written pair is not 2 valid saved warps");
                 Map<int[], BlockState> cap = new HashMap<>();
-                cap.put(new int[]{OX, F, EZ}, Blocks.STONE.defaultBlockState());
-                cap.put(new int[]{OX, F + 1, EZ}, Blocks.STONE.defaultBlockState());
+                for (int dx = -2; dx <= 2; dx++) {
+                    for (int dz = -2; dz <= 2; dz++) {
+                        cap.put(new int[]{OX + dx, F, EZ + dz}, Blocks.STONE.defaultBlockState());
+                        cap.put(new int[]{OX + dx, F + 1, EZ + dz}, Blocks.STONE.defaultBlockState());
+                    }
+                }
                 setBlocks(ctx, cap);
                 ctx.waitTicks(20);
                 for (int pass = 1; pass <= 2; pass++) {
