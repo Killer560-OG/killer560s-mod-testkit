@@ -195,6 +195,11 @@ final class PvExact1124Cases {
             int got = gp(img, scale, px - 21 + op[0], py + ph + 5 + op[1]);
             PvStyle1104Cases.look(bad, op[2] == 0 || near(got, op[2]), "NEU: ironman icon pixel " + String.format("%06X, expected %06X", got, op[2]));
         }
+        // 1124k: a game mode newer than ironman, bingo and stranded shows pv_unknown; a normal profile shows none.
+        String unk = c.onClient(mc -> String.valueOf(Mod.staticCall("profileviewer.screen.PvStyleChrome", "neuGameMode", "classic")));
+        String normal = c.onClient(mc -> String.valueOf(Mod.staticCall("profileviewer.screen.PvStyleChrome", "neuGameMode", "normal")));
+        PvStyle1104Cases.look(bad, unk.endsWith("neu/pv_unknown") && normal.equals("null") && res("neu/pv_unknown.png") != null,
+                "NEU: gamemode icons classic=" + unk + " normal=" + normal);
         // The profile name in NEU's teal (3FE0D0) on the profile button under the panel.
         int teal = 0;
         for (int x = px; x < px + 110; x++) {
@@ -502,6 +507,15 @@ final class PvExact1124Cases {
                         && bank.indexOf("1,000 withdrawn by PvStyleTest") >= 0 && bank.indexOf("1,000 withdrawn") < bank.indexOf("250,000 deposited by PvStyleTest")
                         && bank.contains("Date: 2023.11."),
                 style + ": Bank hover (newest first, with Bank History) " + bank);
+        // 1124k: NetworthDisplay's hover (total, cookies, USD, sources, museum hint), none but our click line without a cookie price.
+        String pvs = "profileviewer.screen.ProfileViewerScreen";
+        String wt = c.onClient(mc -> text((List<?>) Mod.staticCall(pvs, "sbpvWorthTip", 4_000_000_000L, null, 2_000_000.0, false, false)));
+        PvStyle1104Cases.look(bad, wt.contains("§eNetworth: §a4,000,000,000") && wt.contains("§eNet worth in Cookies: §62,000")
+                        && wt.contains("§eNet worth in USD: §a$4,805.19") && wt.contains("§7Source: ") && wt.contains("§eMuseum: §cNot loaded")
+                        && wt.contains("§7* Open Museum tab to include Museum net worth") && wt.endsWith("§7Click for the Networth page"),
+                style + ": Net Worth hover " + wt);
+        String wt0 = c.onClient(mc -> text((List<?>) Mod.staticCall(pvs, "sbpvWorthTip", 4_000_000_000L, null, null, false, false)));
+        PvStyle1104Cases.look(bad, wt0.equals("§7Click for the Networth page"), style + ": Net Worth hover with no cookie price " + wt0);
         String tag = c.onClient(mc -> { Object t = Mod.field(s, "sbpvTag"); return t == null ? "none" : ((Component) t).getString(); });
         PvStyle1104Cases.look(bad, tag.equals("[123] PvStyleTest"), style + ": name tag over the model " + tag);
         // Tabs in SkyBlockPV's order; Combat holds Dungeons, Bestiary and Crimson Isle as right-edge category tabs.
