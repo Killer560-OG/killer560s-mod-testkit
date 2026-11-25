@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T15:15:13",
- "modSource": "lane-chestvalue-scroll-1125",
- "modGitSha": "47c833d054b8c9bc311640c3edf81970525bd1af",
+ "generatedAt": "2026-11-25T15:12:11",
+ "modSource": "lane-campfire-99-1125",
+ "modGitSha": "c0fda86f94c4965de12cdc69d3f0b15f9d8c591c",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
