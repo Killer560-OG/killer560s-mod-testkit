@@ -417,6 +417,28 @@ final class PvExact1124Cases {
         Object hotm = ((Object[][]) Mod.field(m, "trees"))[0][0];
         String counts = hotm == null ? "" : String.join(",", (String[]) Mod.field(hotm, "counts"));
         PvStyle1104Cases.look(bad, (counts.contains("10") || counts.contains("50")), style + ": HOTM Loadout tree " + (hotm == null ? "missing" : counts));
+        // 1124f: SkyBlockPV's Mining page (Information lines, full HotM tree with its tier column and perk-text hovers).
+        String mine = String.join(" | ", (String[]) Mod.field(m, "mineInfo")).replaceAll("§.", "");
+        PvStyle1104Cases.look(bad, mine.contains("HotM") || mine.contains("Rock"), style + ": Mining Information " + mine);
+        Object full = ((Object[][]) Mod.field(m, "fullTrees"))[0][0];
+        String speedTip = "";
+        if (full != null) {
+            for (List<?> t : (List<?>[]) Mod.field(full, "tips")) {
+                String x = t == null ? "" : text(t).replaceAll("§.", "");
+                if (x.startsWith("Mining Speed")) speedTip = x;
+            }
+        }
+        PvStyle1104Cases.look(bad, speedTip.contains("Level 10/50") && !speedTip.matches("(?s).*%[a-z_]+%.*") && speedTip.contains("Powder Spent") && speedTip.contains("+200"),
+                style + ": Mining Speed node hover (level and filled perk text) '" + speedTip + "'");
+        PvStyle1104Cases.look(bad, full != null && (int) Mod.field(full, "w") > (int) Mod.field(hotm, "w"),
+                style + ": full HotM tree has no tier column");
+        for (int sub = 0; sub < 3; sub++) {
+            int v = sub;
+            c.ctx().runOnClient(mc -> { Mod.call(s, "setPage", 5); setInt(s, "subView", v); });
+            c.ctx().waitTicks(3);
+            BazaarReskinCases.shot(c, style.toLowerCase() + "-mining" + sub);
+        }
+        c.ctx().runOnClient(mc -> setInt(s, "subView", 0));
         for (int[] page : new int[][]{{17}, {16}, {14}}) {
             c.ctx().runOnClient(mc -> Mod.call(s, "setPage", page[0]));
             c.ctx().waitTicks(3);
