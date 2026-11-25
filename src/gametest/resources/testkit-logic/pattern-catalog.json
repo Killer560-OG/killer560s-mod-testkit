@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T01:07:36",
- "modSource": "lane-invisibug-finder-1124",
- "modGitSha": "ea9e1c5bc4555ba109551c2fa06c9b14c099731e",
+ "generatedAt": "2026-11-25T01:21:44",
+ "modSource": "lane-autotuner-slow-1124",
+ "modGitSha": "462a66299553d443feec427869c6f3bf5dc86d1f",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
