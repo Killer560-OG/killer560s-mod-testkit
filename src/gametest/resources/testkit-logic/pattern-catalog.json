@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T11:25:05",
- "modSource": "lane-ac-retry-limit-1126b",
- "modGitSha": "a6287e56934efcd12fb4d548876a1c2e7c7407d5",
+ "generatedAt": "2026-11-26T12:22:14",
+ "modSource": "lane-autotune-signal-1126c",
+ "modGitSha": "637c14290c7063d10e844f6c17fa6b7611ed326e",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
