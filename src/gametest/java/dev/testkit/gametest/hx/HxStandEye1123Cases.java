@@ -156,16 +156,16 @@ final class HxStandEye1123Cases {
                                 + "%.0f warp(s), %.0f re-aim(s)", act == null ? "aim" : act, i, far[0], far[1], far[2], far[3],
                         far[4], far[5], near[0], near[1], near[2], near[3], near[4], near[5]));
                 c.check(far[0] > 0 && near[0] > 0, "a hop never went out (far " + far[0] + ", near " + near[0] + ")");
-                if (after == 2) {
+                if (after == 2 && act == null) {
                     // two ticks after the sneak, cast standing by the stalled server: the far hop waits a tick more (no
                     // look holds for both eyes) and lands crouched on the plan; the near one is re-aimed for both eyes
                     c.check(far[4] == 1 && Math.abs(far[1] - (X0 + 6.0)) < 0.1 && Math.abs(far[2] - Z0) < 0.1,
                             "two ticks, far block: want 1 warp landing at x " + (X0 + 6.0) + ", got " + far[4] + " at "
                                     + far[1] + "," + far[2] + " (" + far[3] + " standing cast(s))");
-                    c.check(near[4] == 1 && (act != null || near[3] == 1) && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
+                    c.check(near[4] == 1 && near[3] == 1 && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
                             "two ticks, near block: want a standing cast landing at x " + (X0 + 2.0) + ", got " + near[4]
                                     + " warp(s) at " + near[1] + "," + near[2] + " (" + near[3] + " standing cast(s))");
-                } else if (act == null) {
+                } else if (act == null && after == 1) {
                     // the far block: no look holds for both eyes, so the hop waited a tick (the sneak aged) and the server
                     // cast from the crouched eye onto the planned block
                     c.check(far[0] >= 2 && far[3] == 0 && far[4] == 1 && Math.abs(far[1] - (X0 + 6.0)) < 0.1
