@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T09:57:39",
- "modSource": "lane-greenroom-fix2-1126",
- "modGitSha": "96b5fcf025f78d3bb6a3accf4fb79a8c7fe313cc",
+ "generatedAt": "2026-11-26T10:01:40",
+ "modSource": "lane-acoptimal-1126",
+ "modGitSha": "cffde013cb22a47ad7df9ad80427a0e851335372",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {

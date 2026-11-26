@@ -3,6 +3,7 @@ package dev.testkit.gametest;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -186,6 +187,8 @@ public class SimTrapStart1122Tests implements FabricClientGameTest {
         String lastTag = "Node #" + nodeCount + " ";
         int node3 = -1;
         int streak = 0;
+        int node6 = -1;
+        boolean secretCounted = false;
         for (int t = 0; t < (full ? 1200 : 300); t++) {
             ctx.waitTicks(1);
             boolean[] g = ctx.computeOnClient(mc -> new boolean[]{
@@ -206,6 +209,9 @@ public class SimTrapStart1122Tests implements FabricClientGameTest {
                     r.savedUsed = l.contains("using the saved");
                     r.walkLine = l.substring(Math.max(0, l.indexOf("[TrapWalk]")));
                 }
+                if (node6 < 0 && l.contains("Node #6 ") && l.contains(" begins: player (")) {
+                    node6 = t;
+                }
                 if (node3 < 0 && l.contains("Node #3 ") && l.contains(" begins")) {
                     node3 = t;
                 }
@@ -213,6 +219,18 @@ public class SimTrapStart1122Tests implements FabricClientGameTest {
                     r.pearlTicks = t - node3;
                 }
                 r.lastBegan |= l.contains(lastTag) && l.contains(" begins");
+            }
+            // trapstart-1126: node #6 awaits 1 secret (4a639361c) and the sim's trap room places none: count one through
+            // AwaitEvents' own click path (a lever clicked by us), as 1121-sim-trap-routes does, so the route goes on to #8.
+            if (node6 >= 0 && !secretCounted && t >= node6 + 20) {
+                secretCounted = true;
+                ctx.runOnClient(mc -> {
+                    BlockPos lever = mc.player.blockPosition().above(4);
+                    mc.level.setBlock(lever, net.minecraft.world.level.block.Blocks.LEVER.defaultBlockState(), 3);
+                    ModUnderTest.staticCall("com.killer560.hub.autoroutes.AwaitEvents", "onLocalBlockClick",
+                            new Class<?>[]{BlockPos.class}, new Object[]{lever});
+                    mc.level.setBlock(lever, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+                });
             }
             int comp = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "completions")).intValue());
             if (!full && r.walkAt >= 0 && t > r.walkAt + 30) {
