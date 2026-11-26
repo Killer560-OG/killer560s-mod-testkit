@@ -2071,6 +2071,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             br.add("blocks", blocks);
             br.addProperty("start", true);
             writeRoute(ctx, List.of(br));
+            // The room frame can take a moment after the session's paste (run2 11-26: null on Andesite at once).
+            check(waitFor(ctx, 200, () -> ctx.computeOnClient(mc -> ModUnderTest.staticCall(FRAME, "current") != null)), "no room frame for the route");
             ctx.runOnClient(mc -> {
                 Object frame = ModUnderTest.staticCall(FRAME, "current");
                 for (int[] b : ten) {
