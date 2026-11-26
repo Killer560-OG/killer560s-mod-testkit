@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T04:37:04",
- "modSource": "lane-multiwarp-autocharge-1126b",
- "modGitSha": "85f50295d42bc7d8ea77ca8e04ef076c38d28387",
+ "generatedAt": "2026-11-26T04:54:31",
+ "modSource": "lane-la-warpmiss-1126",
+ "modGitSha": "d05dd40b69d0c847d3ecf701251ac5f7e38b4068",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
