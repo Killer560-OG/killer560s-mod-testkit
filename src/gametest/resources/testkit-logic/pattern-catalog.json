@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T18:29:16",
- "modSource": "lane-chestvalue-minions-1125b",
- "modGitSha": "1ef89f932a86c0aeb56bf97a0ae55704ce277192",
+ "generatedAt": "2026-11-25T18:37:58",
+ "modSource": "lane-bloodcamp-count-2tick-1125b",
+ "modGitSha": "d7886c411e46daf4da5e2e29ce59cd25c2566260",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
