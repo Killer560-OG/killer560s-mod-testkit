@@ -71,6 +71,7 @@
 			"dev.testkit.gametest.SimRunTests",
 			"dev.testkit.gametest.SimAutoStartTests",
 			"dev.testkit.gametest.SimGreenStart1122Tests",
+			"dev.testkit.gametest.SimEntranceExit1126Tests",
 			"dev.testkit.gametest.SimMapEditorTests",
 			"dev.testkit.gametest.SimPuzzleDoor1122Tests",
 			"dev.testkit.gametest.SimCrossDoor1123Tests",

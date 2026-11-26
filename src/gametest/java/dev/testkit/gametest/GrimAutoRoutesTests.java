@@ -254,6 +254,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
             }
+            // la-digwindow-1126: DigWindow on a breaker node; with Burst the second block a tick is the owner's burst, no WARN.
+            s.test("62-argrim-1126-digwindow", c -> caseDigWindow(c, false));
+            s.testExpectingFlags("62-argrim-1126-digwindow-burst", c -> caseDigWindow(c, true));
             s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
@@ -2040,6 +2043,105 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(dx, "setBreakerAuraMultiBreak", cardLegitBefore);
             });
             session.server().command("kill @e[type=minecraft:zombie]");
+            tpRel(ctx, 13.5, 6.5, 0f, 0f);
+            ctx.waitTicks(5);
+        }
+    }
+
+    /**
+     * 62-argrim-1126-digwindow / -burst (la-digwindow-1126; his 11-24..26 logs held 379 DigWindow "two digs in one server
+     * tick" WARNs, every one with Burst Multi Break on). A breaker node of ten snow blocks round him (rows F and F+1 at
+     * z 11), the card on Legit Multi Break or on Burst. (Breaker Aura beside it is not a real pairing: the aura digs only in
+     * a boss, a route only in a room; the boss override that wakes the aura takes the route's room frame away.) Off Burst:
+     * all ten on the wire, never two blocks between two tick packets (MultiBreakWatch), DigWindow no conflict of either kind,
+     * no WARN, GrimAC silent. Burst: at least one server tick carries two blocks (the burst acted), DigWindow counts them as
+     * burst ({@code burstConflicts}) with no real conflict and no "two digs" WARN; only MultiBreak* may flag (experimental).
+     */
+    private static void caseDigWindow(Session c, boolean burst) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Object dx = ModUnderTest.config(DX_CONFIG);
+        boolean burstBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+        boolean legitBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+        List<int[]> ten = new ArrayList<>();
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int x = 11; x <= 15; x++) {
+            for (int y = 0; y <= 1; y++) {
+                ten.add(new int[]{x, F + y, 11});
+                put.put(new int[]{x, F + y, 11}, "minecraft:snow_block");
+                blocks.add(x + " " + (F + y) + " 11");
+            }
+        }
+        try {
+            warmDig(ctx);
+            setBlocks(ctx, put);
+            JsonObject br = node("DUNGEON_BREAKER", 13, 10, 0f, 0f);
+            br.add("blocks", blocks);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            ctx.runOnClient(mc -> ModUnderTest.set(dx, burst ? "setBreakerAuraBurstMultiBreak" : "setBreakerAuraMultiBreak", true));
+            long conflictsBefore = ctx.computeOnClient(mc -> digWindowCount("conflicts"));
+            long burstConfBefore = ctx.computeOnClient(mc -> digWindowCount("burstConflicts"));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+            walkOnto(ctx, 13.5, 7.5, 13, 10);
+            boolean gone = waitFor(ctx, 120, () -> {
+                for (int[] b : ten) {
+                    if (!blockAir(ctx, b[0], b[1], b[2])) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
+            List<Sample> s = stopSampling(ctx);
+            java.util.Set<String> dug = new java.util.HashSet<>();
+            Map<Integer, java.util.Set<String>> perWindow = new java.util.TreeMap<>();
+            for (var d : dev.testkit.harness.MultiBreakWatch.digs()) {
+                dug.add(d.pos().toShortString());
+                perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos().toShortString());
+            }
+            int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+            List<String> replay = dev.testkit.harness.MultiBreakWatch.violations();
+            long conflicts = ctx.computeOnClient(mc -> digWindowCount("conflicts")) - conflictsBefore;
+            long burstConf = ctx.computeOnClient(mc -> digWindowCount("burstConflicts")) - burstConfBefore;
+            boolean warned = logHas(m, "[DigWindow] two digs in one server tick");
+            ctx.waitTicks(10);
+            List<String> flags = c.scenario().flags();
+            boolean exp = dev.testkit.gametest.boss.AaFastCases.experimentalChecks();
+            String line = String.format(Locale.ROOT, "%s: burst %s, experimental %s: dug %d/10, all gone %s, most blocks in one"
+                            + " server tick %d, replay %s, DigWindow conflicts %d burst %d, WARN %s, GrimAC %s", c.name(), burst,
+                    exp, dug.size(), gone, most, replay.isEmpty() ? "clean" : replay.size() + " violation(s)", conflicts,
+                    burstConf, warned, flags.isEmpty() ? "silent" : flags);
+            println(line);
+            c.note(line);
+            check(dug.size() >= 1, "the breaker node dug nothing (nothing was tested)");
+            check(conflicts == 0, "the mod's DigWindow counted " + conflicts + " real conflict(s)");
+            check(!warned, "DigWindow wrote a 'two digs in one server tick' WARN");
+            if (burst) {
+                check(most >= 2, "Burst never dug two blocks in one server tick (the burst did not act)");
+                check(burstConf >= 1, "DigWindow counted no burst conflict while Burst dug " + most + " in one tick");
+                if (exp) {
+                    check(flags.stream().allMatch(f -> f.contains("MultiBreak")), "Burst drew a flag other than MultiBreak*: " + flags);
+                } else {
+                    check(flags.isEmpty(), "Burst on default GrimAC drew GrimAC: " + flags);
+                }
+            } else {
+                check(gone && dug.size() == 10, "dug " + dug.size() + "/10, all gone " + gone);
+                check(replay.isEmpty() && most <= 1, "two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
+                check(burstConf == 0, "DigWindow counted " + burstConf + " burst conflict(s) with Burst off");
+                check(flags.isEmpty(), "GrimAC flagged: " + flags);
+            }
+            noteFlags(c, s);
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(dx, "setBreakerAuraBurstMultiBreak", burstBefore);
+                ModUnderTest.set(dx, "setBreakerAuraMultiBreak", legitBefore);
+            });
             tpRel(ctx, 13.5, 6.5, 0f, 0f);
             ctx.waitTicks(5);
         }
