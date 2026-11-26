@@ -29,6 +29,7 @@ final class BeaconCases {
         MenuSuite.test(s, "1124-menu-beacon-autoruns", BeaconCases::autoRuns);
         BeaconAutoCases.register(s);
         BeaconHudCases.register(s);
+        BeaconColorCases.register(s);
     }
 
     private static void ready(Session c) throws Exception {

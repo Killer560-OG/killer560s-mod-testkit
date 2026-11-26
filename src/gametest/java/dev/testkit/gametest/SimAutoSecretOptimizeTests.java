@@ -74,6 +74,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private static final String ROOM_STATUS = "com.killer560.hub.livemap.RoomStatus";
     private static final Pattern CLOSE_WAIT = Pattern.compile(
             "\\[AutoSecret\\] (.+?): \\S+ secret\\(s\\) counted at the route's end, and (?:the )?(chest|essence) at .* is close");
+    private static final Pattern AURA_TICK = Pattern.compile(" tick=(\\d+)");
     private static final Pattern LEAVES_AT_END = Pattern.compile(
             "\\[AutoSecret\\] (.+?): every secret counted at the route's end.* - leaving this tick");
 
@@ -555,6 +556,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         }
         Map<String, Long> finishedAt = new HashMap<>();
         Map<String, Long> releasedAt = new HashMap<>();
+        Map<String, String> releasedLine = new HashMap<>();
         Map<String, Long> registeredAt = new HashMap<>();
         String[] waitRoom = {null};
         String[] clearRoom = {null};
@@ -576,6 +578,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 Matcher g = GOES_NOW.matcher(l);
                 if (g.find() && !releasedAt.containsKey(g.group(1))) {
                     releasedAt.put(g.group(1), Long.parseLong(g.group(2)));
+                    releasedLine.put(g.group(1), l);
                 }
                 Matcher e = LEAVES_AT_END.matcher(l);
                 if (e.find() && !releasedAt.containsKey(e.group(1)) && finishedAt.containsKey(e.group(1))) {
@@ -667,6 +670,18 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             if (reg == null) {
                 failures.add(c.room() + " (" + c.kind() + "): its last secret never registered"
                         + (out >= 0 ? " - the warp out went " + (out - end) + " tick(s) after the route" : ""));
+            } else if (c.kind().equals("essence") && reg - Math.min(out < 0 ? reg : out, rel == null ? reg : rel) <= 40) {
+                // A clicked essence is not waited for (acgaps2-1121): Hypixel takes the skull ~22 ticks after the click, so it may
+                // register after the warp out; it must still register (checked above) and within 40 ticks of leaving.
+                println(name, c.room() + ": clicked essence registered " + (reg - (out < 0 ? reg : out)) + " tick(s) after the warp out - accepted");
+            } else if (!c.kind().equals("essence") && rel != null && reg - rel <= 1 && (out < 0 || reg - out <= 1)
+                    && releasedLine.getOrDefault(c.room(), "").contains(c.kind() + " at " + c.secret().getX() + ", "
+                    + c.secret().getY() + ", " + c.secret().getZ() + " (clicked ")) {
+                // Clicked before the warp out (lastsecret-cap-1125): the click goes out first on the same connection, so the
+                // server takes the secret before the warp; the sim counts a click on the server tick after the client sent
+                // it, which the client sees one tick later. At most that one tick late is the click's, not a lost secret.
+                println(name, c.room() + ": " + c.kind() + " clicked before the warp out, registered " + (reg - rel)
+                        + " tick(s) after it - accepted");
             } else if (out >= 0 && out < reg) {
                 failures.add(c.room() + " (" + c.kind() + "): left on tick " + out + ", before its last secret registered"
                         + " on " + reg);
@@ -679,6 +694,26 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 // trip itself may still take a search when it was not planned ahead - not this wait's doing.)
                 failures.add(c.room() + " (" + c.kind() + "): registered on " + reg + " but the held warp was let go only"
                         + " on " + rel);
+            }
+        }
+        // Secret Aura's click on a last chest goes out within a body turn of choosing it (lastsecret-cap-1125): the held
+        // warp's camera hold is no foreign turn, and waiting it out (10 ticks) held Flags/Rails' chests until the cap.
+        for (LastCase c : cases) {
+            if (!c.kind().equals("chest")) continue;
+            String pos = "pos=" + c.secret().getX() + "," + c.secret().getY() + "," + c.secret().getZ() + " ";
+            Long chosen = null;
+            Long sent = null;
+            for (String l : log) {
+                Matcher t = AURA_TICK.matcher(l);
+                if (!l.contains("[SecretAura]") || !l.contains("kind=chest " + pos) || !t.find()) continue;
+                if (chosen == null && l.contains("chosen:")) chosen = Long.parseLong(t.group(1));
+                if (chosen != null && sent == null && l.contains("click sent:")) sent = Long.parseLong(t.group(1));
+            }
+            if (chosen != null && sent != null) {
+                println(name, c.room() + ": Secret Aura chose the chest on " + chosen + ", clicked on " + sent);
+                if (sent - chosen > 3) {
+                    failures.add(c.room() + " (chest): Secret Aura held its click " + (sent - chosen) + " ticks after choosing it");
+                }
             }
         }
         if (checked < 2) {
