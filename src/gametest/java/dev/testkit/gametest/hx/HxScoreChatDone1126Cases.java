@@ -19,7 +19,11 @@ final class HxScoreChatDone1126Cases {
     private static final String SCF = "scorecalc.ScoreCalculatorFeature";
     private static final String CFG = "scorecalc.ScoreCalculatorConfig";
     private static final String TTT_LINE = "PUZZLE SOLVED! HxMateA tied Tic Tac Toe! Good job!";
-    private static final String BLAZE_LINE = "PUZZLE SOLVED! HxMateB completed Higher Or Lower! Good job!";
+    private static final String SIM_BLAZE_LINE = "PUZZLE SOLVED! HxMateB completed Higher Blaze! Good job!";
+    private static final String PARTY_BLAZE = "§9Party §8> §b[MVP§c+§b] HxMateA§f: Blaze puzzle solved!";
+    private static final String ALL_BLAZE = "§7[VIP] HxEvil§f: Blaze puzzle solved!";
+    private static final String FAIL_BLAZE = "PUZZLE FAIL! HxMateA killed a Blaze in the wrong order! Yikes!";
+    private static final String RESET_BLAZE = "You used the Architect's First Draft to reset Higher Or Lower!";
     private static final String WEIRDOS_LINE = "PUZZLE SOLVED! HxMateB completed Three Weirdos! Good job!";
     private static final String OPEN = "§r§e✦";
     private static final String DONE = "§r§a✔";
@@ -72,8 +76,10 @@ final class HxScoreChatDone1126Cases {
             c.ctx().waitTicks(12);
             int d0 = c.onClient(mc -> done());
             c.hx().chat(TTT_LINE);
+            c.hx().chat(PARTY_BLAZE);
+            c.ctx().runOnClient(mc -> Mod.staticCall(SCF, "onBlazeCleared"));
             c.ctx().waitTicks(25);
-            c.check(c.onClient(mc -> done()) == d0, "switch OFF: the Tic Tac Toe line moved completed " + d0 + " -> "
+            c.check(c.onClient(mc -> done()) == d0, "switch OFF: the Tic Tac Toe line, a party Blaze line or a last-blaze kill moved completed " + d0 + " -> "
                     + c.onClient(mc -> done()));
         }
 
@@ -93,8 +99,13 @@ final class HxScoreChatDone1126Cases {
             c.hx().chat(TTT_LINE);
             c.waitUntil("completed " + (d0 + 1) + " as the Tic Tac Toe line arrives (tab still open)",
                     mc -> done() == d0 + 1, 10);
-            c.hx().chat(BLAZE_LINE);
-            c.waitUntil("completed " + (d0 + 2) + " after the Higher Or Lower line", mc -> done() == d0 + 2, 10);
+            // Hypixel never sends a PUZZLE SOLVED line for Blaze (the sim's wording counts nothing); a party line does.
+            c.hx().chat(SIM_BLAZE_LINE);
+            c.hx().chat(ALL_BLAZE);
+            c.ctx().waitTicks(25);
+            c.check(c.onClient(mc -> done()) == d0 + 1, "a sim-style solved line or an All-chat Blaze line counted: " + c.onClient(mc -> done()));
+            c.hx().chat(PARTY_BLAZE);
+            c.waitUntil("completed " + (d0 + 2) + " after the party Blaze line", mc -> done() == d0 + 2, 10);
             char st = c.onClient(mc -> (Character) Mod.staticCall(SCF, "puzzleState", "Higher Blaze"));
             c.check(st == '✔', "puzzleState(Higher Blaze) is '" + st + "' after the line, want done");
 
@@ -117,12 +128,30 @@ final class HxScoreChatDone1126Cases {
                             + c.onClient(mc -> failed()) + " (want 1)");
 
             // A new run forgets a counted line.
-            c.hx().chat(BLAZE_LINE);
+            c.hx().chat(PARTY_BLAZE);
             c.waitUntil("blaze counted", mc -> done() == e0 + 1, 10);
             newRun(c);
             tab(c, OPEN, OPEN);
             c.ctx().waitTicks(30);
             c.check(c.onClient(mc -> done()) == 0, "a new run kept a chat-counted puzzle: " + c.onClient(mc -> done()));
+
+            // Blaze: a fail line takes the party line back and blocks the next one; Architect's reset unblocks.
+            tab(c, OPEN, OPEN);
+            newRun(c);
+            int f0 = c.onClient(mc -> done());
+            c.hx().chat(PARTY_BLAZE);
+            c.waitUntil("completed " + (f0 + 1) + " (party Blaze line)", mc -> done() == f0 + 1, 10);
+            c.hx().chat(FAIL_BLAZE);
+            c.waitUntil("completed back to " + f0 + " after PUZZLE FAIL Blaze", mc -> done() == f0, 10);
+            c.hx().chat(PARTY_BLAZE);
+            c.ctx().runOnClient(mc -> Mod.staticCall(SCF, "onBlazeCleared"));
+            c.ctx().waitTicks(25);
+            c.check(c.onClient(mc -> done()) == f0, "a party line or a last-blaze kill after PUZZLE FAIL counted: " + c.onClient(mc -> done()));
+            c.hx().chat(RESET_BLAZE);
+            c.ctx().runOnClient(mc -> Mod.staticCall(SCF, "onBlazeCleared"));
+            c.waitUntil("completed " + (f0 + 1) + " (own last blaze killed after the reset)", mc -> done() == f0 + 1, 10);
+            c.hx().chat(RESET_BLAZE);
+            c.waitUntil("completed " + f0 + " after the Architect reset line", mc -> done() == f0, 10);
 
             boolean kept = c.onClient(mc -> {
                 Mod.call(Mod.staticCall(CFG, "getInstance"), "save");
@@ -130,7 +159,7 @@ final class HxScoreChatDone1126Cases {
                 return (Boolean) Mod.call(Mod.staticCall(CFG, "getInstance"), "isChatPuzzleDone");
             });
             c.check(kept, "ChatPuzzleDone ON did not survive save + load");
-            c.note("OFF: no change; ON: Tic Tac Toe and Higher Or Lower lines +1 each at once, tab catch-up adds nothing,"
+            c.note("OFF: no change; ON: Tic Tac Toe line and party Blaze line +1 each at once, All-chat/sim lines nothing, fail line and reset line take Blaze back, last-blaze kill counts, tab catch-up adds nothing,"
                     + " tab FAIL wins, new run clears, save/load keeps the switch");
         }
     }
