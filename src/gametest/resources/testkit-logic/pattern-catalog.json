@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T11:25:05",
- "modSource": "lane-ac-retry-limit-1126b",
- "modGitSha": "a6287e56934efcd12fb4d548876a1c2e7c7407d5",
+ "generatedAt": "2026-11-26T11:57:39",
+ "modSource": "lane-craftcost-layout-1126",
+ "modGitSha": "453faa43d07fd45f13f2fe41c07ef5ebd9513e4a",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
