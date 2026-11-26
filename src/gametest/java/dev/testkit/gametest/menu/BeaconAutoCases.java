@@ -195,8 +195,12 @@ final class BeaconAutoCases {
             return; // run() already failed it
         }
         String ph = r.done().get("phase").toString();
-        c.note(what + ": done at " + r.done().get("tick") + ", phase " + ph);
-        c.check(ph.matches("\\[(-?[01],?)+\\]"), what + ": a pane ended out of step with its beacon pane (ticks apart " + ph + ")");
+        String on = r.done().has("on") ? r.done().get("on").getAsString() : "?";
+        c.note(what + ": done at " + r.done().get("tick") + " on " + on + ", phase " + ph);
+        // An unpause on the slot completes out of step on Hypixel (his VIII of 11-25, sv 436, about 12 ticks out), so a
+        // round-trip tick of error there still counts as lined up; any other completion must be within one.
+        c.check(ph.matches(on.equals("unpause") ? "\\[(-?[012],?)+\\]" : "\\[(-?[01],?)+\\]"),
+                what + ": a pane ended out of step with its beacon pane (ticks apart " + ph + ", completed on " + on + ")");
     }
 
     private static void run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks) throws Exception {
@@ -288,6 +292,11 @@ final class BeaconAutoCases {
                     minGap = Math.min(minGap, btn.get(i)[0] - btn.get(i - 1)[0]);
                 }
             }
+            StringBuilder at = new StringBuilder(); // server tick, kind and where the beat stood, for a timing failure
+            for (JsonObject e : c.hx().events(mark, "beacon.click")) {
+                at.append(' ').append(e.get("tick")).append('k').append(e.get("kind")).append('@').append(e.has("at") ? e.get("at").getAsString() : "?");
+            }
+            c.note("server clicks (tick, kind, mine idx:since vs beacon idx:since):" + at);
             c.note(String.format(java.util.Locale.ROOT, "autotune %s: %d button clicks on the wire, %d at the server, done=%b, most in one tick %d, closest %d ticks apart",
                     act == null ? (auto ? "plain" : "off") : act.name(), btn.size(), served, done, maxPerTick, minGap));
             if (!auto || !has) {

@@ -175,6 +175,15 @@ final class HxBeacon implements HxMenus.Ticking {
         if (done) {
             return;
         }
+        inTick = true;
+        try {
+            tickBody(menu, player, server);
+        } finally {
+            inTick = false;
+        }
+    }
+
+    private void tickBody(HxChestMenu menu, ServerPlayer player, MinecraftServer server) {
         tick++;
         for (int i = 0; i < due.size() && !done; ) {
             int[] c = due.get(i);
@@ -198,7 +207,7 @@ final class HxBeacon implements HxMenus.Ticking {
             steps++;
             render(server, menu);
             if (onStep && complete(null)) {
-                finish(player);
+                finish(player, "step");
             }
         }
     }
@@ -213,12 +222,23 @@ final class HxBeacon implements HxMenus.Ticking {
         return true;
     }
 
-    private void finish(ServerPlayer player) {
+    /** Inside {@link #tick}: a completion there may close the menu at once. */
+    private boolean inTick;
+
+    /** {@code on}: what completed it, "step", "click" or "unpause" (the freed beat needed only the slot). */
+    private void finish(ServerPlayer player, String on) {
         done = true;
         JsonObject e = state();
+        e.addProperty("on", on);
         HxEvents.custom("beacon.done", player, e);
         player.sendSystemMessage(Component.literal("BEACON REWARDS"));
-        HxMenus.later(player::closeContainer);
+        // The menu closes in the tick that completes it, as on Hypixel (11-25): from a tick (a step, a late answer) at once;
+        // from a click handler at the end of this tick, once vanilla's click handling is done.
+        if (inTick) {
+            player.closeContainer();
+        } else {
+            HxMenus.later(player::closeContainer);
+        }
     }
 
     private static ItemStack item(MinecraftServer s, String spec, String name, String... lore) {
@@ -310,10 +330,14 @@ final class HxBeacon implements HxMenus.Ticking {
             e.addProperty("slot", slot);
             e.addProperty("kind", k);
             e.addProperty("tick", h.tick);
+            // Where the clicked beat and its beacon beat (same dials and slot, else the first beacon beat) stood when it landed.
+            Beat t = h.beacon.stream().filter(b::same).findFirst().orElse(h.beacon.get(0));
+            e.addProperty("at", b.idx + ":" + b.since + (b.paused ? "p" : "") + " vs " + t.idx + ":" + t.since);
             HxEvents.custom("beacon.click", player, e);
             h.render(player.level().getServer(), menu);
-            if (h.complete(k == 3 && !b.paused ? b : null)) {
-                h.finish(player);
+            boolean freed = k == 3 && !b.paused;
+            if (h.complete(freed ? b : null)) {
+                h.finish(player, freed ? "unpause" : "click");
             }
             return;
         }
