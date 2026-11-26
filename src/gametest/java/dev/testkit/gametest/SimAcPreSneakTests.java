@@ -364,12 +364,11 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             lineMark = m;
             return;
         }
-        // Ticks are counted by the mod's own "[digflush]" line (one a tick, in log order), as k1.py does: the executor's
-        // clientTick read at this END tick put a death and a use of the same tick 2 apart.
+        // One call per END tick reads that tick's lines, so a death and a use of the same tick share a count (the executor's
+        // clientTick read here put them 2 apart, and the "[digflush]" lines k1.py counts do not reach LogTap).
+        flushes++;
         for (String line : LogTap.between(lineMark, m)) {
-            if (line.contains("[digflush]")) {
-                flushes++;
-            } else if (line.contains("room time:")) {
+            if (line.contains("room time:")) {
                 deadTick = -1;
             } else if (DEAD.matcher(line).find()) {
                 if (deadTick < 0) {
