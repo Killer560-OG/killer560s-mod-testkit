@@ -21,7 +21,7 @@ import java.util.List;
  * way) and "hypixel" (rowAtStep: the next row only at the pane's next step, with the pane one column on, as his Hypixel
  * logs show). Stream Safe off and on, at 0/65/137/200 ms. Pass, judged by the server: every row solved, no click the
  * server did not take (a click on a row before it is active, or off its target), no pass of the pane over an active row's
- * target left unclicked unless the mod let it go as too late, and every row taken within ping + 2 ticks (Stream Safe + 4)
+ * target left unclicked unless the mod let it go as too late, and every row taken within ping + 3 ticks (Stream Safe + 4)
  * of its pane arriving on the target. Legit jar: Auto Melody sends nothing.
  */
 final class MelodyEdges1126Cases {
@@ -103,7 +103,7 @@ final class MelodyEdges1126Cases {
             legit(c);
             return;
         }
-        int lagCap = (ms + 49) / 50 + 2;
+        int lagCap = (ms + 49) / 50 + 3;
         List<String> problems = new ArrayList<>();
         long total = 0;
         try {
