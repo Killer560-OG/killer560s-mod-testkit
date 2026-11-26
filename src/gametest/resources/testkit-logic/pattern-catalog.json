@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T19:47:39",
- "modSource": "lane-bloodcamp-count-2tick-1125b",
- "modGitSha": "937037ff24568945dc31a67e69eae9d7153d3724",
+ "generatedAt": "2026-11-25T19:56:39",
+ "modSource": "lane-acnohype-1125",
+ "modGitSha": "ec7bd4bf787435a98c3f69bd317bb25673bf00f0",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
