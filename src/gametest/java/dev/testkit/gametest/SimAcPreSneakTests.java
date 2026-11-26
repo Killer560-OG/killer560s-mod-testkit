@@ -41,6 +41,18 @@ import java.util.List;
  * cleared, at least {@link #MIN_KILL_TRIPS} trips after a kill, the sneak primed after casts, and at most {@link #MAX_ONE_LATE}
  * trips after a kill one tick late. It also prints, for reading only, the trips that found the sneak not yet heard at the
  * kill (the input of the tick before) and the casts after a kill by gap.
+ * <p>
+ * <b>1126-sim-ac-settletrip</b> (mod acoptimal-1126), the same floor: a trip after a kill no longer waits for him to stand
+ * when he is coming down a short way onto a block (the half block onto a slab or carpet after an etherwarp's 1.05 landing or
+ * a Wither Impact in place). Origin waited for the ground: 25 of the 6 floors' kill-to-warp gaps were 3-4 ticks, all
+ * falls onto slabs and carpets. Asserts the floor cleared, {@code AutoClearFeature.settlingTrips} went up by at least
+ * {@link #MIN_SETTLE} and at most {@link #MAX_LATE3} trips after a kill left 3 or more ticks late.
+ * <p>
+ * <b>1126-sim-ac-preturn</b> (mod acoptimal-1126), the same floor: the tick after the room plan's cast in place, while its
+ * deaths come back, the body turns to the plan's cast across that follows, so that cast goes on the deaths' own tick. Origin
+ * turned on that tick and cast the next (24-27 casts a run one tick late). Asserts the floor cleared,
+ * {@code AutoClearFeature.preTurns} went up by at least {@link #MIN_PRETURN} and at least {@link #MIN_CAST_SAME_TICK} casts
+ * went on a kill's own tick. Both cases give their own PASS row on a legit jar (Auto Clear refuses to start there).
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAcPreSneakTests implements FabricClientGameTest {
@@ -49,6 +61,16 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     private static final String SEARCHTICK = "1125-sim-ac-searchtick";
     private static final String WARMYIELD = "1125-sim-ac-warmyield";
     private static final String NEARPRIME = "1125-sim-ac-nearprime";
+    private static final String SETTLE = "1126-sim-ac-settletrip";
+    private static final String PRETURN = "1126-sim-ac-preturn";
+    /** Trips started while still coming down onto a block, at least (settletrip). */
+    private static final int MIN_SETTLE = 2;
+    /** Trips after a kill 3 or more ticks late, at most (settletrip). */
+    private static final int MAX_LATE3 = 2;
+    /** Turns toward the plan's next cast while a cast in place's deaths came back, at least (preturn). */
+    private static final int MIN_PRETURN = 3;
+    /** Casts on a kill's own tick, at least (preturn). */
+    private static final int MIN_CAST_SAME_TICK = 3;
     /** Trips after a kill the floor must run, at least. */
     private static final int MIN_KILL_TRIPS = 25;
     /** Trips after a kill allowed to leave one tick late (origin 3-7 on this floor over four runs, the fix 0-2). */
@@ -90,9 +112,13 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD, NEARPRIME}) {
+        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD, NEARPRIME, SETTLE, PRETURN}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(name)) {
                 NAME = name;
+                if ((name.equals(SETTLE) || name.equals(PRETURN)) && !Ap3Crystal1109Cases.cheatBuild()) {
+                    legitRow(ctx);
+                    continue;
+                }
                 runOne(ctx, name.equals(SEARCHTICK), name.equals(WARMYIELD) || name.equals(NEARPRIME));
             }
         }
@@ -129,6 +155,8 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
         int primedBefore = primed(ctx);
         int searchedBefore = searched(ctx);
+        int settleBefore = counter(ctx, "settlingTrips");
+        int preturnBefore = counter(ctx, "preTurns");
         ctx.runOnClient(mc -> {
             java.util.Arrays.fill(GAPS, 0);
             java.util.Arrays.fill(CAST_GAPS, 0);
@@ -157,6 +185,8 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         }
         int primedAfter = primed(ctx);
         int searchedAfter = searched(ctx);
+        int settleAfter = counter(ctx, "settlingTrips");
+        int preturnAfter = counter(ctx, "preTurns");
         int[] gaps = ctx.computeOnClient(mc -> {
             readQueued();
             return GAPS.clone();
@@ -168,13 +198,33 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
                 + searchedBefore + " -> " + searchedAfter + "; searched trips " + queuedLines + ", queued >= " + SLOW_QUEUE_MS
                 + " ms " + slowQueued + " (worst " + worstQueued + " ms); trips after a kill " + killTrips
                 + ", unsneaked at the kill " + unsneakedTrips + "; casts after a kill gap 0:" + CAST_GAPS[0] + " 1:"
-                + CAST_GAPS[1] + " 2+:" + CAST_GAPS[2]);
+                + CAST_GAPS[1] + " 2+:" + CAST_GAPS[2] + "; settling trips " + settleBefore + " -> " + settleAfter
+                + "; pre-turns " + preturnBefore + " -> " + preturnAfter);
         long notCleared = rooms.stream().filter(r -> !r.cleared()).count();
         if (rooms.size() < 10 || notCleared > 0) {
             problems.add(rooms.size() + " room line(s), " + notCleared + " not cleared - the floor was not cleared");
         }
         int want = searchTick ? MIN_SAME_TICK_SEARCH : MIN_SAME_TICK;
-        if (NAME.equals(NEARPRIME)) {
+        int late3 = gaps[3] + gaps[4] + gaps[5];
+        if (NAME.equals(SETTLE)) {
+            if (settleBefore < 0 || settleAfter - settleBefore < MIN_SETTLE) {
+                problems.add("trips started while coming down onto a block " + settleBefore + " -> " + settleAfter
+                        + ", want at least " + MIN_SETTLE + " more");
+            }
+            if (late3 > MAX_LATE3) {
+                problems.add(late3 + " trip(s) after a kill left 3 or more ticks late, want at most " + MAX_LATE3
+                        + " (gaps 0:" + gaps[0] + " 1:" + gaps[1] + " 2:" + gaps[2] + ")");
+            }
+        } else if (NAME.equals(PRETURN)) {
+            if (preturnBefore < 0 || preturnAfter - preturnBefore < MIN_PRETURN) {
+                problems.add("turns toward the plan's next cast " + preturnBefore + " -> " + preturnAfter + ", want at least "
+                        + MIN_PRETURN + " more");
+            }
+            if (CAST_GAPS[0] < MIN_CAST_SAME_TICK) {
+                problems.add(CAST_GAPS[0] + " cast(s) on a kill's own tick, want at least " + MIN_CAST_SAME_TICK
+                        + " (gap 1:" + CAST_GAPS[1] + " 2+:" + CAST_GAPS[2] + ")");
+            }
+        } else if (NAME.equals(NEARPRIME)) {
             if (killTrips < MIN_KILL_TRIPS) {
                 problems.add(killTrips + " trip(s) after a kill, want at least " + MIN_KILL_TRIPS);
             }
@@ -198,7 +248,7 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             problems.add("searched trips taken in the tick " + searchedBefore + " -> " + searchedAfter + ", want at least "
                     + MIN_SEARCHED + " more");
         }
-        if (!searchTick && (primedBefore < 0 || primedAfter <= primedBefore)) {
+        if (!searchTick && !NAME.equals(SETTLE) && !NAME.equals(PRETURN) && (primedBefore < 0 || primedAfter <= primedBefore)) {
             problems.add("the sneak was never primed after a cast (primed ticks " + primedBefore + " -> " + primedAfter + ")");
         }
         if (!problems.isEmpty()) {
@@ -306,6 +356,31 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             }
         }
         logMark = m;
+    }
+
+    /** A legit jar: Auto Clear is cheat-only, so a start does nothing and the case passes on that. */
+    private static void legitRow(ClientGameTestContext ctx) {
+        ModUnderTest.require("killer560smod");
+        boolean busy = ctx.computeOnClient(mc -> {
+            ModUnderTest.staticCall(AUTO, "start");
+            return (Boolean) ModUnderTest.staticCall(AUTO, "isBusy");
+        });
+        if (busy) {
+            throw new AssertionError("legit jar: Auto Clear started");
+        }
+        println("legit jar: Auto Clear is cheat-only and did not start, nothing to judge");
+        println("PASS");
+    }
+
+    /** An int counter of AutoClearFeature's, or -1 when this jar has none (origin). */
+    private static int counter(ClientGameTestContext ctx, String name) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return (Integer) ModUnderTest.staticCall(AUTO, name);
+            } catch (RuntimeException | Error e) {
+                return -1;
+            }
+        });
     }
 
     private static int primed(ClientGameTestContext ctx) {
