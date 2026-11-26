@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T22:07:36",
- "modSource": "lane-lastsecret-cap-1125",
- "modGitSha": "6b009adf41bd50fd71390c996c44c7ddfd22bba5",
+ "generatedAt": "2026-11-25T22:22:57",
+ "modSource": "lane-autopilot-warp-stray-1125b",
+ "modGitSha": "b533fcb0b5b478b4b1f1a098f8ef29ba1cc94306",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
