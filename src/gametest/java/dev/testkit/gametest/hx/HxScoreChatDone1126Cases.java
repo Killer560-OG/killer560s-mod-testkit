@@ -2,7 +2,6 @@ package dev.testkit.gametest.hx;
 
 import dev.testkit.gametest.mod.Mod;
 
-import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Map;
 
@@ -49,7 +48,16 @@ final class HxScoreChatDone1126Cases {
     }
 
     private static void newRun(Session c) {
-        c.ctx().runOnClient(mc -> Mod.setField(SCF, "runLevel", new WeakReference<>(null)));
+        c.ctx().runOnClient(mc -> {
+            try {
+                Object tracker = Mod.field(SCF, "RUN");
+                java.lang.reflect.Field f = tracker.getClass().getDeclaredField("level");
+                f.setAccessible(true);
+                f.set(tracker, null);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
         c.ctx().waitTicks(25);
     }
 
