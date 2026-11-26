@@ -207,7 +207,7 @@ public class SimPrerunTripTests implements FabricClientGameTest {
         }
     }
 
-    private static void rearm(Minecraft mc) {
+    static void rearm(Minecraft mc) {
         if (!(Boolean) ModUnderTest.staticCall(SIM_RUN, "hasStarted")) {
             ModUnderTest.staticCall(SIM_RUN, "begin", new Class<?>[]{Minecraft.class, BlockPos.class},
                     new Object[]{mc, ModUnderTest.staticCall(SIM_BUILDER, "entranceDoor")});
@@ -215,7 +215,7 @@ public class SimPrerunTripTests implements FabricClientGameTest {
     }
 
     /** The infested chiseled stone bricks round the layout's entrance door cell(s). */
-    private static List<BlockPos> gateBlocks(Minecraft mc) {
+    static List<BlockPos> gateBlocks(Minecraft mc) {
         List<BlockPos> out = new ArrayList<>();
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int entranceType = (Integer) dev.testkit.gametest.mod.Mod.field(LAYOUT, "DOOR_ENTRANCE");
@@ -239,7 +239,7 @@ public class SimPrerunTripTests implements FabricClientGameTest {
     }
 
     /** {tile, room} of a room two doors out from the room he stands in (or one, if the floor has none), not Blood. */
-    private static int[] twoDoorsOut(Minecraft mc) {
+    static int[] twoDoorsOut(Minecraft mc) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
         if (here < 0) {
@@ -290,7 +290,7 @@ public class SimPrerunTripTests implements FabricClientGameTest {
         return out;
     }
 
-    private static void giveAotv(ClientGameTestContext ctx) {
+    static void giveAotv(ClientGameTestContext ctx) {
         AtomicReference<Boolean> given = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
