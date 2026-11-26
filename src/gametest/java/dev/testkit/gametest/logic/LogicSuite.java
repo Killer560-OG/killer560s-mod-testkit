@@ -85,6 +85,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1116-logic-autocorrect-exhaustive", AutoCorrectCases::exhaustive);
         LogicCase.run(ctx, "1121-logic-cmdtypo-short", AutoCorrectCases::shortExtraLetter);
         LogicCase.run(ctx, "1121-logic-warpdest", AutoCorrectCases::warpDestination);
+        LogicCase.run(ctx, "1125-logic-cmdtypo-firstletter", AutoCorrectCases::droppedFirstLetter);
         LogicCase.run(ctx, "1122-logic-quizgap-pick", QuizGap1122Cases::pick);
         // Discord Link (mod discordlink-1105): off the client thread, the cases wait seconds on the stub relay.
         DiscordLinkCases.ctx = ctx;
