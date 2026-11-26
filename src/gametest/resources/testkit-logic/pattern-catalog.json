@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T14:56:11",
- "modSource": "lane-acoptimal-1126b",
- "modGitSha": "ee356f0570143185990a5fa7a8f17b0f21168465",
+ "generatedAt": "2026-11-26T15:23:43",
+ "modSource": "lane-sim-blaze-solved-line-1126b",
+ "modGitSha": "88dccb15535e22ce5862b1646d47038d6cefc5fa",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
