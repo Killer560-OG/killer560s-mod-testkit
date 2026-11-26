@@ -156,6 +156,20 @@ public class SimGateBarrier1126Tests implements FabricClientGameTest {
                     usesHeld = ctx.computeOnClient(mc -> PacketTrace.sent("use_item"));
                     movedHeld = Math.max(movedHeld, ctx.computeOnClient(mc -> mc.player.position().distanceTo(from)));
                 }
+                // This case tests the hold on the gate, not how fast a trip is searched: on an unseeded floor a hard leg
+                // can take its exact search 1.1-1.8 s (26.2 flake, flake262-2 11-26: "Found path in 1839ms"), past
+                // Hypixel's 15 ticks. Then the barriers stand until the plan is held (at most 200 more ticks).
+                int extra = 0;
+                for (; extra < 200 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "waitingForGate"));
+                     extra++) {
+                    ctx.waitTick();
+                    usesHeld = ctx.computeOnClient(mc -> PacketTrace.sent("use_item"));
+                    movedHeld = Math.max(movedHeld, ctx.computeOnClient(mc -> mc.player.position().distanceTo(from)));
+                }
+                waitingSeen |= extra < 200;
+                if (extra > 0) {
+                    println("the plan took " + extra + " tick(s) past the barrier window - barriers held until it was in");
+                }
                 setGate(ctx, gate, false);
                 int gateAirTick = -1;
                 int firstUseTick = -1;
