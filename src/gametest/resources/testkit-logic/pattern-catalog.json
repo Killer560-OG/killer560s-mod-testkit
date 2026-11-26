@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T17:49:13",
- "modSource": "lane-autoroutes-stuck-acclear-1125b",
- "modGitSha": "6588605d3fae9aa9d97c377a558b6212e837836f",
+ "generatedAt": "2026-11-25T18:29:16",
+ "modSource": "lane-chestvalue-minions-1125b",
+ "modGitSha": "1ef89f932a86c0aeb56bf97a0ae55704ce277192",
  "modSourceDirty": false,
- "count": 992,
+ "count": 995,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 872,
+  "field": 875,
   "local": 46
  },
  "unresolved": 161,
@@ -2388,6 +2388,42 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^\\\\[(\\\\d+)] (?:\\\\[\\\\w+] )*(\\\\w+) .*?\\\\((\\\\w+)(?: (\\\\w+))*\\\\)$\""
+  },
+  {
+   "id": "chestvalue.MinionValue#TITLE",
+   "cls": "chestvalue.MinionValue",
+   "field": "TITLE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/chestvalue/MinionValue.java",
+   "line": 31,
+   "regex": "^[A-Z][A-Za-z' ]{1,30} Minion ([IVX]{1,5})$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^[A-Z][A-Za-z' ]{1,30} Minion ([IVX]{1,5})$\""
+  },
+  {
+   "id": "chestvalue.MinionValue#MINION_ID",
+   "cls": "chestvalue.MinionValue",
+   "field": "MINION_ID",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/chestvalue/MinionValue.java",
+   "line": 32,
+   "regex": "^([A-Z0-9_]{1,40})_GENERATOR_(\\d{1,2})$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^([A-Z0-9_]{1,40})_GENERATOR_(\\\\d{1,2})$\""
+  },
+  {
+   "id": "chestvalue.MinionValue#HELD",
+   "cls": "chestvalue.MinionValue",
+   "field": "HELD",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/chestvalue/MinionValue.java",
+   "line": 33,
+   "regex": "Held Coins:\\s*([\\d,]{1,15}(?:\\.\\d+)?)",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"Held Coins:\\\\s*([\\\\d,]{1,15}(?:\\\\.\\\\d+)?)\""
   },
   {
    "id": "chocolatefactory.ChocolateFactoryMenu#CPS",
