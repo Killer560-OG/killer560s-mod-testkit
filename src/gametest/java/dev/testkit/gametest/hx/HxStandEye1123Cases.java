@@ -176,13 +176,13 @@ final class HxStandEye1123Cases {
                                 + "%.0f warp(s), %.0f re-aim(s)", act == null ? "aim" : act, i, far[0], far[1], far[2], far[3],
                         far[4], far[5], near[0], near[1], near[2], near[3], near[4], near[5]));
                 c.check(far[0] > 0 && near[0] > 0, "a hop never went out (far " + far[0] + ", near " + near[0] + ")");
-                if (after == 2 && act == null) {
+                if (after == 2) { // also with his same-tick actions: his hand is empty while unsneaked (hop)
                     // two ticks after the sneak, cast standing by the stalled server: the near hop is re-aimed for both
                     // eyes and lands on the plan; the far one (no look holds for both) goes at once as planned, never
                     // waiting (Auto Clear speed: a wait there cost 1124-sim-ac-presneak 28 room ticks)
                     c.check(far[0] == 1 && far[4] == 1, "two ticks, far block: want the use on the first tick and 1 warp, got "
                             + far[0] + " tick(s), " + far[4] + " warp(s)");
-                    c.check(near[4] == 1 && near[3] == 1 && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
+                    c.check(near[4] == 1 && (act != null || near[3] == 1) && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
                             "two ticks, near block: want a standing cast landing at x " + (X0 + 2.0) + ", got " + near[4]
                                     + " warp(s) at " + near[1] + "," + near[2] + " (" + near[3] + " standing cast(s))");
                 } else if (act == null && after == 1) {
