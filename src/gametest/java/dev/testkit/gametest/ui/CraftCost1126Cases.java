@@ -40,15 +40,33 @@ final class CraftCost1126Cases {
         return s;
     }
 
+    /** The recipe view as Hypixel lays it out (assumed: crafting table in 23, panes around the arrow). */
     private static void open(UiCase c, String title) {
+        open(c, title, 0);
+    }
+
+    /** mode 0 recipe view, 1 the same items with no marker and no panes (an ordinary container), 2 a "x" Recipes search list. */
+    private static void open(UiCase c, String title, int mode) {
         c.onClient(mc -> {
             SimpleContainer box = new SimpleContainer(54);
-            box.setItem(10, item("ALPHA", "Alpha", 3));
-            box.setItem(11, item("BETA", "Beta", 4));
-            box.setItem(12, item("GAMMA", "Gamma", 1));
-            box.setItem(19, item("ALPHA", "Alpha", 2));
-            box.setItem(20, item("DELTA", "Delta", 1));
-            box.setItem(25, item("OMEGA", "Omega", 1));
+            if (mode == 2) {
+                for (int i : new int[]{10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25}) {
+                    box.setItem(i, item("ALPHA", "Alpha", 1));
+                }
+            } else {
+                box.setItem(10, item("ALPHA", "Alpha", 3));
+                box.setItem(11, item("BETA", "Beta", 4));
+                box.setItem(12, item("GAMMA", "Gamma", 1));
+                box.setItem(19, item("ALPHA", "Alpha", 2));
+                box.setItem(20, item("DELTA", "Delta", 1));
+                box.setItem(25, item("OMEGA", "Omega", 1));
+                if (mode == 0) {
+                    box.setItem(23, new ItemStack(Items.CRAFTING_TABLE));
+                    for (int i : new int[]{14, 15, 16, 22, 24}) {
+                        box.setItem(i, new ItemStack(Items.STICK));
+                    }
+                }
+            }
             McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
                     mc.player.getInventory(), Component.literal(title)));
             return null;
@@ -88,8 +106,19 @@ final class CraftCost1126Cases {
             close(c);
 
             Mod.set(CFG, "setEnabled", true);
-            open(c, "Chest");
+            open(c, "Chest", 1);
             c.check(lines(c).isEmpty(), "the panel showed on a plain Chest: " + lines(c));
+            close(c);
+            open(c, "Terminator", 1);
+            c.check(lines(c).isEmpty(), "the panel showed on an item-titled container with no recipe layout: " + lines(c));
+            close(c);
+            open(c, "\"term\" Recipes", 2);
+            c.check(lines(c).isEmpty(), "the panel showed on the recipe search list: " + lines(c));
+            close(c);
+
+            open(c, "Terminator");
+            c.check(lines(c).size() == 7 && lines(c).get(0).equals("Craft Cost: 730+"),
+                    "the recipe view titled by its item showed no panel: " + lines(c));
             close(c);
 
             open(c, "Omega Recipe");

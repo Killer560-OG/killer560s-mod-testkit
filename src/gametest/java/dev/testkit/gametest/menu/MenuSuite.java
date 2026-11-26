@@ -178,6 +178,8 @@ public class MenuSuite implements FabricClientGameTest {
                     MelodyNoDelay1118Cases.register(s); // 1118-menu-term-melody-nodelay
                     Melody1111Cases.register(s); // 1111-menu-term-melody-gamble: lookahead gamble vs. live clicks under 50 ms ping
                     MelodyStall1123Cases.register(s); // 1123-menu-term-melody-rowdelay: Hypixel's row delay vs. lookahead and the stall net
+                    MelodyEdges1126Cases.register(s); // 1126-menu-term-melody-edges-p*, 1126-same-melody-edges*: edge rows in a row, instant and Hypixel row start
+                    TermSsHuman1126Cases.register(s); // 1126-menu-term-ss-human-*, 1126-same-ss-human: Stream Safe hand at a human pace
                     TermFeatACases.register(s); // 1108: terminal sounds, click path, click order, queue terms
                     TermAutoNoSolver1124Cases.register(s); // 1124: Auto Terminals with the solver off
                     TermBurst1111Cases.register(s); // 1111-menu-term-burst-*: Auto Terminals Burst Finish (termburst-1111)

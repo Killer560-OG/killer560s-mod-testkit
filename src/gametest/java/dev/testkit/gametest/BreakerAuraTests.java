@@ -2405,6 +2405,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         }
                         boolean gone = false;
                         float turned = 0f;
+                        long conf0 = ctx.computeOnClient(mc -> digWindow("conflicts"));
+                        long burst0 = ctx.computeOnClient(mc -> digWindow("burstConflicts"));
                         for (int i = 0; i < 200 && !gone; i++) {
                             stampBreaker(ctx);
                             ctx.waitTicks(1);
@@ -2439,6 +2441,15 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         if (most != picks.size()) {
                             throw new AssertionError("the burst put " + most + " of " + picks.size()
                                     + " blocks in one server tick, want all");
+                        }
+                        // la-digwindow-1126: the burst is the owner's choice, so DigWindow counts it as burst and never
+                        // warns ("two digs in one server tick" filled his 11-24..26 logs, 379 lines, all Burst).
+                        long conf = ctx.computeOnClient(mc -> digWindow("conflicts")) - conf0;
+                        long burstConf = ctx.computeOnClient(mc -> digWindow("burstConflicts")) - burst0;
+                        scenario.log(name + ": DigWindow real conflicts " + conf + " (each one a WARN), burst " + burstConf);
+                        if (conf != 0 || burstConf < 1) {
+                            throw new AssertionError("DigWindow counted " + conf + " real conflict(s) and " + burstConf
+                                    + " burst one(s) for a burst of " + most + " in one tick (want 0 and at least 1)");
                         }
                         if (offLook && turned > 0.01f) {
                             throw new AssertionError("the burst turned his body " + turned + " deg; the old burst never aims");
