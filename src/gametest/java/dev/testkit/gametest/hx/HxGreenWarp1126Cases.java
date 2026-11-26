@@ -129,7 +129,7 @@ final class HxGreenWarp1126Cases {
             BlockPos[] ends = stage(c, act == SameTick.Act.ATTACK);
             int warps0 = warps(c);
             if (act != null) {
-                st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.USE ? 2 : 1, HxGreenWarp1126Cases::feature,
+                st = c.onClient(mc -> SameTick.start(act, 2, HxGreenWarp1126Cases::feature,
                         4, 5));
             }
             int legs = 0;

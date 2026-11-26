@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * (killer560 2026-11-26: "it should etherwarp in green room to get to the gate before it starts if autopilot is on not run
  * there"), same seeded floor:
  * <ul>
- *   <li>1126-sim-ac-greenwarp: switch ON, AOTV in the hotbar: before GO a use_item on the wire, one warp step (over 2.5
+ *   <li>1126-sim-ac-greenwarp: a fresh config has the switch OFF (the default); switched ON, AOTV in the hotbar: before GO a use_item on the wire, one warp step (over 2.5
  *       blocks in a tick), no walking key or ShortWalk in any tick, result "warped", standing within 1 block of its goal,
  *       which is nearer the door than the walk's spot (under 4 blocks from the door block). After GO out through the door
  *       within 40 ticks, no warp landing inside the Entrance, and no later than the walk case's exit plus 2 ticks (planning
@@ -477,6 +477,18 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         int[] go = afterGo(ctx, door, in);
         String post = String.format(Locale.US, "after GO: out through the door at tick %d (walk case: %d) with %d warp(s),"
                 + " %d landing inside the Entrance", go[0], walkOut, go[1], go[2]);
+        // A fresh config (what a new player gets) has the switch OFF: today's walk stays the default (killer560 2026-11-26).
+        Boolean freshOn = ctx.computeOnClient(mc -> {
+            try {
+                var k = ModUnderTest.config(AS_CONFIG).getClass().getDeclaredConstructor();
+                k.setAccessible(true);
+                Object fresh = k.newInstance();
+                return (Boolean) fresh.getClass().getMethod("isGreenRoomWarp").invoke(fresh);
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        });
+        f.add(Boolean.FALSE.equals(freshOn) ? null : "a fresh config has Warp to Door Before Start " + freshOn + " (want OFF)");
         f.add(shut ? null : "the run started before the case let it");
         f.add("warped".equals(result) ? null : "result " + result + " before GO (want warped)");
         f.add(usesBefore >= 1 ? null : "no use_item on the wire before GO");
