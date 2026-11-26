@@ -126,7 +126,11 @@ final class HxStray1125Cases {
             return null;
         });
         c.ctx().getInput().holdKey(o -> o.keyShift);
-        c.ctx().waitTicks(8);
+        // Wait for the teleport to reach the client (a slow PC under added latency took more than 8 ticks).
+        for (int i = 0; i < 80 && c.onClient(mc -> mc.player.position().distanceTo(new Vec3(x, y, z)) > 0.5); i++) {
+            c.ctx().waitTick();
+        }
+        c.ctx().waitTicks(6);
     }
 
     private static void cleanup(Session c) {
