@@ -25,6 +25,12 @@ import java.util.Locale;
  *       standing eye in the near case (it did cast from it), and a use must have gone out.</li>
  *   <li>1123-hx-standeye-senders-same-&lt;idle|use|dig|swap|tp&gt;: the same hops with his own action in the same ticks
  *       ({@link SameTick}); GrimAC (default and experimental) must stay silent, hops and his action both reach the wire.</li>
+ *   <li>1125-hx-standeye-twotick[-same-&lt;act&gt;] (autopilot-warp-offaim-1125): the server stalled and took the sneak and the
+ *       next tick's packets together (dungeon.standingEye ticks 2), so a hop sent TWO ticks after the sneak is still cast
+ *       standing. His 26.3 log 11-25 15:32:40: Interactive Map warp 2, sent so with a crouched-only aim, landed exactly one
+ *       standing-eye block past its aim; 15:31:09 warp 2 never landed and the next hop went from the wrong spot. Queued two
+ *       ticks after the sneak, the near hop must land on the planned block (re-aimed for both eyes) and the far one must go
+ *       on its first tick (no wait).</li>
  * </ul>
  */
 final class HxStandEye1123Cases {
@@ -46,6 +52,12 @@ final class HxStandEye1123Cases {
         s.test("1123-hx-standeye-senders-same-dig", c -> run(c, "dig"));
         s.test("1123-hx-standeye-senders-same-swap", c -> run(c, "swap"));
         s.test("1123-hx-standeye-senders-same-tp", c -> run(c, "tp"));
+        s.test("1125-hx-standeye-twotick", c -> run(c, null, 2));
+        s.test("1125-hx-standeye-twotick-same-idle", c -> run(c, "idle", 2));
+        s.test("1125-hx-standeye-twotick-same-use", c -> run(c, "use", 2));
+        s.test("1125-hx-standeye-twotick-same-dig", c -> run(c, "dig", 2));
+        s.test("1125-hx-standeye-twotick-same-swap", c -> run(c, "swap", 2));
+        s.test("1125-hx-standeye-twotick-same-tp", c -> run(c, "tp", 2));
     }
 
     /** The mod's re-aim counter, 0 on a jar from before it (the origin jar). */
@@ -63,8 +75,9 @@ final class HxStandEye1123Cases {
         return p instanceof ServerboundUseItemPacket || p instanceof ServerboundPlayerInputPacket in && in.input().shift();
     }
 
-    /** One hop (dig: he looks at the floor, so his left click has a block under the crosshair): sneak down, the tick after it goes out queue the hop at {@code d} blocks; returns {ticks to the use, land}. */
-    private static double[] hop(Session c, double d, int cycle, boolean dig) {
+    /** One hop (dig: he looks at the floor, so his left click has a block under the crosshair): sneak down, {@code after}
+     *  ticks after it goes out queue the hop at {@code d} blocks; returns {ticks to the use, land}. */
+    private static double[] hop(Session c, double d, int cycle, boolean dig, int after) {
         c.ctx().getInput().releaseKey(o -> o.keyShift);
         c.server().command(String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f -90 %d", X0, Y, Z0, dig ? 45 : 0));
         c.ctx().waitTicks(8);
@@ -77,7 +90,7 @@ final class HxStandEye1123Cases {
             return null;
         });
         c.ctx().getInput().holdKey(o -> o.keyShift);
-        c.ctx().waitTicks(1); // the sneak goes out at the end of this tick; the hop is queued for the next
+        c.ctx().waitTicks(after); // the sneak goes out at the end of the first tick; the hop is queued for the one after
         float pitch = (float) Math.toDegrees(Math.atan2(1.27, d));
         BlockPos block = BlockPos.containing(X0 + d, Y - 1, Z0);
         c.onClient(mc -> {
@@ -102,6 +115,11 @@ final class HxStandEye1123Cases {
     }
 
     private static void run(Session c, String act) {
+        run(c, act, 1);
+    }
+
+    /** @param after ticks between the sneak going out and the hop being queued; also the server's standing window */
+    private static void run(Session c, String act, int after) {
         if (!Mod.isCheat()) {
             c.note("legit jar: Auto Clear hops are cheat-only");
             return;
@@ -122,7 +140,7 @@ final class HxStandEye1123Cases {
             c.hx().give(4, AOTV);
             c.hx().give(5, AOTV);
             c.hx().call("dungeon.abilities", "enabled", true);
-            c.hx().call("dungeon.standingEye", "fresh", true);
+            c.hx().call("dungeon.standingEye", "fresh", true, "ticks", after);
             c.server().command("kill @e[tag=sametick]");
             if (a != null) {
                 st = c.onClient(mc -> SameTick.start(a, 2, HxStandEye1123Cases::feature, 4, 5));
@@ -132,14 +150,23 @@ final class HxStandEye1123Cases {
             double[] near = null;
             int cycles = act == null ? 1 : 4;
             for (int i = 0; i < cycles; i++) {
-                far = hop(c, 6.0, i, a == SameTick.Act.DIG);
-                near = hop(c, 2.0, i, a == SameTick.Act.DIG);
+                far = hop(c, 6.0, i, a == SameTick.Act.DIG, after);
+                near = hop(c, 2.0, i, a == SameTick.Act.DIG, after);
                 c.note(String.format(Locale.ROOT, "%s cycle %d: far use after %.0f tick(s), landed %.2f,%.2f, %.0f standing cast(s), "
                                 + "%.0f warp(s), %.0f re-aim(s); near use after %.0f tick(s), landed %.2f,%.2f, %.0f standing cast(s), "
                                 + "%.0f warp(s), %.0f re-aim(s)", act == null ? "aim" : act, i, far[0], far[1], far[2], far[3],
                         far[4], far[5], near[0], near[1], near[2], near[3], near[4], near[5]));
                 c.check(far[0] > 0 && near[0] > 0, "a hop never went out (far " + far[0] + ", near " + near[0] + ")");
-                if (act == null) {
+                if (after == 2 && act == null) {
+                    // two ticks after the sneak, cast standing by the stalled server: the near hop is re-aimed for both
+                    // eyes and lands on the plan; the far one (no look holds for both) goes at once as planned, never
+                    // waiting (Auto Clear speed: a wait there cost 1124-sim-ac-presneak 28 room ticks)
+                    c.check(far[0] == 1 && far[4] == 1, "two ticks, far block: want the use on the first tick and 1 warp, got "
+                            + far[0] + " tick(s), " + far[4] + " warp(s)");
+                    c.check(near[4] == 1 && near[3] == 1 && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
+                            "two ticks, near block: want a standing cast landing at x " + (X0 + 2.0) + ", got " + near[4]
+                                    + " warp(s) at " + near[1] + "," + near[2] + " (" + near[3] + " standing cast(s))");
+                } else if (act == null && after == 1) {
                     // the far block: no look holds for both eyes, so the hop waited a tick (the sneak aged) and the server
                     // cast from the crouched eye onto the planned block
                     c.check(far[0] >= 2 && far[3] == 0 && far[4] == 1 && Math.abs(far[1] - (X0 + 6.0)) < 0.1

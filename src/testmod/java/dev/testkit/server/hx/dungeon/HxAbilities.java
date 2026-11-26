@@ -82,7 +82,11 @@ public final class HxAbilities {
     /** Fresh-pose mode (standeye-1123): any etherwarp whose sneak reached the server in the same server tick is cast standing. */
     private static volatile boolean standingFresh;
     private static final Set<java.util.UUID> CROUCHED = java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private static final Set<java.util.UUID> SNEAKING = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** Server ticks in a row that ended with him sneaking; the pose crouches once it reaches {@link #freshTicks} + 1. */
+    private static final java.util.Map<java.util.UUID, Integer> SNEAK_STREAK = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Server ticks after the sneak's own that still cast standing: 1 = Hypixel's pose lag; 2 = a server that stalled and
+     *  took the sneak and the next tick's packets together (autopilot-warp-offaim-1125, his 15:31:09 / 15:32:40 log). */
+    private static volatile int freshTicks = 1;
     private static int standingEyeCast;
 
     private static final double ETHERWARP_RANGE = 57.0;
@@ -111,18 +115,19 @@ public final class HxAbilities {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             SNEAK_HEARD.clear();
             // The pose crouches on the second server tick that sees the sneak, so a use one tick after it still casts standing.
-            Set<java.util.UUID> before = new java.util.HashSet<>(SNEAKING);
             CROUCHED.clear();
-            SNEAKING.clear();
             if (standingFresh) {
                 for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                     if (p.isShiftKeyDown()) {
-                        SNEAKING.add(p.getUUID());
-                        if (before.contains(p.getUUID())) {
+                        if (SNEAK_STREAK.merge(p.getUUID(), 1, Integer::sum) > freshTicks) {
                             CROUCHED.add(p.getUUID());
                         }
+                    } else {
+                        SNEAK_STREAK.remove(p.getUUID());
                     }
                 }
+            } else {
+                SNEAK_STREAK.clear();
             }
             if (sneakLag) {
                 for (ServerPlayer p : server.getPlayerList().getPlayers()) {
@@ -219,9 +224,11 @@ public final class HxAbilities {
         standingEyeWarps = Math.max(0, n);
     }
 
-    static void setStandingFresh(boolean on) {
+    static void setStandingFresh(boolean on, int ticks) {
         standingFresh = on;
+        freshTicks = Math.max(1, ticks);
         CROUCHED.clear();
+        SNEAK_STREAK.clear();
     }
 
     static String idOf(ItemStack stack) {
