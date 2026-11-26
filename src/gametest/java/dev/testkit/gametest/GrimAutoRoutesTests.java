@@ -259,7 +259,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
             s.test("62-argrim-1015-clickwarp", GrimAutoRoutesTests::caseClickWarp); // ar-nexttick-1015
-            s.test("62-argrim-1017-breakerwarp", GrimAutoRoutesTests::caseBreakerWarpPaired); // ar-bridges-bat-1017
+            s.test("62-argrim-1017-breakerwarp", c -> caseBreakerWarpPaired(c, null)); // ar-bridges-bat-1017
+            // autoroutes-stuck-1126: the breaker use that pairs the click goes ONCE, then the warp; his actions in those ticks.
+            for (dev.testkit.gametest.SameTick.Act a : List.of(
+                    dev.testkit.gametest.SameTick.Act.USE, dev.testkit.gametest.SameTick.Act.ATTACK,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
+                    dev.testkit.gametest.SameTick.Act.TP)) {
+                s.test("62-argrim-1126-spendsame-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                        c -> caseBreakerWarpPaired(c, a));
+            }
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             // grimsame-1105: his hotbar scroll / left click in the same server tick as the chain's warps.
@@ -2164,8 +2172,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * the Dungeon Breaker at the look the server has heard, then swaps back and warps the next tick. Against GrimAC: the
      * breaker's digs, the breaker use, the swap and the warp must draw nothing, and the warp must land on the target.
      */
-    private static void caseBreakerWarpPaired(Session c) {
+    private static void caseBreakerWarpPaired(Session c, dev.testkit.gametest.SameTick.Act act) {
         ClientGameTestContext ctx = c.ctx();
+        String label = act == null ? "breakerwarp" : "spendsame-" + act.name().toLowerCase(Locale.ROOT);
         resetRoutes(ctx);
         arena(ctx, false);
         ctx.runOnClient(mc -> {
@@ -2216,6 +2225,22 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         JsonObject before = stats();
         startSampling(ctx);
         long m = LogTap.mark();
+        // His own action in the spend's tick and the warp's (autoroutes-stuck-1126): every tick from the lever click on, a
+        // few times; a teleport accept: the server teleports him where he stands on the click's tick and the next two.
+        dev.testkit.gametest.SameTick st = act == null || act == dev.testkit.gametest.SameTick.Act.TP ? null
+                : ctx.computeOnClient(mc -> {
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 6, 7);
+                    t.allow(6);
+                    return t;
+                });
+        if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+            c.server().command("execute as @a at @s run summon zombie ^ ^ ^1.5 {NoAI:1b,Invulnerable:1b,Silent:1b,"
+                    + "Tags:[\"sametick\"]}");
+        }
+        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
         ctx.runOnClient(mc -> {
             BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 22);
             mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
@@ -2227,10 +2252,24 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
                     double.class, double.class}, new Object[]{frame, 16.5, (double) (F + 6), 20.5});
         });
+        if (act == dev.testkit.gametest.SameTick.Act.TP) {
+            for (int k = 0; k < 3; k++) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                ctx.waitTick();
+            }
+        }
         boolean landed = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
         ctx.waitTicks(10);
         List<Sample> s = stopSampling(ctx);
-        printTrace("breakerwarp", s);
+        List<dev.testkit.harness.WireCapture.Sent> wire = ctx.computeOnClient(mc -> {
+            List<dev.testkit.harness.WireCapture.Sent> l = dev.testkit.harness.WireCapture.snapshot();
+            dev.testkit.harness.WireCapture.stop();
+            return l;
+        });
+        if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+            c.server().command("kill @e[tag=sametick]");
+        }
+        printTrace(label, s);
         for (String l : LogTap.since(m)) {
             if (l.contains("[RightClick]") || l.contains("ETHERWARP") || l.contains("Etherwarp") || l.contains("Breaker")
                     || l.contains("DUNGEON_BREAKER")) {
@@ -2239,14 +2278,28 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         boolean paired = logHas(m, "paired the block click at");
         boolean broke = blockAir(ctx, 5, F, 20);
-        c.note(String.format(Locale.ROOT, "breakerwarp: lever click paired by a breaker use %s, snow broken %s, landed on "
-                + "the target %s, server etherwarps %d", paired, broke, landed, delta(before, "etherwarps")));
+        // autoroutes-stuck-1126: the spend goes once. Before the fix it went every tick (his Banners #5: 153 breaker uses in
+        // 154 ticks) whenever one of the server's eyes met the plate and the other passed under it, and the warp never went.
+        long spends = LogTap.since(m).stream().filter(l -> l.contains("paired the block click at")).count();
+        long uses = wire.stream().filter(x -> x.type().equals("minecraft:use_item")).count();
+        c.note(String.format(Locale.ROOT, "%s: lever click paired by a breaker use %s (%d spend(s)), snow broken %s, landed on "
+                + "the target %s, server etherwarps %d, use_item on the wire %d", label, paired, spends, broke, landed,
+                delta(before, "etherwarps"), uses));
         check(logHas(m, "lever at") && logHas(m, "secrets met"), "the lever click did not meet the breaker's await");
         check(broke, "the breaker node did not break its snow block");
         check(paired, "no Dungeon Breaker use paired the lever click before the warp - the case never happened");
-        check(landed, "the warp after the breaker did not land on the target (at " + relPos(ctx) + ")");
-        check(delta(before, "etherwarps") == 1, "the server made " + delta(before, "etherwarps")
-                + " etherwarp(s), expected 1");
+        check(spends == 1, label + ": the breaker use that pairs the click went " + spends + " times, expected once");
+        if (act == null || act == dev.testkit.gametest.SameTick.Act.TP || act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK
+                || act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+            check(landed, "the warp after the breaker did not land on the target (at " + relPos(ctx) + ")");
+        }
+        if (act == null) {
+            check(delta(before, "etherwarps") == 1, "the server made " + delta(before, "etherwarps")
+                    + " etherwarp(s), expected 1");
+        }
+        if (st != null) {
+            dev.testkit.gametest.SameTick.judge(c, st, label, dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
         noteFlags(c, s);
     }
 
