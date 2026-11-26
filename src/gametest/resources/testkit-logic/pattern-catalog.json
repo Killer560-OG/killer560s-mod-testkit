@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T00:29:47",
- "modSource": "lane-autopilot-face-witherdoor-1126",
- "modGitSha": "f3bd7ec798b6d30e6896a0735d8f7d972ca1d809",
+ "generatedAt": "2026-11-26T02:07:28",
+ "modSource": "lane-autoroutes-stuck-1126",
+ "modGitSha": "8bf89df394b5881479435a2b241a28b379d4c32b",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
