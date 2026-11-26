@@ -180,6 +180,9 @@ final class HxGreenWarp1126Cases {
             }
             c.check(landed >= 3 || warped >= 3, "only " + landed + " warp(s) landed (nothing tested)");
             c.check(warped >= 2, "only " + warped + " leg(s) ended warped");
+            // His clicks never ride the warp item: the AOTV in hand on his level look was an Instant Transmission or an
+            // etherwarp of his (wire t195 on 0745f7232, greenroom-fix2-1126).
+            c.check(aotvLevelUses == 0, aotvLevelUses + " use(s) went with the AOTV in hand on his level look (his click rode the warp item)");
             if (st != null) {
                 SameTick.judge(c, st, "green room warp", SameTick.Expect.ACTED);
                 st = null;
@@ -208,12 +211,14 @@ final class HxGreenWarp1126Cases {
     private static final java.util.List<String> WIRE = new java.util.ArrayList<>();
     private static java.util.function.Consumer<Packet<?>> wirePrevOut;
     private static java.util.function.Consumer<Packet<?>> wirePrevIn;
-    private static int lastSel = -1;
+    /** Uses sent with the AOTV in hand on a level look (his: the hops look down onto the floor 10 away). */
+    private static int aotvLevelUses;
 
     private static void wireOn(net.minecraft.client.Minecraft mc) {
         synchronized (WIRE) {
             WIRE.clear();
         }
+        aotvLevelUses = 0;
         wirePrevOut = dev.testkit.harness.PacketTrace.tap;
         wirePrevIn = dev.testkit.harness.PacketTrace.inTap;
         dev.testkit.harness.PacketTrace.tap = p -> {
@@ -223,6 +228,10 @@ final class HxGreenWarp1126Cases {
                 s = "carried " + h.getSlot();
             } else if (p instanceof ServerboundUseItemPacket u) {
                 var pl = mc.player;
+                if (pl != null && dev.testkit.compat.McPackets.useItemXRot(u) == 0f
+                        && pl.getMainHandItem().is(net.minecraft.world.item.Items.DIAMOND_SHOVEL)) {
+                    aotvLevelUses++;
+                }
                 s = String.format(java.util.Locale.ROOT, "use_item %s %.1f/%.1f sel %d",
                         pl == null ? "?" : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(pl.getMainHandItem().getItem()).getPath(),
                         dev.testkit.compat.McPackets.useItemYRot(u), dev.testkit.compat.McPackets.useItemXRot(u),
