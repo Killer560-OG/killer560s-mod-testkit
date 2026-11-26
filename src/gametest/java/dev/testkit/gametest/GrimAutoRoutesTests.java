@@ -297,25 +297,25 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // Multi Warps' Auto Charge (off by default) charges Blink by itself in a dungeon, no Charge key. Its default and
             // its legit refusal first (a PASS row on both builds), then the chains spending its bank after standing 1, 5 and
             // 30 s, his actions in the split tick, and his actions in the tick Auto Charge starts and the tick it ends.
+            // A legit jar gives every one of them a PASS row of its own: Auto Charge there charges nothing (cheatOr).
             s.test("62-argrim-1126-autocharge-off", GrimAutoRoutesTests::caseAutoChargeOff);
-            if (dev.testkit.gametest.mod.Mod.isCheat()) {
-                for (int sec : new int[]{1, 5, 30}) {
-                    s.test("62-argrim-1126-autocharge-map-" + sec + "s", c -> withAutoCharge(ctxOf(c), sec * 20,
-                            () -> caseMapChain(c, true, null, true)));
-                }
-                s.test("62-argrim-1126-autocharge-route", c -> withAutoCharge(ctxOf(c), 100, () -> caseChargedChain(c, true)));
-                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
-                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
-                    s.test("62-argrim-1126-autocharge-split-same-" + a.name().toLowerCase(Locale.ROOT), c -> withAutoCharge(ctxOf(c),
-                            100, () -> caseMapChain(c, true, a, true)));
-                }
-                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
-                        dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP,
-                        dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
-                    String an = a.name().toLowerCase(Locale.ROOT);
-                    s.test("62-argrim-1126-autocharge-start-same-" + an, c -> caseAutoEdge(c, a, true));
-                    s.test("62-argrim-1126-autocharge-end-same-" + an, c -> caseAutoEdge(c, a, false));
-                }
+            for (int sec : new int[]{1, 5, 30}) {
+                s.test("62-argrim-1126-autocharge-map-" + sec + "s", c -> cheatOr(c, () -> withAutoCharge(ctxOf(c), sec * 20,
+                        () -> caseMapChain(c, true, null, true))));
+            }
+            s.test("62-argrim-1126-autocharge-route", c -> cheatOr(c, () -> withAutoCharge(ctxOf(c), 100,
+                    () -> caseChargedChain(c, true))));
+            for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
+                s.test("62-argrim-1126-autocharge-split-same-" + a.name().toLowerCase(Locale.ROOT), c -> cheatOr(c,
+                        () -> withAutoCharge(ctxOf(c), 100, () -> caseMapChain(c, true, a, true))));
+            }
+            for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP,
+                    dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                String an = a.name().toLowerCase(Locale.ROOT);
+                s.test("62-argrim-1126-autocharge-start-same-" + an, c -> cheatOr(c, () -> caseAutoEdge(c, a, true)));
+                s.test("62-argrim-1126-autocharge-end-same-" + an, c -> cheatOr(c, () -> caseAutoEdge(c, a, false)));
             }
             // mod acwaits3-1122 (his 11-21 log: a charged map burst's first use became an Instant Transmission and every landing
             // after it slid one hop): with Hypixel's sneak lag on the server (a sneak counts only once a whole server tick saw
@@ -3306,6 +3306,26 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             autoStand = 0;
             autoChargeSet(ctx, false, false);
             ctx.runOnClient(mc -> ModUnderTest.staticCall(CHARGE, "reset", new Class<?>[]{String.class}, new Object[]{"test teardown"}));
+        }
+    }
+
+    /** {@code body} on a cheat jar; on a legit jar the check that Auto Charge, switched on in a dungeon, charges nothing. */
+    private static void cheatOr(Session c, Runnable body) {
+        if (dev.testkit.gametest.mod.Mod.isCheat()) {
+            body.run();
+            return;
+        }
+        ClientGameTestContext ctx = c.ctx();
+        try {
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true));
+            autoChargeSet(ctx, true, true);
+            ctx.waitTicks(20);
+            boolean ran = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
+            c.note("legit jar: Auto Charge on in a dungeon -> charging " + ran);
+            check(!ran, "a legit jar charged Blink by itself");
+        } finally {
+            autoChargeSet(ctx, false, false);
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false));
         }
     }
 
