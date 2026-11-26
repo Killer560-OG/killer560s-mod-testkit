@@ -215,9 +215,9 @@ public final class SimPuzzleDoneTests {
      * the auto is switched on (reflection, so any jar runs it); the room then plays as 93-solve-higherblaze. Stamped on the
      * test's tick clock: the auto's "ended its last step" line and Auto Secret's "puzzle Higher Blaze: ..." line (its leave).
      * Fails when it leaves more than 2 ticks after the auto ended, before the auto ended, or not within 20 s of the solve.
-     * NOT a main-vs-fix discriminator: the sim sends its "PUZZLE SOLVED!" line with the solve, a tick before the auto
-     * ends, so main leaves on that check at the same tick (2026-10-20: both 0 ticks; the fixed jar's line names the auto's
-     * own signal). On Hypixel the check came 7 s late; holding it back from the test thread raced the packet and failed.
+     * Also fails when the sim sent any "PUZZLE SOLVED!" line for the room (sim-blaze-solved-line-1126: Hypixel sends none
+     * for Blaze, 155 real logs; the sim used to, a tick before the auto ended, so the leave read it and not the auto's own
+     * signal). On Hypixel the check came 7 s late; holding it back from the test thread raced the packet and failed.
      */
     static final class LeaveTimed extends SolveExtra {
         private final String room;
@@ -228,6 +228,7 @@ public final class SimPuzzleDoneTests {
         int left = -1;
         String leftLine;
         String stoppedLine;
+        String solvedChat;
         boolean stopped;
 
         LeaveTimed(String room) {
@@ -262,6 +263,9 @@ public final class SimPuzzleDoneTests {
                     left = t;
                     leftLine = l.substring(l.indexOf("[AutoSecret]"));
                 }
+                if (solvedChat == null && l.contains("[CHAT] PUZZLE SOLVED! ") && l.contains(room)) {
+                    solvedChat = l.substring(l.indexOf("PUZZLE SOLVED!"));
+                }
                 if (stoppedLine == null && l.contains("[AutoSecret] stopped:")) {
                     stoppedLine = l.substring(l.indexOf("[AutoSecret]"));
                 }
@@ -291,6 +295,9 @@ public final class SimPuzzleDoneTests {
             }
             if (ended < 0) {
                 return "the auto never ended its last step";
+            }
+            if (solvedChat != null) {
+                return "the sim sent a PUZZLE SOLVED line Hypixel never sends for " + room + ": " + solvedChat;
             }
             if (left < 0) {
                 return stoppedLine != null ? "Auto Secret stopped before it left the puzzle: " + stoppedLine
