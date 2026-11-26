@@ -315,9 +315,9 @@ final class TermHoldCases {
      * the opening position from that first look ("pane there 29 ms of a 301 ms step" when it had stood ~250 ms), so the live
      * click, the burst and the next row went into a stay that was nearly over and, on a loaded PC, the third landed after the
      * board's first step (lanes 1126-0122 and 1126-0314, 275-277, all six wrong clicks just after a first step). Here the
-     * step is 1 s and the First Click Delay 600 ms, so the first look comes inside the opening stay on any PC: every click
+     * step is 1 s and the First Click Delay 300 ms (its maximum), so the first look comes inside the opening stay on any PC: every click
      * the SERVER takes before the board's first step (msSinceStep -1) must have been judged by the mod with the pane at
-     * least 600 ms old (its own "pane there N ms" line), none may be wrong, and every row is clicked once. Board 0 only
+     * least 300 ms old (its own "pane there N ms" line), none may be wrong, and every row is clicked once. Board 0 only
      * teaches the mod this server's 1 s step. Legit jar: Auto Melody is cheat-only.
      */
     static void openingStay(Session c) throws Exception {
@@ -326,7 +326,7 @@ final class TermHoldCases {
             c.note("legit jar: Auto Melody is cheat-only");
             return;
         }
-        final int delayMs = 600;
+        final int delayMs = 300;
         java.util.regex.Pattern line = java.util.regex.Pattern.compile("\\[Melody\\] (?:live|lookahead) click row (\\d+).*pane there (-?\\d+) ms");
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, "AutoMelodyEnabled", true)
