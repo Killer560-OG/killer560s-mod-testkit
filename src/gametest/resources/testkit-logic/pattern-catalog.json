@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T07:33:29",
- "modSource": "lane-entrance-noroute-1126",
- "modGitSha": "489c671419809843e075c55745bf67478ac60cbf",
+ "generatedAt": "2026-11-26T08:17:12",
+ "modSource": "lane-ar-trapplan-eaten-1126",
+ "modGitSha": "cf74ded4540f7d36b3758bfc6cbe8ef07680f091",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
