@@ -53,7 +53,7 @@ final class BeaconTrace {
             StringBuilder r = new StringBuilder();
             r.append(Mod.field(AUTO, "rtt")).append(' ').append(Mod.field(AUTO, "lastClick")).append(' ')
                     .append(Mod.field(AUTO, "pendingSlot")).append(' ').append(Mod.field(AUTO, "fin")).append(' ')
-                    .append(Mod.field(AUTO, "attempts")).append(' ').append(Mod.field(AUTO, "retry")).append(" |");
+                    .append(Mod.field(AUTO, "attempts")).append(' ').append(Mod.field(AUTO, "retry")).append(" lead ").append(lead()).append(" |");
             Object mine = Mod.field(TUNER, "mine");
             Object beat = Mod.field(AUTO, "beat");
             boolean[] paused = (boolean[]) Mod.field(TUNER, "paused");
@@ -74,6 +74,15 @@ final class BeaconTrace {
                 last = "error";
                 rows.append(now).append(" | trace error ").append(e).append('\n');
             }
+        }
+    }
+
+    /** The learned send lead (d670a34a0 on), "-" on a build without it. */
+    private static String lead() {
+        try {
+            return String.valueOf(Mod.field(AUTO, "lead"));
+        } catch (Throwable e) {
+            return "-";
         }
     }
 

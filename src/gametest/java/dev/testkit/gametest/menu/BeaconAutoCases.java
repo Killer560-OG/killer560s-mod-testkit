@@ -139,8 +139,8 @@ final class BeaconAutoCases {
         MenuSuite.test(s, "1123-menu-autotune-right", c -> run(c, RIGHT, true, 3, null, 1800));
         MenuSuite.test(s, "1123-menu-autotune-upgrade", c -> run(c, UPGRADE, true, 2, null, 2600));
         MenuSuite.test(s, "1124-menu-autotune-samecolor", c -> run(c, SAME_COLOR, true, 4, null, 2600));
-        MenuSuite.test(s, "1124-menu-autotune-run1", c -> run(c, RUN1, true, 4, null, 1400, HAND));
-        MenuSuite.test(s, "1124-menu-autotune-run2", c -> run(c, RUN2, true, 4, null, 1400, HAND));
+        MenuSuite.test(s, "1124-menu-autotune-run1", c -> traced("run1", () -> run(c, RUN1, true, 4, null, 1400, HAND)));
+        MenuSuite.test(s, "1124-menu-autotune-run2", c -> traced("run2", () -> run(c, RUN2, true, 4, null, 1400, HAND)));
         MenuSuite.test(s, "1125-menu-autotune-phase", c -> phaseRuns(c, new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, false));
         MenuSuite.test(s, "1125-menu-autotune-phase-jitter", c -> phaseRuns(c, new int[]{2, 5, 9, 13}, true));
         MenuSuite.test(s, "1125-menu-autotune-viii", c -> inStep(c, run(c, VIII, true, 4, null, 1400, 0, false), "VIII"));
@@ -265,6 +265,20 @@ final class BeaconAutoCases {
         // round-trip tick of error there still counts as lined up; any other completion must be within one.
         c.check(ph.matches("\\[(-?[01],?)+\\]"),
                 what + ": a pane other than the one unpaused last ended out of step with its beacon pane (ticks apart " + all + ", completed on " + on + ")");
+    }
+
+    /** Runs {@code r} with Auto Tune's per-tick view written as autotune-trace-{@code label}.txt. */
+    private static void traced(String label, Step r) throws Exception {
+        traceLabel = label;
+        try {
+            r.run();
+        } finally {
+            traceLabel = null;
+        }
+    }
+
+    private interface Step {
+        void run() throws Exception;
     }
 
     private static void run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks) throws Exception {
