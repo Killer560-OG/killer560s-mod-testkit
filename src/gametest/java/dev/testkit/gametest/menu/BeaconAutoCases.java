@@ -36,7 +36,10 @@ import java.util.function.Consumer;
  *       5 ticks out and Auto Tune gave up. The fake server completes only in step (see HxBeacon); each must end in step.</li>
  *   <li>1125-menu-autotune-viii: that upgrade as it opened (white and pink speed 5 stepping together).</li>
  *   <li>1125-menu-autotune-slowboost / -slowwait: speed 1, 10 ticks behind (a pause would wait 375 ticks: it must run at Speed 5
- *       and be done in well under that) and 4 ticks ahead (waiting is quicker: no Speed click at all).</li>
+ *       and be done in well under that) and 4 ticks ahead (waiting is quicker: no Speed click at all); since 11-26 the first is on the slot 10 behind (pause and
+ *       unpause there, no Speed click, under 90 ticks) and the second a slot behind (Speed 5 must be used, under 140).</li>
+ *   <li>1126-menu-autotune-signal: his four Upgrade Signal Strength menus of 11-26 2:36 AM as they opened (Auto Tune took 566,
+ *       229, 508 and 230 ticks): each done under 200 ticks with no click undone by the next one on the same button. Legit: nothing clicked.</li>
  *   <li>1123-menu-autotune-off: OFF (and the legit jar, which has no such setting) sends nothing.</li>
  *   <li>1123-same-autotune-click / -swap / -close: his own container click, hotbar swap and menu close in the SAME client tick
  *       as an Auto Tune click ({@link SameTick}); run on default and experimental GrimAC (separate checkouts).</li>
@@ -123,6 +126,9 @@ final class BeaconAutoCases {
     static void register(Session s) {
         MenuSuite.test(s, "1123-menu-autotune-off", c -> run(c, WRAPS, false, 4, null, 200));
         if (!Mod.isCheat()) {
+            // The legit jar has no Auto Tune: his 11-26 upgrade menus open and nothing is clicked.
+            MenuSuite.test(s, "1126-menu-autotune-signal", c -> run(c, WIN96, true, 4, null, 150, 0, false));
+            MenuSuite.test(s, "1125-menu-autotune-slowboost", c -> run(c, BEHIND, true, 4, null, 150, 0, false));
             return;
         }
         MenuSuite.test(s, "1123-menu-autotune-wraps", c -> run(c, WRAPS, true, 2, null, 1800));
