@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T21:21:54",
- "modSource": "lane-beacon-align-1125",
- "modGitSha": "ba874071a3efe938448b30f21fad9d9e7aa44f11",
+ "generatedAt": "2026-11-25T21:53:05",
+ "modSource": "lane-autopilot-warp-offaim-1125",
+ "modGitSha": "9c17d9b3d4f2c8026c08e5b422cb4972f6b6ff84",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
