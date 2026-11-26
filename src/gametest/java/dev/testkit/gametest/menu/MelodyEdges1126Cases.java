@@ -143,7 +143,10 @@ final class MelodyEdges1126Cases {
                             int good = 0, wrong = 0;
                             for (JsonObject e : all.subList(clickHead, all.size())) {
                                 if (e.get("correct").getAsBoolean()) good++;
-                                else wrong++;
+                                else {
+                                    wrong++;
+                                    c.note(name + ": click not taken, the server's view: " + e);
+                                }
                             }
                             int cap = lagCap + (ss ? 4 : 0);
                             c.note(name + ": " + ticks + " ticks, rows taken " + lags + " ticks after the pane arrived (cap "
