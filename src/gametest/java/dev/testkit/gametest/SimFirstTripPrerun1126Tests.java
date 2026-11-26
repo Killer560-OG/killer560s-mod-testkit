@@ -19,9 +19,11 @@ import java.util.Locale;
 /**
  * autopilot-prerun-1126 (WORKQUEUE autopilot-first-trip-prerun; his 11-25 16:55:22 F7 run: Mort's line, the Autopilot's
  * first trip pressed that tick, then 448 ms queued behind the room order search and 707 ms searching, so the first warp
- * went about 7 ticks after the gate was air). Dungeons Autopilot switched on in the green room plans its first trip there,
- * through the shut gate, and holds it; at the start that plan is taken (the layout unchanged) and the warp goes the tick
- * the gate is air.
+ * went about 7 ticks after the gate was air). On the start's own tick the map is in hand while the gate's bricks still
+ * stand; the first trip was planned in that shut world, found nothing and was searched again (origin: 11 ticks after the
+ * gate was air). Now those bricks are the gate: the trip is planned through it at the start, held while the barriers
+ * stand, and the warp goes as the gate opens. (Planning it before the start was tried and dropped: the Autopilot's first
+ * goal is Auto Clear's stand, which the trip cache does not plan, and the start's own plan takes milliseconds.)
  *
  * <p>The sim drops its gate at GO; this case plays Hypixel's part as 1126-sim-ac-gatebarrier does: from the server tick
  * the run starts the gate's blocks are BARRIERS for 15 ticks, then air. Seeded floor (SimGreenStart1122Tests'), Warp to
@@ -32,8 +34,9 @@ import java.util.Locale;
  * </ul>
  * Pass: the barrier window was clean (no air glimpsed early), no use_item while the barriers stand, the first use_item
  * goes the sampled tick the client sees the gate air or the next (the harness floor: a trip held on the gate measures 1
- * in 1126-sim-ac-gatebarrier), and the feature acted: a first trip planned before GO (DungeonsAutopilot.prerunPlanned) was
- * the one taken (prerunUsed). On a legit jar each row passes by checking Dungeons Autopilot refuses to switch on.
+ * in 1126-sim-ac-gatebarrier), and the feature acted: the first trip was planned and held on the gate
+ * (ClearExecutor.waitingForGate) before the gate was air. On a legit jar each row passes by checking Dungeons Autopilot
+ * refuses to switch on.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimFirstTripPrerun1126Tests implements FabricClientGameTest {
@@ -41,6 +44,7 @@ public class SimFirstTripPrerun1126Tests implements FabricClientGameTest {
     private static final String NONE_CASE = "1126-sim-ac-firsttrip-prerun";
     private static final String DOOR_CASE = "1126-sim-ac-firsttrip-prerun-door";
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
+    private static final String EXECUTOR = "com.killer560.hub.livemap.autoclear.ClearExecutor";
     private static final String PILOT = "com.killer560.hub.autosecret.DungeonsAutopilot";
     private static final String AS_CONFIG = "com.killer560.hub.autosecret.AutoSecretConfig";
     private static final String AUTO_CLEAR = "com.killer560.hub.autoclear.AutoClearFeature";
@@ -158,14 +162,6 @@ public class SimFirstTripPrerun1126Tests implements FabricClientGameTest {
         return new boolean[]{allBarrier, allAir};
     }
 
-    private static Object hook(Minecraft mc, String name) {
-        try {
-            return Class.forName(PILOT).getMethod(name).invoke(null);
-        } catch (ReflectiveOperationException e) {
-            return "missing";
-        }
-    }
-
     private static void run(ClientGameTestContext ctx, String name, String bloodRush, boolean disableAfter,
                             List<String> failed) {
         List<String> f = new ArrayList<>();
@@ -218,8 +214,6 @@ public class SimFirstTripPrerun1126Tests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true}));
         // Armed in the green room: what it plans before the start (once; the countdown is held).
         ctx.waitTicks(100);
-        Object plannedBefore = ctx.computeOnClient(mc -> hook(mc, "prerunPlanned"));
-        Object noteBefore = ctx.computeOnClient(mc -> hook(mc, "prerunNote"));
         boolean stillShut = ctx.computeOnClient(mc -> !(Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning"));
         int[] uses = {0};
         ctx.runOnClient(mc -> PacketTrace.tap = p -> {
@@ -237,6 +231,7 @@ public class SimFirstTripPrerun1126Tests implements FabricClientGameTest {
         int airTick = -1;
         int firstUse = -1;
         int usesInBarrier = 0;
+        boolean heldBeforeAir = false;
         for (int t = 1; t <= 600 && (firstUse < 0 || airTick < 0); t++) {
             ctx.waitTick();
             final int tt = t;
@@ -255,6 +250,9 @@ public class SimFirstTripPrerun1126Tests implements FabricClientGameTest {
                 }
                 airTick = tt;
             }
+            if (goTick > 0 && airTick < 0 && !heldBeforeAir) {
+                heldBeforeAir = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "waitingForGate"));
+            }
             int u = ctx.computeOnClient(mc -> uses[0]);
             if (goTick > 0 && firstUse < 0 && u > usesBeforeGo) {
                 firstUse = tt;
@@ -263,22 +261,18 @@ public class SimFirstTripPrerun1126Tests implements FabricClientGameTest {
                 }
             }
         }
-        Object planned = ctx.computeOnClient(mc -> hook(mc, "prerunPlanned"));
-        Object used = ctx.computeOnClient(mc -> hook(mc, "prerunUsed"));
-        Object why = ctx.computeOnClient(mc -> hook(mc, "prerunNote"));
         int lag = firstUse < 0 || airTick < 0 ? -99 : firstUse - airTick;
-        String d = String.format(Locale.US, "before GO (armed 100 ticks, run held %s): planned %s (%s); GO at tick %d, barriers seen"
+        String d = String.format(Locale.US, "armed 100 ticks, run held %s; GO at tick %d, barriers seen"
                         + " %d tick(s)%s, gate air at tick %d, first use_item at tick %d (%d tick(s) after the gate was air, %d"
-                        + " after GO), %d use_item(s) while the barriers stood; prerun planned %s, used %s (%s)", stillShut,
-                plannedBefore, noteBefore, goTick, barrierTicks, earlyAir ? " (air glimpsed before them)" : "", airTick, firstUse, lag,
-                firstUse < 0 || goTick < 0 ? -99 : firstUse - goTick, usesInBarrier, planned, used, why);
+                        + " after GO), %d use_item(s) while the barriers stood; trip held on the gate before air %s", stillShut,
+                goTick, barrierTicks, earlyAir ? " (air glimpsed before them)" : "", airTick, firstUse, lag,
+                firstUse < 0 || goTick < 0 ? -99 : firstUse - goTick, usesInBarrier, heldBeforeAir);
         f.add(stillShut ? null : "premise: the run started before the case let it");
         f.add(goTick > 0 ? null : "premise: the run never started");
         f.add(!earlyAir && barrierTicks >= BARRIER_TICKS - 3 ? null : "premise: the barrier window was not clean");
         f.add(usesInBarrier == 0 ? null : usesInBarrier + " use_item(s) while the barriers stood");
         f.add(lag >= 0 && lag <= 1 ? null : "first use_item " + lag + " tick(s) after the gate was air (want 0-1)");
-        f.add(Boolean.TRUE.equals(plannedBefore) ? null : "no first trip planned before GO (" + plannedBefore + ")");
-        f.add(Boolean.TRUE.equals(used) ? null : "the plan made before GO was not the trip taken (" + used + ")");
+        f.add(heldBeforeAir ? null : "the first trip was not planned and held on the gate before it opened");
         return d;
     }
 }
