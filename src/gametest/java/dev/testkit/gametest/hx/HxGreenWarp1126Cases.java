@@ -117,7 +117,10 @@ final class HxGreenWarp1126Cases {
             return;
         }
         SameTick.Act act = switch (a) {
-            case "use" -> SameTick.Act.USE;
+            // His real right click: pressed between ticks, so START sees it queued (the mod holds its item swap for it)
+            // and it goes as vanilla's startUseItem with his own item. Act.USE's bare use_item from nowhere after the
+            // swap is no click a player sends (greenroom-fix-1126).
+            case "use" -> SameTick.Act.USE_CLICK;
             case "attack" -> SameTick.Act.ATTACK;
             case "swap" -> SameTick.Act.SWAP;
             case "click" -> SameTick.Act.SCREEN_CLICK;
