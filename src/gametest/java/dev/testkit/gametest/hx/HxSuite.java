@@ -236,9 +236,12 @@ public class HxSuite implements FabricClientGameTest {
                     HxMineshaft1114Cases.register(s);
                     // Hide Ghost Mobs: a silent starred mob in a map-cleared room is hidden, idle, unstarred or later-heard ones never (1109-ghostmob-hide, 1118-ghostmob-*, mod ghostmob-redo-1118).
                     HxGhostMob1109Cases.register(s);
+                    // mod highlight-random-mobs-1125: a starred tag never moves to a plain mob beside it (1125-esp-starred-*).
+                    HxStarredMatch1125Cases.register(s);
                     HxArrowParticles1117Cases.register(s);
                     // mod invisibug-1122: Invisibug Highlight.
                     HxInvisibug1122Cases.register(s);
+                    HxInvisibug1125Cases.register(s); // 1125-invisibug-* (invibug-tracer-1125)
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);
                     // mod featG-1109: Carry Tracker.

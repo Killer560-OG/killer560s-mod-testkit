@@ -187,6 +187,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "1115-acslow-blocked", "1115-acslow-gone",
             // arholds-1123: a held hop's replan flies the floor graph's plan with no exact proof first
             "1123-arholds-graphfirst",
+            // arstuck-1125: a warp held after both replans gave up lets a fresh movement key take over and a left click send it
+            "1125-arstuck-hold",
             // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
             "1115-acslow2-await"};
 
@@ -402,6 +404,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
                         case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
                         case "1123-arholds-graphfirst" -> ArRangeCases.graphFirst(ctx);
+                        case "1125-arstuck-hold" -> ArNodesCases.stuckHold(ctx);
                         case "1115-acslow2-await" -> ArMainServerCases.acslow2AwaitNothing(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
@@ -7243,6 +7246,81 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         }
 
+        /**
+         * arstuck-1125 (killer560 2026-11-25: "my auto routes continuously get stuck ... freezing and it wont let me move").
+         * A warp held with no limit of its own kept the node acting: every fresh movement key was "overridden for its
+         * action" (26 s on his Pressure Plates #24, again on Slime #14 ETHERWARP), and his left click - the one the chat
+         * line asks for - went out as a dig because the AIM step's attack hand-back exempted only a missing landing block
+         * and a pick. 659's line: a start ew node (8,10) -> (16,10) with a stone at (12,F,10). Pass 1 and 2: a node from
+         * before placeEye, held by the aim check ("no look from here lands on"); pass 3: a placed node, held for the new
+         * block in its line. Pass 1: a fresh strafe stops the route and he moves. Passes 2 and 3: one left click sends the
+         * warp (one use_item, "Left click on node #1 ETHERWARP: released its wait") and is never handed to vanilla.
+         */
+        static void stuckHold(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            float yaw = relYawTo(8, 10, 16, 10);
+            float pitch = pitchTo(8, 10, 16, 10);
+            try {
+                setBlocks(ctx, Map.of(new int[]{12, F, 10}, Blocks.STONE.defaultBlockState()));
+                for (int pass = 1; pass <= 3; pass++) {
+                    resetRoutes(ctx);
+                    writeRoute(ctx, List.of(pass == 3 ? ewPlaced(8, 10, 16, 10) : ew(8, 10, 16, 10, true)));
+                    String why = pass == 3 ? "was not there when the node was placed" : "no look from here lands on";
+                    tpRel(ctx, 8.5, 6.5, yaw, pitch);
+                    ctx.waitTicks(5);
+                    long m = LogTap.mark();
+                    tpRel(ctx, 8.5, 10.5, yaw, pitch);
+                    ctx.waitTicks(40);
+                    boolean held = running(ctx) && logHas(m, why);
+                    println("arstuck pass " + pass + ": held (" + why + ") " + held + " at " + relPos(ctx));
+                    check(held, "pass " + pass + " premise: the warp was not held (" + why + ") - the freeze did not happen");
+                    long mk = LogTap.mark();
+                    if (pass == 1) {
+                        Vec3 before = relPos(ctx);
+                        ctx.getInput().holdKey(o -> o.keyLeft);
+                        ctx.waitTicks(10);
+                        ctx.getInput().releaseKey(o -> o.keyLeft);
+                        ctx.waitTicks(3);
+                        Vec3 after = relPos(ctx);
+                        double moved = Math.hypot(after.x - before.x, after.z - before.z);
+                        boolean on = running(ctx);
+                        long overridden = LogTap.since(mk).stream().filter(l -> l.contains("overridden for its action")).count();
+                        println(String.format(Locale.US, "arstuck pass 1: strafe moved %.2f, route running after %s, "
+                                + "overridden lines %d", moved, on, overridden));
+                        check(!on && logHas(mk, "you moved"), "a fresh movement key did not end the held warp (it was "
+                                + "overridden - he could not move)");
+                        check(moved >= 0.5, String.format(Locale.US, "he moved only %.2f block(s) strafing 10 ticks while "
+                                + "the warp was held", moved));
+                    } else {
+                        startSampling(ctx);
+                        leftClick(ctx, 2);
+                        ctx.waitTicks(8);
+                        List<Sample> s = stopSampling(ctx);
+                        println("arstuck pass " + pass + ": use_item after the left click " + countOut(s, "use_item")
+                                + ", player_action " + countOut(s, "player_action") + ", released "
+                                + logHas(mk, "released its wait") + ", attack handed to vanilla "
+                                + logHas(mk, "your attack goes out this tick"));
+                        check(logHas(mk, "Left click on node #1 ETHERWARP: released its wait"), "pass " + pass
+                                + ": his left click did not release the held warp (the chat line says it sends it)");
+                        check(countOut(s, "use_item") == 1, "pass " + pass + ": " + countOut(s, "use_item")
+                                + " use_item after his left click on the held warp, expected 1");
+                        check(countOut(s, "player_action") == 0 && !logHas(mk, "your attack goes out this tick"), "pass "
+                                + pass + ": his left click went to vanilla as an attack instead of sending the held warp");
+                        stopRoute(ctx);
+                    }
+                }
+            } finally {
+                setBlocks(ctx, Map.of(new int[]{12, F, 10}, Blocks.AIR.defaultBlockState()));
+                stopRoute(ctx);
+            }
+        }
+
         private static JsonObject ewPlaced(int fx, int fz, int tx, int tz) {
             JsonObject o = ew(fx, fz, tx, tz, true);
             o.addProperty("placeEye", String.format(Locale.US, "%.3f %.3f %.3f", fx + 0.5, F + 1.27, fz + 0.5));
@@ -9183,10 +9261,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 // A warp goes no sooner than RouteExecutor.CLICK_TO_WARP_TICKS after a block click made with the same item
                 // (mod c81e0cf0, 2026-10-19: 2; arwrong-1118: 3). On Hypixel 45 of 69 warps one tick after such a click got
                 // no teleport, and his 2026-11-18 routes had 15 of 74 refused two ticks after, 30 of 30 landing at three.
-                // So the third tick end after the click is the first one Hypixel reliably takes: sooner is the refusal, later a wasted
-                // tick. The click leaves a tick before the node fires, so that is 2 ticks after firing (origin's gap of 2: 1).
-                check(same.actedAfterFiring() == 2, "the warp after the lever click went " + same.actedAfterFiring()
-                        + " tick(s) after firing - it must go on the click-gap's tick (2 after firing, 3 after the click)");
+                // So the third tick end after the click is the first one Hypixel reliably takes: sooner is the refusal. The click
+                // leaves a tick before the node fires, so the click gap alone is 2 ticks after firing. But the warp's sneak goes
+                // out IN the firing tick (a sneaking player cannot click his secret), and a warp cast within 2 ticks of its sneak
+                // needs a look that lands from both eyes or waits one tick (mod 814beef0a, standeye-ar-1123: Hypixel cast such
+                // warps from the standing eye and landed a block or two past). This 8-block warp has no such look, so the
+                // first send is 3 after firing; 2 would be the standing-eye cast, 4 or later a wasted tick (arwarpclick-1125).
+                check(same.actedAfterFiring() == 3,
+                        "the warp after the lever click went " + same.actedAfterFiring()
+                        + " tick(s) after firing - it must go on the first tick both the click gap and the sneak age allow (3 after firing)");
                 check(item.acted() && item.dropped() == 0 && item.landTick() >= 0 && !item.turnedFirst(),
                         "the warp after an item pickup did not go and land at once (landed " + item.landTick()
                                 + ", ignored " + item.dropped() + ", turned first " + item.turnedFirst() + ")");

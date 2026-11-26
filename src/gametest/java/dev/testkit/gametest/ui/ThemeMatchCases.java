@@ -63,7 +63,7 @@ final class ThemeMatchCases {
         // and the Profile Viewer's Amber start values (syncTheme replaces them every frame) and its fixed dark tooltip.
         allow("theme definitions", "gui.MenuStyle", 9, "gui.MenuTheme", 2, "gui.PanelTheme", 5, "livemap.MapThemes", 2,
                 "bazaar.BazaarTheme", 3, "auction.ah.AhTheme", 1, "mainmenu.MenuChrome", 6, "mainmenu.MenuWidgets", 4,
-                "inventorytheme.InventoryThemeConfig", 1, "profileviewer.screen.ProfileViewerScreen", 8,
+                "inventorytheme.InventoryThemeConfig", 1, "profileviewer.screen.ProfileViewerScreen", 11,
                 "profileviewer.ProfileViewerConfig", 1); // the /pv Styles' palettes (NEU Classic is NEU's own gold)
         // Stored as the amber constant, mapped onto the theme where it is drawn (ProfitPanels.themed,
         // ChestProfitFeature.themed).
@@ -99,7 +99,8 @@ final class ThemeMatchCases {
         allow("waypoint default, mapped at draw", "gui.tab.CrystalHollowsMapTab", 2, "mining.chmap.ChMapRenderer", 1,
                 "mining.chmap.ChWaypointRender", 1);
         // A color that means something: rarity / Minecraft gold, a zone, a dragon or relic, a state, a warning mark.
-        allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 13,
+        allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 13, "profileviewer.screen.PvStyleChrome", 1,
+                "profileviewer.screen.SbpvPages", 2,
                 "util.ChatColors", 1, "slottext.SlotTextFeature", 3, "miningqol.CrystalHollowsWalls", 1,
                 "witherdragons.KingRelic", 1, "witherdragons.WitherDragon", 1, "blessings.Blessing", 1,
                 "chocolatefactory.egg.EggEsp", 1, "chocolatefactory.ChocolateFactoryHelper", 1, "bridge.BridgeStatus", 3,

@@ -96,6 +96,8 @@ final class HxBloodCampCases {
         s.test("1101-bloodcamp-stats", HxBloodCampCases::stats);
         s.test("1123-bloodcamp-nonmage-stats", HxBloodCampCases::nonMageStats);
         s.test("1102-bloodcamp-watcher-bar", HxBloodCampCases::watcherBar);
+        s.test("1125-bloodcamp-watcher-bar-rounded", HxBloodCampCases::watcherBarRounded);
+        s.test("1125-bloodcamp-nevermiss-ping", HxBloodCampCases::neverMissPing);
         s.test("1102-bloodcamp-npc-deaths", HxBloodCampCases::npcDeaths);
         s.test("1102-bloodcamp-hud-boss", HxBloodCampCases::hudBoss);
         // bloodcamp2-1102 (owner's F7 camp 2026-11-02): a missed wall spawn, slow Trigger Bot clicks, a Watchful Eye drawn.
@@ -137,6 +139,18 @@ final class HxBloodCampCases {
         for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
                 dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK}) {
             s.test("1109-same-bloodcamp-" + a.name().toLowerCase(Locale.ROOT), c -> sameTickOutside(c, a, 0));
+        }
+        // bloodcamp-count-2tick-1125: the Trigger Bot on Never Miss (his setting, whose miss retry now goes at the weapon's pace).
+        for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK}) {
+            s.test("1125-same-bloodcamp-nevermiss-" + a.name().toLowerCase(Locale.ROOT), c -> {
+                sameNeverMiss = true;
+                try {
+                    sameTickOutside(c, a, 0);
+                } finally {
+                    sameNeverMiss = false;
+                }
+            });
         }
         // bloodaura-rotate-1118: the Aura's two modes at their fastest, with his own action (or a teleport accept) in the tick of its hit.
         for (int who = 1; who <= 2; who++) {
@@ -2477,8 +2491,12 @@ final class HxBloodCampCases {
             c.server().command("bossbar set " + WATCHER_BAR + " players @a");
             c.server().command("bossbar set " + WATCHER_BAR + " max 16");
             c.server().command("bossbar set " + WATCHER_BAR + " value 16");
-            c.waitUntil("the client shows the Watcher's bar", mc -> "16".equals(Mod.staticCall(BC_STATS, "mobsLeftForTest")), 60);
-            StringBuilder walk = new StringBuilder("16");
+            // Before any step the floor's default is shown: 15 on F7 since bcmobs-1125 (his real F7 camps are 15).
+            c.waitUntil("the client shows the Watcher's bar", mc -> Mod.staticCall(BC_STATS, "watcherBarForTest") != null, 60);
+            c.ctx().waitTicks(4);
+            String full16 = mobsLeftLine(c);
+            c.check("15".equals(full16), "a full F7 bar before any step read " + full16 + ", want the default 15");
+            StringBuilder walk = new StringBuilder(String.valueOf(full16));
             for (int k = 15; k >= 0; k--) {
                 List<String> seen = new ArrayList<>();
                 String got = barWalk(c, k, 16, seen);
@@ -2516,6 +2534,56 @@ final class HxBloodCampCases {
             c.check(size15 == 15, "a bar stepping in fifteenths calibrated to " + size15 + ", want 15");
             c.check("14".equals(at14) && "2".equals(at2) && "1".equals(at1), "a camp of 15 read 14 -> " + at14 + ", 2 -> "
                     + at2 + ", 1 -> " + at1);
+        } finally {
+            c.server().command("bossbar remove " + WATCHER_BAR);
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * killer560, 2026-11-25: "for mob tracker it isnt the right number quite often". Hypixel sends the Watcher's bar rounded
+     * to two decimals: his 55 real F7 camps read 0.93, 0.87, 0.8, 0.73, 0.67 ... 0.07 (k of 15), and the HUD read 16 at
+     * the start, 11 at 0.67 (10 left), 5 at 0.27 (4), 8 at 0.47 (7) after fitting the camp to 17. Here the bar is driven
+     * exactly that way (value round(100 k / 15) of max 100) through a whole camp, and Mobs Left must read k at every step
+     * and calibrate the camp to 15; mid-ease readings may read the higher count, never lower.
+     */
+    private static void watcherBarRounded(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "HudMobsLeft", true)
+                    .custom(() -> Mod.staticCall(BC_STATS, "setWatcherBarFloorForTest", "F7"),
+                            () -> Mod.staticCall(BC_STATS, "setWatcherBarFloorForTest", ""));
+            c.server().command("bossbar remove " + WATCHER_BAR);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            greet(c);
+            c.server().command("bossbar add " + WATCHER_BAR + " \"The Watcher\"");
+            c.server().command("bossbar set " + WATCHER_BAR + " color red");
+            c.server().command("bossbar set " + WATCHER_BAR + " players @a");
+            String full = barAt(c, 100, 100);
+            c.note("full bar before any step: Mobs Left " + full);
+            c.check("15".equals(full), "a full F7 bar before any kill read " + full + ", want 15 (his F7 camps are 15)");
+            StringBuilder walk = new StringBuilder(String.valueOf(full));
+            int wrong = 0;
+            for (int k = 14; k >= 0; k--) {
+                int v = Math.round(100f * k / 15f);
+                List<String> seen = new ArrayList<>();
+                String got = barWalk(c, v, 100, seen);
+                int kk = k;
+                List<String> low = seen.stream().filter(x -> x != null && !"?".equals(x) && Integer.parseInt(x) < kk).toList();
+                c.check(low.isEmpty(), "on the way to " + k + " of 15 (bar " + String.format(Locale.ROOT, "%.2f", v / 100.0) + ") Mobs Left read low: " + seen);
+                walk.append(' ').append(v).append('=').append(got);
+                if (!Integer.toString(k).equals(got)) {
+                    wrong++;
+                    c.check(false, "Mobs Left read " + got + " with the bar at " + String.format(Locale.ROOT, "%.2f", v / 100.0) + " (" + k + " of 15 left)");
+                }
+            }
+            int size = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "watcherBarSizeForTest"));
+            c.note("rounded F7 camp of 15: " + walk + "; calibrated size " + size + "; wrong steps " + wrong);
+            c.check(size == 15, "the rounded bar calibrated the camp to " + size + ", want 15");
         } finally {
             c.server().command("bossbar remove " + WATCHER_BAR);
             c.onClient(mc -> {
@@ -4194,6 +4262,104 @@ final class HxBloodCampCases {
         }
     }
 
+    /**
+     * killer560, 2026-11-25: "our camp should be 2 ticking on the cant miss setting but it is sometimes doing more than 1
+     * tick." In his 55 F7 camps the Trigger Bot clicked 98% of free mobs on the tick they appeared and most died 1-2 ticks
+     * past the round trip; the slow ones that were the mod's own were the clicks that showed no hit: the retry waited a round
+     * trip + 4 ticks (7 at 80 ms) where his weapon allowed 5. With Never Miss ON, Attack Speed 100 (5-tick cooldown) and
+     * +50, +100 and +150 ms on the wire: a blood mob that dies to one hit is clicked the tick it is tagged with the attack
+     * sent that tick, and one that takes no damage (every click a miss) is clicked again at max(cooldown, round trip + 2)
+     * ticks, never later (one tick of slack for the server's clock).
+     */
+    private static void neverMissPing(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: no Trigger Bot");
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            clearDecoys(c);
+            watcher(c, WATCHER_IN);
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
+            setNeverMiss(c, true, 1);
+            stand(c, 0f, 0f);
+            atkTab(c, 100);
+            double[] at = {-421.0, -417.5};
+            int n = 0;
+            for (int lag : new int[]{50, 100, 150}) {
+                c.onClient(mc -> {
+                    dev.testkit.harness.Latency.install(lag);
+                    return null;
+                });
+                c.waitUntil("the automation ping follows +" + lag + " ms",
+                        mc -> (Integer) Mod.staticCall("util.PingTracker", "automationMs") >= lag * 9 / 10, 600);
+                int ping = c.onClient(mc -> (Integer) Mod.staticCall("util.PingTracker", "automationMs"));
+                int rtt = (int) Math.ceil(ping / 50.0);
+                // A mob that dies to one hit.
+                aimAt(c, at);
+                waitCooldownOver(c);
+                String one = "nmp1x" + n;
+                long[] fc0 = firstClick(c);
+                long[] fc;
+                boolean sent;
+                long since = c.hx().head();
+                try (AttackSends sends = new AttackSends(c)) {
+                    c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,"
+                            + "NoGravity:1b,Silent:1b,PersistenceRequired:1b,Health:1f,CustomName:\"%s\"}", at[0], at[1], one));
+                    c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],"
+                            + "Invisible:1b,NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"Revoker 1M❤\"}", at[0], at[1]));
+                    c.ctx().waitTicks(15 + 2 * rtt);
+                    fc = firstClick(c);
+                    sent = sends.sentOn(fc[1]);
+                }
+                long hits = namedAttacks(c, since, one);
+                c.note("+" + lag + " ms (automation ping " + ping + "): one-hit mob first click tick " + fc[1] + ", tagged "
+                        + fc[2] + ", attack sent that tick " + sent + ", server attacks " + hits);
+                c.check(fc[1] != fc0[1] && hits >= 1, "+" + lag + " ms: the one-hit blood mob was never clicked");
+                c.check(fc[1] == fc[2], "+" + lag + " ms: first click tick " + fc[1] + ", tagged " + fc[2]
+                        + " - want the tick it was tagged");
+                c.check(sent, "+" + lag + " ms: no attack packet left the client on its click tick " + fc[1]);
+                clearDecoys(c);
+                // A mob that takes no damage: every click is a miss, retried at the weapon's pace.
+                waitCooldownOver(c);
+                String miss = "nmp2x" + n;
+                long since2 = c.hx().head();
+                c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,"
+                        + "NoGravity:1b,Silent:1b,PersistenceRequired:1b,Invulnerable:1b,Health:20f,CustomName:\"%s\"}",
+                        at[0], at[1], miss));
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],"
+                        + "Invisible:1b,NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"Revoker 1M❤\"}", at[0], at[1]));
+                c.ctx().waitTicks(45);
+                int cd = c.onClient(mc -> (Integer) Mod.staticCall(BC, "lastCooldownTicks"));
+                List<Long> ticks = new ArrayList<>();
+                for (JsonObject e : c.hx().events(since2, "attack_entity")) {
+                    if (e.has("name") && e.get("name").getAsString().equals(miss)) {
+                        ticks.add(e.get("tick").getAsLong());
+                    }
+                }
+                List<Long> g = gaps(ticks);
+                int bound = Math.max(cd, rtt + 3) + 1;
+                c.note("+" + lag + " ms: missed mob attacked at server ticks " + ticks + ", gaps " + g + " (cooldown " + cd
+                        + ", bound " + bound + ")");
+                c.check(cd == 5, "+" + lag + " ms: Attack Speed 100 gave a cooldown of " + cd + " ticks, want 5 - nothing tested");
+                c.check(ticks.size() >= 3, "+" + lag + " ms: a mob every click missed was attacked only " + ticks.size()
+                        + " time(s) in 45 ticks");
+                c.check(g.stream().allMatch(x -> x <= bound), "+" + lag + " ms: a retry after a miss came later than "
+                        + bound + " ticks (cooldown " + cd + ", round trip " + rtt + "): gaps " + g);
+                c.check(g.stream().allMatch(x -> x >= cd - 1), "+" + lag + " ms: retries came faster than the weapon allows: " + g);
+                clearDecoys(c);
+                n++;
+            }
+        } finally {
+            c.onClient(mc -> {
+                dev.testkit.harness.Latency.remove();
+                return null;
+            });
+            atkTab(c, null);
+            clearDecoys(c);
+            c.hx().removeStands();
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private static List<String> autoBloodCampLabels(Minecraft mc) {
         try {
@@ -4303,6 +4469,9 @@ final class HxBloodCampCases {
         }
     }
 
+    /** The 1125-same-bloodcamp-nevermiss cases: the Trigger Bot run of {@link #sameTickOutside} with Never Miss on. */
+    private static boolean sameNeverMiss;
+
     private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act, int who) {
         sameTickOutside(c, act, who, 0);
     }
@@ -4321,6 +4490,9 @@ final class HxBloodCampCases {
             // aura ones at their fastest: Never Miss, 100 Attack Speed, the between-hits clicks on).
             if (who == 0) {
                 s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "WorkOutside", true);
+                if (sameNeverMiss) {
+                    s.with(BC_CFG, "NeverMiss", true);
+                }
             } else {
                 s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", who == 1).with(BC_CFG, "AuraLookSpeed", 10)
                         .with(BC_CFG, "NeverMiss", true).with(BC_CFG, "WorkOutside", mode == 0).with(BC_CFG, "MoveAround", mode != 0)
