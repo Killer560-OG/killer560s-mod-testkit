@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T17:10:05",
- "modSource": "lane-melody-edges-missed-1126d",
- "modGitSha": "dbd0b4de93cf282ed21a17ffabf548797bb0c67e",
+ "generatedAt": "2026-11-26T17:31:55",
+ "modSource": "lane-beams-hold-loop-1126",
+ "modGitSha": "3342a82ede620ed43a3eea866137fcabb888a038",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
