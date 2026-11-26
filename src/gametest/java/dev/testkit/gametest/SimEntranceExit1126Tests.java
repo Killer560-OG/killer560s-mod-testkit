@@ -60,14 +60,18 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
         }
         ModUnderTest.require("killer560smod");
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
-            boolean absent;
-            try {
-                Class.forName(PILOT);
-                absent = false;
-            } catch (ClassNotFoundException e) {
-                absent = true;
-            }
-            finish(CASE, absent ? null : "legit jar carries Dungeons Autopilot", "legit jar: Dungeons Autopilot absent " + absent);
+            // Legit jar: Dungeons Autopilot refuses to switch on (or is not there at all).
+            boolean on = ctx.computeOnClient(mc -> {
+                try {
+                    ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true});
+                    boolean now = (Boolean) ModUnderTest.staticCall(PILOT, "isOn");
+                    ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{false});
+                    return now;
+                } catch (Throwable t) {
+                    return false;
+                }
+            });
+            finish(CASE, on ? "Dungeons Autopilot switched on in a legit jar" : null, "legit jar: Dungeons Autopilot stays off");
             return;
         }
         LogTap.install();
