@@ -298,7 +298,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // its legit refusal first (a PASS row on both builds), then the chains spending its bank after standing 1, 5 and
             // 30 s, his actions in the split tick, and his actions in the tick Auto Charge starts and the tick it ends.
             // A legit jar gives every one of them a PASS row of its own: Auto Charge there charges nothing (cheatOr).
-            s.test("62-argrim-1126-autocharge-off", GrimAutoRoutesTests::caseAutoChargeOff);
+            s.test("62-argrim-1126-autocharge-off-legit-absent", GrimAutoRoutesTests::caseAutoChargeOff); // runs on legit too (Scenario.legitSkip)
             for (int sec : new int[]{1, 5, 30}) {
                 s.test("62-argrim-1126-autocharge-map-" + sec + "s", c -> cheatOr(c, () -> withAutoCharge(ctxOf(c), sec * 20,
                         () -> caseMapChain(c, true, null, true))));
@@ -3334,7 +3334,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
-     * 62-argrim-1126-autocharge-off: a fresh config has Auto Charge OFF (killer560 2026-11-26: "do not default on"), and with
+     * 62-argrim-1126-autocharge-off-legit-absent: a fresh config has Auto Charge OFF (killer560 2026-11-26: "do not default on"), and with
      * it off (or on a legit jar, with it on) Multi Warps, Tick Split and Blink on in a dungeon start no charge - today's
      * behavior. On a cheat jar switching it on then does start one (the switch acts).
      */
