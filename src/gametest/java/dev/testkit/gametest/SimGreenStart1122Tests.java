@@ -681,6 +681,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         f.add(replans >= 1 ? null : "no re-plan logged after the server moved him back");
         f.add("arrived".equals(result) ? null : "the walk ended \"" + result + "\" instead of arriving");
         f.add(atDoor <= 5.5 ? null : String.format(Locale.US, "stood %.1f from the door (want <= 5.5)", atDoor));
+        f.removeIf(java.util.Objects::isNull);
         return d;
     }
 
@@ -735,6 +736,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         f.add(!toTrap ? null : "it went back to the trap room " + trap + " for more secrets");
         f.add(noItem != null && !noItem ? null : "it went back to " + other + " while its route's item is still missing");
         f.add(hasItem != null && hasItem ? null : "it did not go back to " + other + " once the item is in the hotbar");
+        f.removeIf(java.util.Objects::isNull);
         return d;
     }
 
