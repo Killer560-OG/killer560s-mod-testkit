@@ -166,7 +166,9 @@ final class MenuLayoutCases {
             // Accessory Advisor (mod accadvisor-1113, killer560 2026-11-13): Items card, legit in both builds, OFF.
             "gui.tab.AccessoryAdvisorTab",
             // Chest Value (mod chestvalue-1119): Items card, legit in both builds, OFF.
-            "gui.tab.ChestValueTab");
+            "gui.tab.ChestValueTab",
+            // Craft Cost (mod craftcost-hud-1126): Items card, legit in both builds, OFF.
+            "gui.tab.CraftCostTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
