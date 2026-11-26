@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T13:33:12",
- "modSource": "lane-score-puzzle-chatdone-1126c",
- "modGitSha": "f5d50f9b9961de6e401bdafcfc289920927ee3b1",
+ "generatedAt": "2026-11-26T13:29:06",
+ "modSource": "lane-pathfind-bench-1126",
+ "modGitSha": "93a9fac4da958739899a9d457dab73efdb45a7b9",
  "modSourceDirty": false,
- "count": 999,
+ "count": 997,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 879,
+  "field": 877,
   "local": 46
  },
  "unresolved": 161,
@@ -10920,30 +10920,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^PUZZLE SOLVED! (?:\\\\[[^\\\\]]{1,20}\\\\] )?[A-Za-z0-9_]{1,16} ([^!]{1,80})! Good job!$\""
-  },
-  {
-   "id": "scorecalc.ScoreCalculatorFeature#TTT_WORD",
-   "cls": "scorecalc.ScoreCalculatorFeature",
-   "field": "TTT_WORD",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
-   "line": 164,
-   "regex": "\\bttt\\b",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"\\\\bttt\\\\b\""
-  },
-  {
-   "id": "scorecalc.ScoreCalculatorFeature#BLAZE_DONE_WORD",
-   "cls": "scorecalc.ScoreCalculatorFeature",
-   "field": "BLAZE_DONE_WORD",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
-   "line": 165,
-   "regex": "solved|done|complete|finished",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"solved|done|complete|finished\""
   },
   {
    "id": "secrets.DungeonRun#SERVER",
