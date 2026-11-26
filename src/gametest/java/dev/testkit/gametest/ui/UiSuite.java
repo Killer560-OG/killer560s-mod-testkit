@@ -833,6 +833,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1114-ui-accadv-mode", AccAdvisor1114Cases::mode);
                     UiCase.run(ctx, "1114-ui-accadv-copy", AccAdvisor1114Cases::copy);
                     UiCase.run(ctx, "1126-ui-craftcost", CraftCost1126Cases::craftCost);
+                    UiCase.run(ctx, "1126-ui-screenshot-edit", ScreenshotEdit1126Cases::edit);
                     UiCase.run(ctx, "1119-ui-chestvalue", ChestValue1119Cases::chestValue);
                     UiCase.run(ctx, "1125-ui-chestvalue-scroll", ChestValue1119Cases::scroll);
                     UiCase.run(ctx, "1125-ui-chestvalue-minion", ChestValue1119Cases::minion);
