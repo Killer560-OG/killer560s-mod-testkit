@@ -20,8 +20,8 @@ import java.util.List;
  * <ul>
  *   <li>1126-menu-term-ss-human-*, one per order-free type and Numbers: 8 boards. Every board solved with no wrong click
  *       and the clicks on the wire (the hand acted); never two clicks in one wire tick; gaps between clicks on different
- *       slots (client send times) never under 100 ms and their minimum at least 0.6 of their median (11-25 logs: 48 ms
- *       against ~125, 0.38); a Rubix pane's repeat click never under 95 ms; the first click never before the First Click
+ *       slots (client send times) never under 100 ms, their p10 at least 0.7 and their minimum at least 0.5 of their median
+ *       (his 0.87 and 0.87; 11-25 logs: 48 ms against ~125); a Rubix pane's repeat click never under 95 ms; the first click never before the First Click
  *       Delay and spread over at least 60 ms across the boards (11-25 logs: every first click within 2 ms of the delay);
  *       the first click 1.2 to 6 typical gaps after the open (his 1.2-3.4). Legit: Auto Terminals sends nothing.</li>
  *   <li>1126-same-ss-human: SAME-TICK GRIM CASE with Stream Safe on: in every client tick his container click (END_CLIENT_TICK),
@@ -177,7 +177,9 @@ final class TermSsHuman1126Cases {
         c.check(maxWirePerTick <= 1, maxWirePerTick + " clicks of the hand in one wire tick");
         c.check(gaps.size() >= 5, "only " + gaps.size() + " gaps between different slots");
         c.check(gMin >= 100, "a gap of " + gMin + " ms between two slots (under 100 ms, faster than a hand)");
-        c.check(gMin >= 0.6 * gMed, "gaps reach down to " + gMin + " ms against a median of " + gMed
+        long gP10 = gs.isEmpty() ? 0 : gs.get(gs.size() / 10);
+        c.check(gP10 >= 0.7 * gMed, "gap p10 " + gP10 + " ms against a median of " + gMed + " (his own p10 was 0.87 of his median)");
+        c.check(gMin >= 0.5 * gMed, "gaps reach down to " + gMin + " ms against a median of " + gMed
                 + " (his own shortest was 0.87 of his median)");
         c.check(rMin < 0 || rMin >= 95, "a Rubix repeat click " + rMin + " ms after the one before");
         c.check(fMin >= FIRST_DELAY - 5, "a first click " + fMin + " ms after the open, before the First Click Delay");
