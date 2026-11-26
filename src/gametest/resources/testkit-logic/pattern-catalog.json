@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T18:48:13",
- "modSource": "lane-highlight-random-mobs-1125",
- "modGitSha": "0219e052c69f7641e17eb13601b94cedc68e9ce7",
+ "generatedAt": "2026-11-25T18:46:16",
+ "modSource": "lane-cmdfix-ax-sax-1125",
+ "modGitSha": "f53c1e16a42c8f8e7db63a2f79c22979929df50a",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {

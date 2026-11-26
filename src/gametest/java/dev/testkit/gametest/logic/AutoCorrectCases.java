@@ -174,4 +174,26 @@ final class AutoCorrectCases {
             cfgClass.getMethod("setCorrectCommands", boolean.class).invoke(cfg, was);
         }
     }
+
+    /** 1125-logic-cmdtypo-firstletter: /ax (Hypixel: "Unknown command ('ax')") goes out as /sax; a dropped first letter is fixed only when one name fits. */
+    @SuppressWarnings("unchecked")
+    static void droppedFirstLetter(LogicCase c) throws Exception {
+        Class<?> fixer = Mod.cls("autocorrect.CommandFixer");
+        Method fix = fixer.getMethod("fix", String.class, Set.class);
+        Set<String> base = (Set<String>) fixer.getMethod("baseCommands").invoke(null);
+        c.check("sax is a known command", base.contains("sax"), "base list");
+        Set<String> known = new LinkedHashSet<>(base);
+        known.addAll(List.of("kill", "tp", "gamemode", "give", "time", "weather", "help", "list", "me", "say"));
+        Method parse = Mod.cls("autocorrect.AutoCorrectFeature").getMethod("unknownCommandLine", String.class);
+        Object line = parse.invoke(null, "Unknown command. Type \"/help\" for help. ('ax')");
+        c.check("the reply quotes ax", "ax".equals(line), "got " + line);
+        c.check("the reply's line ax is sent again as sax", "sax".equals(fix.invoke(null, line, known)), "got " + fix.invoke(null, line, known));
+        String[][] lines = {{"ax", "sax"}, {"AX", "sax"}, {"ax x", "sax x"}, {"sax", "sax"}, {"ah", "ah"}, {"xq", "xq"}};
+        for (String[] l : lines) {
+            String got = (String) fix.invoke(null, l[0], known);
+            c.check("/" + l[0] + " goes out as /" + l[1], got.equals(l[1]), "got /" + got);
+        }
+        c.check("ax with two names ending in ax stays as typed", fix.invoke(null, "ax", Set.of("sax", "tax", "warp")).equals("ax"), "ambiguous");
+        c.check("ax with no matching name stays as typed", fix.invoke(null, "ax", Set.of("warp", "ah")).equals("ax"), "none");
+    }
 }
