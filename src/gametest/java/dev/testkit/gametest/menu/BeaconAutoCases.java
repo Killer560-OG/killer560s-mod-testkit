@@ -137,7 +137,7 @@ final class BeaconAutoCases {
         MenuSuite.test(s, "1125-menu-autotune-viii", c -> inStep(c, run(c, VIII, true, 4, null, 1400, 0, false), "VIII"));
         MenuSuite.test(s, "1125-menu-autotune-slowboost", c -> {
             // On the beacon pane's slot, 10 ticks behind it: the unpause there finishes (11-26), no lap and no Speed click.
-            Result r = run(c, phase("cyan", 1, 1, 10), true, 4, null, 600, 60, false);
+            Result r = run(c, phase("cyan", 1, 1, 10), true, 4, null, 600, 90, false);
             inStep(c, r, "slow 10 behind");
             c.check(r.btn().stream().noneMatch(k -> k[1] == 48), "a pane on a speed 1 beacon pane's slot was run at Speed 5 instead of paused and unpaused there");
             // A slot behind it: pausing waits 6 of its 55-tick steps, Speed 5 gets ahead of it in about 20 ticks.
