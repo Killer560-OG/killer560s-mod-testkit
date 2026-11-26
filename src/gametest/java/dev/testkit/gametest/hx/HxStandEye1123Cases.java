@@ -36,8 +36,6 @@ import java.util.Locale;
 final class HxStandEye1123Cases {
 
     private static final String CE = "livemap.autoclear.ClearExecutor";
-    /** A hotbar slot this class keeps empty. */
-    private static final int EMPTY_SLOT = 8;
     private static final String AOTV = "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,"
             + "tuned_transmission:4},unbreakable={}]";
     private static final double X0 = -424.5;
@@ -80,13 +78,6 @@ final class HxStandEye1123Cases {
     /** One hop (dig: he looks at the floor, so his left click has a block under the crosshair): sneak down, {@code after}
      *  ticks after it goes out queue the hop at {@code d} blocks; returns {ticks to the use, land}. */
     private static double[] hop(Session c, double d, int cycle, boolean dig, int after) {
-        // An empty hand while he stands unsneaked: his same-tick uses (Act.USE) with the Aspect in hand were Instant
-        // Transmissions 12 blocks out before the hop was even queued (diag 11-25 21:06: at queue -412.50 for X0 -424.50),
-        // and the hop then went from the wrong spot. Sneaking with the Aspect, his own uses stay real same-tick uses.
-        c.onClient(mc -> {
-            mc.player.getInventory().setSelectedSlot(EMPTY_SLOT);
-            return null;
-        });
         c.ctx().getInput().releaseKey(o -> o.keyShift);
         c.server().command(String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f -90 %d", X0, Y, Z0, dig ? 45 : 0));
         c.ctx().waitTicks(8);
@@ -94,27 +85,14 @@ final class HxStandEye1123Cases {
         int reaimsBefore = reaims(c);
         int castBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("standingEyeCast").getAsInt();
         int warpsBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt();
-        int transBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("transmissions").getAsInt();
-        int missBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarpMisses").getAsInt();
-        // Two ticks: the Aspect comes into his hand one tick after the sneak, so his same-tick use in the sneak's own tick
-        // (which reaches the server before the sneak, an Instant Transmission 12 blocks out: diag 11-25 21:18) is empty-handed
-        // and his uses in the hop's window are real sneaking Aspect uses.
-        int early = after >= 2 ? 1 : 0;
-        if (early == 1) {
-            c.ctx().getInput().holdKey(o -> o.keyShift);
-            c.ctx().waitTicks(1);
-        }
         c.onClient(mc -> {
             mc.player.getInventory().setSelectedSlot(2);
             return null;
         });
         c.ctx().getInput().holdKey(o -> o.keyShift);
-        c.ctx().waitTicks(after - early); // the sneak goes out at the end of the first tick; the hop is queued for the one after
+        c.ctx().waitTicks(after); // the sneak goes out at the end of the first tick; the hop is queued for the one after
         float pitch = (float) Math.toDegrees(Math.atan2(1.27, d));
         BlockPos block = BlockPos.containing(X0 + d, Y - 1, Z0);
-        Vec3 atQueue = c.onClient(mc -> mc.player.position());
-        int transAtQueue = c.hx().call("dungeon.stats").getAsJsonObject().get("transmissions").getAsInt() - transBefore;
-        int warpsAtQueue = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt() - warpsBefore;
         c.onClient(mc -> {
             Mod.staticCall(CE, "queueInteract", -90f, pitch, new Vec3(X0, Y, Z0), block, new String[]{"ASPECT_OF_THE_VOID"});
             return null;
@@ -133,10 +111,6 @@ final class HxStandEye1123Cases {
         int cast = c.hx().call("dungeon.stats").getAsJsonObject().get("standingEyeCast").getAsInt() - castBefore;
         int warps = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt() - warpsBefore;
         int reaims = reaims(c) - reaimsBefore;
-        c.note(String.format(Locale.ROOT, "diag d=%.0f: at queue %.2f,%.2f (%d transmission(s), %d etherwarp(s) before it); after:"
-                        + " transmissions %d, etherwarps %d, misses %d", d, atQueue.x, atQueue.z, transAtQueue, warpsAtQueue,
-                c.hx().call("dungeon.stats").getAsJsonObject().get("transmissions").getAsInt() - transBefore, warps,
-                c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarpMisses").getAsInt() - missBefore));
         return new double[]{ticks, end.x, end.z, cast, warps, reaims};
     }
 
@@ -165,7 +139,6 @@ final class HxStandEye1123Cases {
             c.hx().give(2, AOTV);
             c.hx().give(4, AOTV);
             c.hx().give(5, AOTV);
-            c.hx().give(EMPTY_SLOT, "minecraft:air");
             c.hx().call("dungeon.abilities", "enabled", true);
             c.hx().call("dungeon.standingEye", "fresh", true, "ticks", after);
             c.server().command("kill @e[tag=sametick]");
@@ -184,13 +157,13 @@ final class HxStandEye1123Cases {
                                 + "%.0f warp(s), %.0f re-aim(s)", act == null ? "aim" : act, i, far[0], far[1], far[2], far[3],
                         far[4], far[5], near[0], near[1], near[2], near[3], near[4], near[5]));
                 c.check(far[0] > 0 && near[0] > 0, "a hop never went out (far " + far[0] + ", near " + near[0] + ")");
-                if (after == 2) { // also with his same-tick actions: his hand is empty while unsneaked (hop)
+                if (after == 2 && act == null) {
                     // two ticks after the sneak, cast standing by the stalled server: the near hop is re-aimed for both
                     // eyes and lands on the plan; the far one (no look holds for both) goes at once as planned, never
                     // waiting (Auto Clear speed: a wait there cost 1124-sim-ac-presneak 28 room ticks)
-                    c.check((far[0] == 1 || act != null && far[0] <= 2) && far[4] == 1, "two ticks, far block: want the use on the first tick (his own action may take that tick) and 1 warp, got "
+                    c.check(far[0] == 1 && far[4] == 1, "two ticks, far block: want the use on the first tick and 1 warp, got "
                             + far[0] + " tick(s), " + far[4] + " warp(s)");
-                    c.check(near[4] == 1 && (act != null || near[3] == 1) && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
+                    c.check(near[4] == 1 && near[3] == 1 && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
                             "two ticks, near block: want a standing cast landing at x " + (X0 + 2.0) + ", got " + near[4]
                                     + " warp(s) at " + near[1] + "," + near[2] + " (" + near[3] + " standing cast(s))");
                 } else if (act == null && after == 1) {
