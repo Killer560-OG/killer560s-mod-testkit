@@ -46,6 +46,18 @@ import java.util.concurrent.atomic.AtomicReference;
  *       before GO, walk logged, within 5.5 of the door).</li>
  * </ul>
  * On a legit jar both new cases PASS by checking Dungeons Autopilot refuses to switch on (cheat-only).
+ * acrun-1126-noon (his F7 11-26: the walk ended "off_route" 4 blocks in and he stood short of the door; at the end of what it
+ * could reach the autopilot went back to New Trap and to Ritual before the wither door), same seeded floor:
+ * <ul>
+ *   <li>1126-sim-ac-greenstart-replan: switch OFF; once the walk is 4 blocks from the spawn the server puts him back on the
+ *       spawn (as a correction would). The walk must be planned again from there (logged) and end "arrived" within 5.5 of
+ *       the door. Origin ends the walk at the spawn (fails).</li>
+ *   <li>1126-sim-ap-noback-trap: the run started, Auto Secret's endgame `goBackForMissed` asked with one room each: a
+ *       non-trap room with unfound secrets must be gone back to (the check is live), the trap room never, the same room
+ *       never while its route's missing item (BAT_WAND) is still not in the hotbar, and again once that item (HYPERION)
+ *       is. Origin goes back to the trap (fails).</li>
+ * </ul>
+ * On a legit jar both PASS by checking Dungeons Autopilot refuses to switch on.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimGreenStart1122Tests implements FabricClientGameTest {
@@ -54,9 +66,11 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     private static final String KEYS_CASE = "1122-sim-ac-greenstart-keys";
     private static final String WARP_CASE = "1126-sim-ac-greenwarp";
     private static final String NOETHER_CASE = "1126-sim-ac-greenwarp-noether";
+    private static final String REPLAN_CASE = "1126-sim-ac-greenstart-replan";
+    private static final String NOBACK_CASE = "1126-sim-ap-noback-trap";
     /** The walk case's exit tick after GO on this floor (-1 when it did not run): the warp case compares with it. */
     private static int walkOut = -1;
-    private enum Mode { WALK, KEYS, WARP, NOETHER }
+    private enum Mode { WALK, KEYS, WARP, NOETHER, REPLAN, NOBACK }
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -78,12 +92,14 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         boolean keys = !Scenario.skip(KEYS_CASE);
         boolean warp = !Scenario.skip(WARP_CASE);
         boolean noether = !Scenario.skip(NOETHER_CASE);
-        if (!walk && !keys && !warp && !noether) {
+        boolean replan = !Scenario.skip(REPLAN_CASE);
+        boolean noback = !Scenario.skip(NOBACK_CASE);
+        if (!walk && !keys && !warp && !noether && !replan && !noback) {
             return;
         }
         ModUnderTest.require("killer560smod");
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
-            for (String n : new String[]{WARP_CASE, NOETHER_CASE}) {
+            for (String n : new String[]{WARP_CASE, NOETHER_CASE, REPLAN_CASE, NOBACK_CASE}) {
                 if (!Scenario.skip(n)) {
                     legitRow(ctx, n);
                 }
@@ -100,7 +116,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            for (String n : new String[]{WALK_CASE, KEYS_CASE, WARP_CASE, NOETHER_CASE}) {
+            for (String n : new String[]{WALK_CASE, KEYS_CASE, WARP_CASE, NOETHER_CASE, REPLAN_CASE, NOBACK_CASE}) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "needs real room captures and room database");
                 }
@@ -136,6 +152,12 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
         if (keys) {
             run(ctx, KEYS_CASE, Mode.KEYS, failed);
+        }
+        if (replan) {
+            run(ctx, REPLAN_CASE, Mode.REPLAN, failed);
+        }
+        if (noback) {
+            run(ctx, NOBACK_CASE, Mode.NOBACK, failed);
         }
         setWarp(ctx, true);
         ctx.runOnClient(mc -> {
@@ -190,6 +212,8 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
                 case WALK -> walkCase(ctx, f);
                 case WARP -> warpCase(ctx, f);
                 case NOETHER -> noEtherCase(ctx, f);
+                case REPLAN -> replanCase(ctx, f);
+                case NOBACK -> noBackCase(ctx, f);
             };
         } catch (Throwable t) {
             t.printStackTrace(System.out);
@@ -596,6 +620,191 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     }
 
     /** GreenRoomStart.result(), or "missing" on a jar without it (origin). */
+    /** The walk knocked back to the spawn by the server once it is 4 blocks on: planned again, it still arrives. */
+    private static String replanCase(ClientGameTestContext ctx, List<String> f) {
+        BlockPos door = stage(ctx, f);
+        if (door == null) {
+            return "";
+        }
+        Vec3 spawn = ctx.computeOnClient(mc -> mc.player.position());
+        long mark = LogTap.mark();
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true}));
+        Vec3 knocked = null;
+        for (int t = 0; t < 200 && knocked == null; t++) {
+            ctx.waitTicks(1);
+            Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
+            if ("walking".equals(ctx.computeOnClient(SimGreenStart1122Tests::result))
+                    && Math.hypot(now.x - spawn.x, now.z - spawn.z) >= 4.0) {
+                knocked = now;
+            }
+        }
+        if (knocked == null) {
+            f.add("the walk never got 4 blocks from the spawn");
+            return "";
+        }
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp != null) {
+                    sp.teleportTo(spawn.x, spawn.y, spawn.z);
+                }
+            });
+        });
+        boolean back = false;
+        for (int t = 0; t < 40 && !back; t++) {
+            ctx.waitTicks(1);
+            Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
+            back = Math.hypot(now.x - spawn.x, now.z - spawn.z) < 0.5;
+        }
+        Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
+        int still = 0;
+        int t = 0;
+        String result = "";
+        for (; t < 400 && still < 20; t++) {
+            ctx.waitTicks(1);
+            Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
+            double step = Math.hypot(now.x - last.x, now.z - last.z);
+            result = ctx.computeOnClient(SimGreenStart1122Tests::result);
+            boolean ended = !"armed".equals(result) && !"walking".equals(result) && !"missing".equals(result);
+            still = step < 0.01 && (ended || t > 200) ? still + 1 : 0;
+            last = now;
+        }
+        double atDoor = flat(last, door);
+        long replans = LogTap.since(mark).stream()
+                .filter(l -> l.contains("[GreenRoomStart] the walk went") && l.contains("planning it again")).count();
+        String d = String.format(Locale.US, "walk 4 blocks on at %.1f from the door, server put him back on the spawn (%s);"
+                + " then %d tick(s): result %s, %.1f from the door, re-plans logged %d", flat(knocked, door), back,
+                t, result, atDoor, replans);
+        f.add(back ? null : "the server move back to the spawn did not land");
+        f.add(replans >= 1 ? null : "no re-plan logged after the server moved him back");
+        f.add("arrived".equals(result) ? null : "the walk ended \"" + result + "\" instead of arriving");
+        f.add(atDoor <= 5.5 ? null : String.format(Locale.US, "stood %.1f from the door (want <= 5.5)", atDoor));
+        return d;
+    }
+
+    /** Auto Secret's endgame go-back for missed secrets, asked with one room at a time (no run of its own). */
+    private static String noBackCase(ClientGameTestContext ctx, List<String> f) {
+        BlockPos door = stage(ctx, f);
+        if (door == null) {
+            return "";
+        }
+        ctx.runOnClient(mc -> setTicksLeft(1));
+        for (int t = 0; t < 100 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning")); t++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(60);   // the map given at the start and read
+        String[] names = ctx.computeOnClient(mc -> {
+            String trap = null;
+            String other = null;
+            try {
+                for (Object r : (List<?>) Class.forName("com.killer560.hub.livemap.RoomStatus").getMethod("rooms").invoke(null)) {
+                    String n = (String) r.getClass().getMethod("name").invoke(r);
+                    int secrets = (Integer) r.getClass().getMethod("secrets").invoke(r);
+                    int unfound = (Integer) r.getClass().getMethod("unfound").invoke(r);
+                    java.lang.reflect.Method is = r.getClass().getMethod("isType", String.class);
+                    if (secrets <= 0 || unfound <= 0) {
+                        continue;
+                    }
+                    if ((Boolean) is.invoke(r, "TRAP")) {
+                        trap = trap == null ? n : trap;
+                    } else if (other == null && !(Boolean) is.invoke(r, "PUZZLE") && !"Unknown".equals(n)) {
+                        other = n;
+                    }
+                }
+            } catch (ReflectiveOperationException e) {
+                return new String[]{null, null, String.valueOf(e)};
+            }
+            return new String[]{trap, other, ""};
+        });
+        if (names[0] == null || names[1] == null) {
+            f.add("no trap room and other room with unfound secrets on this floor (trap " + names[0] + ", other " + names[1]
+                    + ") " + names[2]);
+            return "";
+        }
+        String trap = names[0];
+        String other = names[1];
+        boolean live = goesBack(ctx, other, null);
+        boolean toTrap = goesBack(ctx, trap, null);
+        Boolean noItem = goesBack(ctx, other, "BAT_WAND");
+        Boolean hasItem = goesBack(ctx, other, "HYPERION");
+        String d = String.format(Locale.US, "go back for missed secrets: %s %s, trap %s %s, %s with its route's BAT_WAND missing"
+                        + " %s, with HYPERION in the hotbar %s", other, live, trap, toTrap, other, noItem, hasItem);
+        f.add(live ? null : "it did not go back to " + other + " either: the check proved nothing");
+        f.add(!toTrap ? null : "it went back to the trap room " + trap + " for more secrets");
+        f.add(noItem != null && !noItem ? null : "it went back to " + other + " while its route's item is still missing");
+        f.add(hasItem != null && hasItem ? null : "it did not go back to " + other + " once the item is in the hotbar");
+        return d;
+    }
+
+    /**
+     * One goBackForMissed call with only {@code room} counted as "route ran" (and, when {@code missing} is set, its route
+     * stopped for that item): whether it logged going back there. Null when the jar has no missing-item rule.
+     */
+    private static Boolean goesBack(ClientGameTestContext ctx, String room, String missing) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Class<?> as = Class.forName(AS);
+                java.lang.reflect.Field sf = as.getDeclaredField("secreted");
+                java.lang.reflect.Field rf = as.getDeclaredField("revisited");
+                sf.setAccessible(true);
+                rf.setAccessible(true);
+                java.util.Set<String> secreted = (java.util.Set<String>) sf.get(null);
+                ((java.util.Set<?>) rf.get(null)).clear();
+                secreted.clear();
+                secreted.add(room);
+                java.util.Map<String, String> items = null;
+                try {
+                    java.lang.reflect.Field mf = as.getDeclaredField("missingItem");
+                    mf.setAccessible(true);
+                    items = (java.util.Map<String, String>) mf.get(null);
+                    items.clear();
+                } catch (NoSuchFieldException e) {
+                    if (missing != null) {
+                        return null;
+                    }
+                }
+                if (missing != null) {
+                    items.put(room, missing);
+                }
+                Class<?> layoutC = Class.forName("com.killer560.hub.livemap.DungeonLayout");
+                Object layout = layoutC.getMethod("capture").invoke(null);
+                List<?> rooms = (List<?>) Class.forName("com.killer560.hub.livemap.RoomStatus").getMethod("rooms").invoke(null);
+                java.util.Map<Integer, Integer> dist = new java.util.HashMap<>();
+                for (Object r : rooms) {
+                    if (room.equals(r.getClass().getMethod("name").invoke(r))) {
+                        dist.put((Integer) r.getClass().getMethod("room").invoke(r), 1);
+                    }
+                }
+                java.lang.reflect.Method m = as.getDeclaredMethod("goBackForMissed", layoutC, List.class, java.util.Map.class);
+                m.setAccessible(true);
+                long mark = LogTap.mark();
+                m.invoke(null, layout, rooms, dist);
+                boolean went = LogTap.since(mark).stream().anyMatch(l -> l.contains("endgame: " + room + " ended its route short"));
+                if (items != null) {
+                    items.clear();
+                }
+                secreted.clear();
+                ((java.util.Set<?>) rf.get(null)).clear();
+                return went;
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("goBackForMissed: " + e, e);
+            } finally {
+                try {
+                    ModUnderTest.staticCall(AUTO_CLEAR, "cancel");
+                    ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.ClearExecutor", "cancel");
+                    if ((Boolean) ModUnderTest.staticCall(AS, "isRunning")) {
+                        ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
+                                new Object[]{"test over", true});
+                    }
+                } catch (Throwable ignored) {
+                    // cleanup never replaces a verdict
+                }
+            }
+        });
+    }
+
     private static String result(Minecraft mc) {
         try {
             return String.valueOf(Class.forName(GRS).getMethod("result").invoke(null));
