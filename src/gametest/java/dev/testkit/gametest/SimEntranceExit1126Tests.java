@@ -35,6 +35,7 @@ import java.util.regex.Pattern;
 public class SimEntranceExit1126Tests implements FabricClientGameTest {
 
     private static final String CASE = "1126-sim-ac-entrance-exit";
+    private static final String COLD = "1126-sim-ac-coldtrip";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -72,6 +73,7 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
                 }
             });
             finish(CASE, on ? "Dungeons Autopilot switched on in a legit jar" : null, "legit jar: Dungeons Autopilot stays off");
+            finish(COLD, on ? "Dungeons Autopilot switched on in a legit jar" : null, "legit jar: no Auto Clear trips");
             return;
         }
         LogTap.install();
