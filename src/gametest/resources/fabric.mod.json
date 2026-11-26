@@ -18,6 +18,7 @@
 			"dev.testkit.gametest.FairyGrimTests",
 			"dev.testkit.gametest.FairyTightTests",
 			"dev.testkit.gametest.FreelookTests",
+			"dev.testkit.gametest.ZoomGlide1126Tests",
 			"dev.testkit.gametest.BlinkTests",
 			"dev.testkit.gametest.BlinkStressTests",
 			"dev.testkit.gametest.BlinkCampaign1027Tests",

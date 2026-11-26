@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T04:29:04",
- "modSource": "lane-autopilot-clears-1126",
- "modGitSha": "b34318892883e22470da95e9404aa9609ddab21f",
+ "generatedAt": "2026-11-26T05:02:52",
+ "modSource": "lane-streamsafe-terms-human-1126b",
+ "modGitSha": "7a3fb87aa5b3399f4e23dccfdb0bbd2ad3f1b04a",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
