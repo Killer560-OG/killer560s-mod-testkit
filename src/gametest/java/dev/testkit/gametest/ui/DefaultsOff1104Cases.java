@@ -80,6 +80,7 @@ final class DefaultsOff1104Cases {
             {"autoclosechest.AutoCloseChestConfig", "enabled"},
             {"accadvisor.AccessoryAdvisorConfig", "enabled"},
             {"chestvalue.ChestValueConfig", "enabled"},
+            {"craftcost.CraftCostConfig", "enabled"},
             {"f7spots.F7SpotsConfig", "stormBow", "stormBowTerminator", "stormBowWalk"},
             {"boss.LividSolverConfig", "autoM5", "m5ArmorSwap"},
             {"mapcycler.MapCyclerConfig", "enabled"},
