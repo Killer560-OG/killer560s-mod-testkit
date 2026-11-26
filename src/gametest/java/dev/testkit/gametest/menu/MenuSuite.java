@@ -202,6 +202,7 @@ public class MenuSuite implements FabricClientGameTest {
                     PvPanorama1124Cases.register(s); // 1124-menu-pvexact-neupano: NEU Classic's panorama (pv-styles-exact-1124k)
                     HotmTree1118Cases.register(s); // 1118-menu-hotmtree: the HOTM perk tree (hotmtree-1118)
                     AnvilCases.register(s);
+                    InvisibugTracer1125Cases.register(s); // 1125-menu-invisibug-tracer (invibug-tracer-1125)
                     BazaarReskinCases.register(s);
                     PolishMenuCases.register(s); // 472, polish
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
