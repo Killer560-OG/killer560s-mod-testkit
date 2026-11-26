@@ -1,6 +1,7 @@
 package dev.testkit.gametest;
 
 import dev.testkit.compat.McCompat;
+import dev.testkit.harness.PacketTrace;
 import dev.testkit.harness.Report;
 import dev.testkit.harness.SuiteVerdict;
 
@@ -32,12 +33,30 @@ import java.util.concurrent.atomic.AtomicReference;
  *       W moves him along his own facing, and with W released nothing walks him again before GO; the autopilot still
  *       starts at GO.</li>
  * </ul>
+ * Both run with Warp to Door Before Start OFF (the switch-off case of autopilot-greenroom-warp-1126). That job's cases
+ * (killer560 2026-11-26: "it should etherwarp in green room to get to the gate before it starts if autopilot is on not run
+ * there"), same seeded floor:
+ * <ul>
+ *   <li>1126-sim-ac-greenwarp: a fresh config has the switch OFF (the default); switched ON, AOTV in the hotbar: before GO a use_item on the wire, one warp step (over 2.5
+ *       blocks in a tick), no walking key or ShortWalk in any tick, result "warped", standing within 1 block of its goal,
+ *       which is nearer the door than the walk's spot (under 4 blocks from the door block). After GO out through the door
+ *       within 40 ticks, no warp landing inside the Entrance, and no later than the walk case's exit plus 2 ticks (planning
+ *       time varies by a tick or two). Origin has no warp: fails.</li>
+ *   <li>1126-sim-ac-greenwarp-noether: switch ON, no etherwarp item: walks as before (largest step 1.2, no use_item
+ *       before GO, walk logged, within 5.5 of the door).</li>
+ * </ul>
+ * On a legit jar both new cases PASS by checking Dungeons Autopilot refuses to switch on (cheat-only).
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimGreenStart1122Tests implements FabricClientGameTest {
 
     private static final String WALK_CASE = "1122-sim-ac-greenstart";
     private static final String KEYS_CASE = "1122-sim-ac-greenstart-keys";
+    private static final String WARP_CASE = "1126-sim-ac-greenwarp";
+    private static final String NOETHER_CASE = "1126-sim-ac-greenwarp-noether";
+    /** The walk case's exit tick after GO on this floor (-1 when it did not run): the warp case compares with it. */
+    private static int walkOut = -1;
+    private enum Mode { WALK, KEYS, WARP, NOETHER }
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -57,11 +76,18 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     public void runTest(ClientGameTestContext ctx) {
         boolean walk = !Scenario.skip(WALK_CASE);
         boolean keys = !Scenario.skip(KEYS_CASE);
-        if (!walk && !keys) {
+        boolean warp = !Scenario.skip(WARP_CASE);
+        boolean noether = !Scenario.skip(NOETHER_CASE);
+        if (!walk && !keys && !warp && !noether) {
             return;
         }
         ModUnderTest.require("killer560smod");
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            for (String n : new String[]{WARP_CASE, NOETHER_CASE}) {
+                if (!Scenario.skip(n)) {
+                    legitRow(ctx, n);
+                }
+            }
             if (walk) {
                 Scenario.skipped(WALK_CASE, "legit jar: no Dungeons Autopilot");
             }
@@ -74,11 +100,10 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            if (walk) {
-                Scenario.skipped(WALK_CASE, "needs real room captures and room database");
-            }
-            if (keys) {
-                Scenario.skipped(KEYS_CASE, "needs real room captures and room database");
+            for (String n : new String[]{WALK_CASE, KEYS_CASE, WARP_CASE, NOETHER_CASE}) {
+                if (!Scenario.skip(n)) {
+                    Scenario.skipped(n, "needs real room captures and room database");
+                }
             }
             return;
         }
@@ -99,12 +124,20 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
             ModUnderTest.set(as, "setDisableAfterBloodRush", true);
         });
         List<String> failed = new ArrayList<>();
+        walkOut = -1;
         if (walk) {
-            run(ctx, WALK_CASE, false, failed);
+            run(ctx, WALK_CASE, Mode.WALK, failed);
+        }
+        if (warp) {
+            run(ctx, WARP_CASE, Mode.WARP, failed);
+        }
+        if (noether) {
+            run(ctx, NOETHER_CASE, Mode.NOETHER, failed);
         }
         if (keys) {
-            run(ctx, KEYS_CASE, true, failed);
+            run(ctx, KEYS_CASE, Mode.KEYS, failed);
         }
+        setWarp(ctx, true);
         ctx.runOnClient(mc -> {
             Object as = ModUnderTest.config(AS_CONFIG);
             Object none = ModUnderTest.enumValue(AS_CONFIG + "$BloodRush", "NONE");
@@ -117,17 +150,54 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
     }
 
-    private static void run(ClientGameTestContext ctx, String name, boolean keys, List<String> failed) {
+    /** Warp to Door Before Start (a jar without it keeps walking: nothing to set). */
+    private static void setWarp(ClientGameTestContext ctx, boolean on) {
+        ctx.runOnClient(mc -> {
+            try {
+                ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setGreenRoomWarp", on);
+            } catch (Throwable ignored) {
+                // origin: no switch
+            }
+        });
+    }
+
+    /** Legit jar: Dungeons Autopilot (and so the green room warp) must refuse to switch on. */
+    private static void legitRow(ClientGameTestContext ctx, String name) {
+        boolean on = ctx.computeOnClient(mc -> {
+            ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true});
+            boolean v = (Boolean) ModUnderTest.staticCall(PILOT, "isOn");
+            ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{false});
+            return v;
+        });
+        String text = on ? "legit jar: Dungeons Autopilot switched on (it is cheat-only)"
+                : "legit jar: Dungeons Autopilot refused to switch on, so nothing warps in the green room";
+        System.out.println("[" + name + "] " + (on ? "FAIL" : "PASS") + " - " + text);
+        Report.caseStarted(name);
+        Report.caseFinished(name, on ? "FAIL" : "PASS", "n/a (singleplayer)", text, List.of(), List.of());
+        SuiteVerdict.finished(name);
+        if (on) {
+            throw new AssertionError(name + ": " + text);
+        }
+    }
+
+    private static void run(ClientGameTestContext ctx, String name, Mode mode, List<String> failed) {
         List<String> f = new ArrayList<>();
         String detail;
         try {
-            detail = keys ? keysCase(ctx, f) : walkCase(ctx, f);
+            setWarp(ctx, mode == Mode.WARP || mode == Mode.NOETHER);
+            detail = switch (mode) {
+                case KEYS -> keysCase(ctx, f);
+                case WALK -> walkCase(ctx, f);
+                case WARP -> warpCase(ctx, f);
+                case NOETHER -> noEtherCase(ctx, f);
+            };
         } catch (Throwable t) {
             t.printStackTrace(System.out);
             f.add("threw " + t);
             detail = "";
         } finally {
             ctx.runOnClient(mc -> {
+                PacketTrace.tap = null;
                 mc.options.keyUp.setDown(false);
                 ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{false});
                 ModUnderTest.staticCall(AUTO_CLEAR, "cancel");
@@ -151,6 +221,10 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
 
     /** The floor built, its countdown held; the entrance door; null (with a failure) when it could not be set up. */
     private static BlockPos stage(ClientGameTestContext ctx, List<String> f) {
+        return stage(ctx, f, true);
+    }
+
+    private static BlockPos stage(ClientGameTestContext ctx, List<String> f, boolean aotv) {
         for (int attempt = 1; attempt <= 3; attempt++) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                     new Object[]{"gametest"}));
@@ -186,7 +260,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
             BlockPos door = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(BUILDER, "entranceDoor"));
             if (held && door != null) {
                 SimAutopilotTests.awaitFloorChunks(ctx);
-                loadout(ctx);
+                loadout(ctx, aotv);
                 SimAutopilotTests.ground(ctx);
                 ctx.waitTicks(40);   // the world scan reads the Entrance and its gate
                 return door;
@@ -209,7 +283,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
     }
 
-    private static void loadout(ClientGameTestContext ctx) {
+    private static void loadout(ClientGameTestContext ctx, boolean aotv) {
         AtomicReference<Boolean> given = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -224,7 +298,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
                 for (int i = 0; i < 36; i++) {
                     inv.setItem(i, ItemStack.EMPTY);
                 }
-                String[] ids = {"ASPECT_OF_THE_VOID", "HYPERION"};
+                String[] ids = aotv ? new String[]{"ASPECT_OF_THE_VOID", "HYPERION"} : new String[]{"HYPERION"};
                 for (int i = 0; i < ids.length; i++) {
                     inv.setItem(i, (ItemStack) ModUnderTest.staticCall(SIM_ITEMS, "build", new Class<?>[]{String.class},
                             new Object[]{ids[i]}));
@@ -279,32 +353,11 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         boolean shut = ctx.computeOnClient(mc -> !(Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning"));
         String pre = String.format(Locale.US, "spawn %.1f from the door, before GO walked %.1f (largest tick step %.2f) to %.1f"
                 + " from it in %d ticks, result %s", flat(spawn, door), moved, maxStep, atDoor, t, result);
-        // ---- GO
-        ctx.runOnClient(mc -> setTicksLeft(1));
-        int toGo = 0;
-        while (toGo < 40 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning"))) {
-            ctx.waitTicks(1);
-            toGo++;
-        }
-        int warps = 0;
-        int inside = 0;
-        int out = -1;
-        last = ctx.computeOnClient(mc -> mc.player.position());
-        for (int i = 1; i <= 200 && out < 0; i++) {
-            ctx.waitTicks(1);
-            Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
-            double past = -((now.x - (door.getX() + 0.5)) * in[0] + (now.z - (door.getZ() + 0.5)) * in[1]);
-            if (now.distanceTo(last) > 2.5) {
-                warps++;
-                if (past <= 1.0) {
-                    inside++;   // a warp that landed still inside the Entrance: one spent reaching a start spot
-                }
-            }
-            last = now;
-            if (past > 1.0) {
-                out = i;
-            }
-        }
+        int[] go = afterGo(ctx, door, in);
+        int out = go[0];
+        int warps = go[1];
+        int inside = go[2];
+        walkOut = out;
         boolean on = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PILOT, "isOn"));
         boolean logged = LogTap.since(mark).stream().anyMatch(l -> l.contains("[GreenRoomStart] walking"));
         String post = String.format(Locale.US, "after GO: out through the door at tick %d with %d warp(s), %d landing inside"
@@ -320,6 +373,161 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         f.add(logged ? null : "no \"[GreenRoomStart] walking\" log line");
         f.removeIf(java.util.Objects::isNull);
         return pre + "; " + post;
+    }
+
+    /** GO, then {tick he is out through the door (-1 none in 200), warps until then, of them landing inside the Entrance}. */
+    private static int[] afterGo(ClientGameTestContext ctx, BlockPos door, int[] in) {
+        ctx.runOnClient(mc -> setTicksLeft(1));
+        int toGo = 0;
+        while (toGo < 40 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning"))) {
+            ctx.waitTicks(1);
+            toGo++;
+        }
+        int warps = 0;
+        int inside = 0;
+        int out = -1;
+        Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
+        for (int i = 1; i <= 200 && out < 0; i++) {
+            ctx.waitTicks(1);
+            Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
+            double past = -((now.x - (door.getX() + 0.5)) * in[0] + (now.z - (door.getZ() + 0.5)) * in[1]);
+            if (now.distanceTo(last) > 2.5) {
+                warps++;
+                if (past <= 1.0) {
+                    inside++;   // a warp that landed still inside the Entrance: one spent reaching a start spot
+                }
+            }
+            last = now;
+            if (past > 1.0) {
+                out = i;
+            }
+        }
+        return new int[]{out, warps, inside};
+    }
+
+    /** Counts use_item packets on the wire from now on (client thread hook), and how many went before GO. */
+    private static int[] useTap() {
+        int[] uses = {0};
+        PacketTrace.tap = p -> {
+            if (p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket) {
+                uses[0]++;
+            }
+        };
+        return uses;
+    }
+
+    /** Armed with the switch on: polls until the green room start settles; {maxStep, walkTicks, ticks, final result}. */
+    private static Object[] settle(ClientGameTestContext ctx, Vec3 spawn) {
+        Vec3 last = spawn;
+        double maxStep = 0;
+        int walkTicks = 0;
+        int still = 0;
+        int t = 0;
+        String result = "";
+        for (; t < 400 && still < 20; t++) {
+            ctx.waitTicks(1);
+            Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
+            maxStep = Math.max(maxStep, Math.hypot(now.x - last.x, now.z - last.z));
+            boolean walkKeys = ctx.computeOnClient(mc -> {
+                var k = mc.player.input.keyPresses;
+                return k.forward() || k.backward() || k.left() || k.right() || k.jump()
+                        || (Boolean) ModUnderTest.staticCall("com.killer560.hub.pathfinding.ShortWalk", "isActive");
+            });
+            walkTicks += walkKeys ? 1 : 0;
+            result = ctx.computeOnClient(SimGreenStart1122Tests::result);
+            boolean ended = !"armed".equals(result) && !"walking".equals(result) && !"warping".equals(result)
+                    && !"missing".equals(result);
+            still = now.distanceTo(last) < 0.01 && (ended || t > 200) ? still + 1 : 0;
+            last = now;
+        }
+        return new Object[]{maxStep, walkTicks, t, result};
+    }
+
+    private static String warpCase(ClientGameTestContext ctx, List<String> f) {
+        BlockPos door = stage(ctx, f, true);
+        if (door == null) {
+            return "";
+        }
+        Vec3 spawn = ctx.computeOnClient(mc -> mc.player.position());
+        int[] in = inward(spawn, door);
+        long mark = LogTap.mark();
+        int[] uses = ctx.computeOnClient(mc -> useTap());
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true}));
+        Object[] s = settle(ctx, spawn);
+        double maxStep = (Double) s[0];
+        int walkTicks = (Integer) s[1];
+        String result = (String) s[3];
+        int usesBefore = ctx.computeOnClient(mc -> uses[0]);
+        Vec3 before = ctx.computeOnClient(mc -> mc.player.position());
+        BlockPos goal = ctx.computeOnClient(mc -> {
+            try {
+                return (BlockPos) Class.forName(GRS).getMethod("goal").invoke(null);
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        });
+        double offGoal = goal == null ? 99 : flat(before, goal);
+        double goalToDoor = goal == null ? 99 : Math.hypot(goal.getX() - door.getX(), goal.getZ() - door.getZ());
+        boolean shut = ctx.computeOnClient(mc -> !(Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning"));
+        boolean logged = LogTap.since(mark).stream().anyMatch(l -> l.contains("[GreenRoomStart] etherwarping"));
+        String pre = String.format(Locale.US, "spawn %.1f from the door; before GO: result %s in %d ticks, %d use_item(s),"
+                        + " largest tick step %.2f, %d tick(s) with a walking key, goal %s (%.1f from the door block), standing"
+                        + " %.2f from it, %.1f from the door", flat(spawn, door), result, (Integer) s[2], usesBefore, maxStep,
+                walkTicks, goal == null ? "none" : goal.toShortString(), goalToDoor, offGoal, flat(before, door));
+        int[] go = afterGo(ctx, door, in);
+        String post = String.format(Locale.US, "after GO: out through the door at tick %d (walk case: %d) with %d warp(s),"
+                + " %d landing inside the Entrance", go[0], walkOut, go[1], go[2]);
+        // A fresh config (what a new player gets) has the switch OFF: today's walk stays the default (killer560 2026-11-26).
+        Boolean freshOn = ctx.computeOnClient(mc -> {
+            try {
+                var k = ModUnderTest.config(AS_CONFIG).getClass().getDeclaredConstructor();
+                k.setAccessible(true);
+                Object fresh = k.newInstance();
+                return (Boolean) fresh.getClass().getMethod("isGreenRoomWarp").invoke(fresh);
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        });
+        f.add(Boolean.FALSE.equals(freshOn) ? null : "a fresh config has Warp to Door Before Start " + freshOn + " (want OFF)");
+        f.add(shut ? null : "the run started before the case let it");
+        f.add("warped".equals(result) ? null : "result " + result + " before GO (want warped)");
+        f.add(usesBefore >= 1 ? null : "no use_item on the wire before GO");
+        f.add(maxStep > 2.5 ? null : String.format(Locale.US, "no warp step before GO (largest %.2f)", maxStep));
+        f.add(walkTicks == 0 ? null : walkTicks + " tick(s) with a walking key or ShortWalk before GO (want 0)");
+        f.add(offGoal <= 1.0 ? null : String.format(Locale.US, "%.2f from its goal at GO (want <= 1)", offGoal));
+        f.add(goalToDoor < 4.0 ? null : String.format(Locale.US, "goal %.1f from the door block (want nearer than the walk's 4)",
+                goalToDoor));
+        f.add(logged ? null : "no \"[GreenRoomStart] etherwarping\" log line");
+        f.add(go[0] > 0 && go[0] <= 40 ? null : "not out through the door within 40 ticks of GO (tick " + go[0] + ")");
+        f.add(walkOut < 0 || go[0] <= walkOut + 2 ? null : "out at tick " + go[0] + ", later than the walk's " + walkOut + " + 2");
+        f.add(go[2] == 0 ? null : go[2] + " warp(s) after GO landed inside the Entrance (want 0)");
+        f.removeIf(java.util.Objects::isNull);
+        return pre + "; " + post;
+    }
+
+    private static String noEtherCase(ClientGameTestContext ctx, List<String> f) {
+        BlockPos door = stage(ctx, f, false);
+        if (door == null) {
+            return "";
+        }
+        Vec3 spawn = ctx.computeOnClient(mc -> mc.player.position());
+        long mark = LogTap.mark();
+        int[] uses = ctx.computeOnClient(mc -> useTap());
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true}));
+        Object[] s = settle(ctx, spawn);
+        double maxStep = (Double) s[0];
+        int usesBefore = ctx.computeOnClient(mc -> uses[0]);
+        Vec3 before = ctx.computeOnClient(mc -> mc.player.position());
+        boolean walked = LogTap.since(mark).stream().anyMatch(l -> l.contains("[GreenRoomStart] walking"));
+        double moved = Math.hypot(before.x - spawn.x, before.z - spawn.z);
+        String d = String.format(Locale.US, "no etherwarp item: result %s, %d use_item(s), largest step %.2f, walked %.1f to %.1f"
+                + " from the door, walk logged %s", s[3], usesBefore, maxStep, moved, flat(before, door), walked);
+        f.add(usesBefore == 0 ? null : usesBefore + " use_item(s) with no etherwarp item (want 0)");
+        f.add(maxStep <= 1.2 ? null : String.format(Locale.US, "a %.2f-block step: it must walk", maxStep));
+        f.add(walked && moved >= 6.0 ? null : "it did not walk to the door");
+        f.add(flat(before, door) <= 5.5 ? null : String.format(Locale.US, "%.1f from the door (want <= 5.5)", flat(before, door)));
+        f.removeIf(java.util.Objects::isNull);
+        return d;
     }
 
     private static String keysCase(ClientGameTestContext ctx, List<String> f) {
