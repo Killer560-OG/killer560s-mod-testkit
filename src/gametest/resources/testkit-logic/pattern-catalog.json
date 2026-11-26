@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T01:45:06",
- "modSource": "lane-multiwarp-ticksplit-broken-1126",
- "modGitSha": "fd097796e513c5eadc06f9319071f21e11b58478",
+ "generatedAt": "2026-11-26T02:43:43",
+ "modSource": "lane-autoroutes-stuck-1126",
+ "modGitSha": "f5645459eea33185695ae40d2505e2de1359f3b9",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
