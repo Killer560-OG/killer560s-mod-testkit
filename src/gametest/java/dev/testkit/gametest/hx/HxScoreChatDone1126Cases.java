@@ -135,6 +135,20 @@ final class HxScoreChatDone1126Cases {
             c.ctx().waitTicks(30);
             c.check(c.onClient(mc -> done()) == 0, "a new run kept a chat-counted puzzle: " + c.onClient(mc -> done()));
 
+            // Tic Tac Toe by party line (both wordings), All chat nothing, the solver's win/draw hook counts.
+            tab(c, OPEN, OPEN);
+            newRun(c);
+            int g0 = c.onClient(mc -> done());
+            c.hx().chat("§7[VIP] HxEvil§f: ttt solved");
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] HxMateA§f: ttt failed");
+            c.ctx().waitTicks(20);
+            c.check(c.onClient(mc -> done()) == g0, "an All-chat ttt line or a party ttt failed line counted");
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] HxMateA§f: TTT done!");
+            c.waitUntil("completed " + (g0 + 1) + " after a party ttt line", mc -> done() == g0 + 1, 10);
+            newRun(c);
+            c.ctx().runOnClient(mc -> Mod.staticCall(SCF, "onTicTacToeEnded"));
+            c.waitUntil("completed 1 after the solver's own game end", mc -> done() == g0 + 1, 10);
+
             // Blaze: a fail line takes the party line back and blocks the next one; Architect's reset unblocks.
             tab(c, OPEN, OPEN);
             newRun(c);
