@@ -2062,6 +2062,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         java.util.Set<net.minecraft.core.BlockPos> tenPos = new java.util.HashSet<>();
         java.util.Set<net.minecraft.core.BlockPos> fivePos = new java.util.HashSet<>();
+        final String DS = "com.killer560.hub.secrets.DungeonState";
+        boolean[] simOn = {false};
         try {
             warmDig(ctx);
             setBlocks(ctx, put);
@@ -2092,6 +2094,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long m = LogTap.mark();
             startSampling(ctx);
             ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+            // Breaker Aura works only in a boss: the mod's F7 sim override opens that gate (as BreakerAuraTests does).
+            simOn[0] = ctx.computeOnClient(mc -> Boolean.TRUE.equals(ModUnderTest.staticCall(DS, "toggleSimOverride")));
+            if (!simOn[0]) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(DS, "toggleSimOverride")); // it was on: leave it on
+            }
             // The aura wakes as he walks onto the node: both diggers have blocks in reach from the same tick.
             ctx.runOnClient(mc -> ModUnderTest.set(dx, "setBreakerAuraEnabled", true));
             walkOnto(ctx, 13.5, 7.5, 13, 10);
@@ -2167,6 +2174,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 Object st = ModUnderTest.staticCall(store, "getInstance");
                 ModUnderTest.call(st, "clear", new Class<?>[0], new Object[0]);
                 ModUnderTest.call(st, "save", new Class<?>[0], new Object[0]);
+                if (simOn[0]) {
+                    ModUnderTest.staticCall(DS, "toggleSimOverride");
+                }
             });
             tpRel(ctx, 13.5, 6.5, 0f, 0f);
             ctx.waitTicks(5);
