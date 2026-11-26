@@ -84,6 +84,8 @@ final class HxStandEye1123Cases {
         int reaimsBefore = reaims(c);
         int castBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("standingEyeCast").getAsInt();
         int warpsBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt();
+        int transBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("transmissions").getAsInt();
+        int missBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarpMisses").getAsInt();
         c.onClient(mc -> {
             mc.player.getInventory().setSelectedSlot(2);
             return null;
@@ -92,6 +94,9 @@ final class HxStandEye1123Cases {
         c.ctx().waitTicks(after); // the sneak goes out at the end of the first tick; the hop is queued for the one after
         float pitch = (float) Math.toDegrees(Math.atan2(1.27, d));
         BlockPos block = BlockPos.containing(X0 + d, Y - 1, Z0);
+        Vec3 atQueue = c.onClient(mc -> mc.player.position());
+        int transAtQueue = c.hx().call("dungeon.stats").getAsJsonObject().get("transmissions").getAsInt() - transBefore;
+        int warpsAtQueue = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt() - warpsBefore;
         c.onClient(mc -> {
             Mod.staticCall(CE, "queueInteract", -90f, pitch, new Vec3(X0, Y, Z0), block, new String[]{"ASPECT_OF_THE_VOID"});
             return null;
@@ -110,6 +115,10 @@ final class HxStandEye1123Cases {
         int cast = c.hx().call("dungeon.stats").getAsJsonObject().get("standingEyeCast").getAsInt() - castBefore;
         int warps = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt() - warpsBefore;
         int reaims = reaims(c) - reaimsBefore;
+        c.note(String.format(Locale.ROOT, "diag d=%.0f: at queue %.2f,%.2f (%d transmission(s), %d etherwarp(s) before it); after:"
+                        + " transmissions %d, etherwarps %d, misses %d", d, atQueue.x, atQueue.z, transAtQueue, warpsAtQueue,
+                c.hx().call("dungeon.stats").getAsJsonObject().get("transmissions").getAsInt() - transBefore, warps,
+                c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarpMisses").getAsInt() - missBefore));
         return new double[]{ticks, end.x, end.z, cast, warps, reaims};
     }
 
