@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T00:29:47",
- "modSource": "lane-autopilot-face-witherdoor-1126",
- "modGitSha": "f3bd7ec798b6d30e6896a0735d8f7d972ca1d809",
+ "generatedAt": "2026-11-26T01:45:06",
+ "modSource": "lane-multiwarp-ticksplit-broken-1126",
+ "modGitSha": "fd097796e513c5eadc06f9319071f21e11b58478",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
