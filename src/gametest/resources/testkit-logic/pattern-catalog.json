@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T15:23:43",
- "modSource": "lane-sim-blaze-solved-line-1126b",
- "modGitSha": "88dccb15535e22ce5862b1646d47038d6cefc5fa",
+ "generatedAt": "2026-11-26T17:10:05",
+ "modSource": "lane-melody-edges-missed-1126d",
+ "modGitSha": "dbd0b4de93cf282ed21a17ffabf548797bb0c67e",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
