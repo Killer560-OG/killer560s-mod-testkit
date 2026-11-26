@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T17:49:13",
- "modSource": "lane-autoroutes-stuck-acclear-1125b",
- "modGitSha": "6588605d3fae9aa9d97c377a558b6212e837836f",
+ "generatedAt": "2026-11-25T18:19:17",
+ "modSource": "lane-regentrees-leaves-1125",
+ "modGitSha": "059ae42bb59d8576cb368cbbb2f56c6b2692eb0a",
  "modSourceDirty": false,
  "count": 992,
  "byKind": {
