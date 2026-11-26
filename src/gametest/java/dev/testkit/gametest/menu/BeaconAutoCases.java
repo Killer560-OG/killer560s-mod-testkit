@@ -147,7 +147,7 @@ final class BeaconAutoCases {
         });
         MenuSuite.test(s, "1126-menu-autotune-signal", c -> {
             // His Upgrade Signal Strength menus of 11-26 2:36 AM as they opened (Auto Tune then took 566, 229, 508 and 230 ticks).
-            String[][] runs = {{"II", WIN96, "300"}, {"III", WIN98, "300"}, {"IV", WIN100, "300"}, {"V", WIN2, "300"}};
+            String[][] runs = {{"II", WIN96, "200"}, {"III", WIN98, "200"}, {"IV", WIN100, "200"}, {"V", WIN2, "200"}};
             for (String[] w : runs) {
                 Result r = run(c, w[1], true, 4, null, 900, Integer.parseInt(w[2]), false);
                 inStep(c, r, w[0]);
