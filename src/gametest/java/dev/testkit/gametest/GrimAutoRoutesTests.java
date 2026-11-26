@@ -308,6 +308,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1123-holdreplan", c -> caseHoldReplan(c, null));
                 s.test("62-argrim-1123-holdreplan-same-use", c -> caseHoldReplan(c, dev.testkit.gametest.SameTick.Act.USE));
                 s.test("62-argrim-1123-holdreplan-same-swap", c -> caseHoldReplan(c, dev.testkit.gametest.SameTick.Act.SWAP));
+                // mod arstuck-1125: his left click on a held warp sends it in its own tick, never as an attack.
+                s.test("62-argrim-1125-heldclick", GrimAutoRoutesTests::caseHeldClick);
             }
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -442,6 +444,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     check(walks > 0, "Auto Clear never walked (the walk row tested nothing)");
                 });
                 s.test("62-argrim-1122-planprobe", GrimAutoRoutesTests::casePlanProbe);
+                // acnohype-1125: the server rewrites the Hyperion's slot with another item until Auto Clear reaches for it, and
+                // for 3 ticks more (as GrimAC's resync of a refused block click did in f2-q1-def-2); Auto Clear waits for it
+                // instead of stopping (an origin jar stops: "no Hyperion in the hotbar").
+                s.test("62-argrim-1125-hype-resync", c -> {
+                    acResync = true;
+                    try {
+                        caseAutoClearHype(c, null, false, false, false);
+                    } finally {
+                        acResync = false;
+                    }
+                });
             }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
             // a dropped Wither Key fetched by an etherwarp trip, and by the forced walk after a setback.
@@ -3773,6 +3786,69 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
     }
 
+    /**
+     * 62-argrim-1125-heldclick (arstuck-1125): a start ew node (6,6) -> (14,6) with a stone at (10,F,6) set in its line
+     * after it was written, so the aim check holds the warp ("no look from here lands on", sneak down) and the chat line
+     * says a left click sends it. His real left click is taken from vanilla in its own tick and the warp's use goes in
+     * that tick: one use_item at least, no player_action, no swing of its own (his 2026-11-25 clicks went out as Dungeon
+     * Breaker digs and the warp stayed held). GrimAC (default and experimental): nothing.
+     */
+    private static void caseHeldClick(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Map<int[], String> cap = new HashMap<>();
+        try {
+            writeRoute(ctx, List.of(ew(6, 6, 14, 6, true)));
+            cap.put(new int[]{10, F, 6}, "minecraft:stone");
+            setBlocks(ctx, cap);
+            tpRel(ctx, 6.5, 2.5 + 1, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+            ctx.waitTicks(10);
+            long mr = LogTap.mark();
+            tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+            ctx.waitTicks(40);
+            check(logHas(mr, "no look from here lands on") && ctx.computeOnClient(mc -> (Boolean)
+                    ModUnderTest.staticCall(EXECUTOR, "isRunning")), "premise: the warp was not held by the aim check");
+            JsonObject before = stats();
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            startSampling(ctx);
+            long mk = LogTap.mark();
+            ctx.getInput().holdKey(o -> o.keyAttack);
+            ctx.waitTicks(2);
+            ctx.getInput().releaseKey(o -> o.keyAttack);
+            ctx.waitTicks(15);
+            List<Sample> s = stopSampling(ctx);
+            printTrace(c.name(), s);
+            int stray = 0;
+            for (Sample x : s) {
+                stray += (int) Math.max(0, x.out().stream().filter(dev.testkit.compat.McPackets.swingId()::equals).count()
+                        - x.out().stream().filter("use_item"::equals).count());
+            }
+            println(c.name() + ": released " + logHas(mk, "released its wait") + ", uses " + useTicks(s).size()
+                    + ", player_action " + count(s, "player_action") + ", stray swings " + stray + ", server etherwarps "
+                    + delta(before, "etherwarps"));
+            check(logHas(mk, "Left click on node #1 ETHERWARP: released its wait"), "his left click did not send the held warp");
+            check(!logHas(mk, "your attack goes out this tick"), "his left click was handed to vanilla as an attack");
+            check(useTicks(s).size() >= 1 && delta(before, "etherwarps") >= 1, "no etherwarp went out after his click");
+            check(count(s, "player_action") == 0, "his click still sent " + count(s, "player_action") + " player_action");
+            check(stray == 0, "his click still sent " + stray + " swing(s) of its own");
+            c.note("heldclick: " + useTicks(s).size() + " use(s), 0 player_action, 0 stray swing");
+            noteFlags(c, s);
+            check(c.scenario().flags().isEmpty(), "GrimAC flagged: " + c.scenario().flags());
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                dev.testkit.harness.WireCapture.stop();
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+            });
+            if (!cap.isEmpty()) {
+                Map<int[], String> air = new HashMap<>();
+                cap.keySet().forEach(k -> air.put(k, "minecraft:air"));
+                setBlocks(ctx, air);
+            }
+        }
+    }
+
     /** Legit mode: the camera turns for each action. An etherwarp, then a use node clicking a lever with the AOTV. */
     private static void caseLegit(Session c) {
         ClientGameTestContext ctx = c.ctx();
@@ -5130,6 +5206,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(5);
         }
         c.note("layouts where the plan acted: " + took + " of " + PLAN_LAYOUTS.length);
+        try {   // acnohype-1125: walks whose first keys waited out a teleport's own tick (absent on an older jar)
+            c.note("walk starts held off a teleport tick: " + ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                    "com.killer560.hub.pathfinding.ShortWalk", "teleportHolds")));
+        } catch (Throwable e) {   // an older jar has no such counter
+            c.note("walk starts held off a teleport tick: n/a");
+        }
     }
 
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
@@ -5150,6 +5232,31 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static double acTripPrice;
     /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
     private static boolean acPlanShove;
+    /**
+     * 62-argrim-1125-hype-resync: the Hyperion's slot shows another item until Auto Clear reaches for it, then RESYNC_TICKS
+     * more. A stick, not the AOTV the real resync wrote: the server still holds the Hyperion there, so an AOTV the client
+     * picked for its etherwarps cast Wither Impact on the server and killed every mob with no Hyperion use at all.
+     */
+    private static boolean acResync;
+    private static final int RESYNC_TICKS = 3;
+    /** Ticks the AOTV stays in the Hyperion's slot at most when Auto Clear never asks for the Hyperion. */
+    private static final int RESYNC_CAP = 60;
+    private static net.minecraft.world.item.ItemStack acHype = net.minecraft.world.item.ItemStack.EMPTY;
+
+    /** The server's set_slot for hotbar slot 5 (inventory menu slot 40), through the client's own packet handler. */
+    private static void acSlot(net.minecraft.client.Minecraft mc, net.minecraft.world.item.ItemStack stack) {
+        if (acId(mc.player.getInventory().getItem(4)).equals("HYPERION")) {
+            acHype = mc.player.getInventory().getItem(4).copy();
+        }
+        mc.getConnection().handleContainerSetSlot(new net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket(
+                0, mc.player.inventoryMenu.getStateId(), 36 + 4, stack));
+        println("resync: hotbar slot 5 now " + acId(mc.player.getInventory().getItem(4)));
+    }
+
+    private static String acId(net.minecraft.world.item.ItemStack st) {
+        var d = st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+        return st.isEmpty() ? "-" : d == null ? st.getItem().toString() : d.copyTag().getStringOr("id", "?");
+    }
 
     /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
@@ -5233,10 +5340,41 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
                     .armedBy(() -> logHas(m, armLine)));
         }
-        start.run();
+        // 62-argrim-1125-hype-resync: as Auto Clear starts (its first hop needs the Hyperion) the server rewrites the
+        // Hyperion's slot with another item (GrimAC's resync of a refused block click wrote the AOTV the server thread still
+        // held, f2-q1-def-2) and keeps it there until Auto Clear reaches for the Hyperion (its wait line, or
+        // its stop on a jar without the wait), then puts the Hyperion back RESYNC_TICKS later; Auto Clear must wait, not stop.
+        int[] resync = {-1};   // ticks the AOTV has been in the slot, -2 once the Hyperion is back
+        int[] restoreAt = {-1};
+        Runnable resyncTick = () -> {
+            if (resync[0] < 0) {
+                return;
+            }
+            resync[0]++;
+            if (restoreAt[0] < 0 && (resync[0] >= RESYNC_CAP || logHas(m, "waiting up to")
+                    || logHas(m, "stopped: no Hyperion"))) {
+                restoreAt[0] = resync[0] + RESYNC_TICKS;
+            }
+            if (restoreAt[0] >= 0 && resync[0] >= restoreAt[0]) {
+                resync[0] = -2;
+                ctx.runOnClient(mc -> acSlot(mc, acHype.copy()));
+            }
+        };
+        if (acResync) {
+            resync[0] = 0;
+            ctx.runOnClient(mc -> {
+                acSlot(mc, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK));
+                ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                        java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+                        (java.util.function.Consumer<String>) gaveUp::set});
+            });
+        } else {
+            start.run();
+        }
         int[] tpSpam = {6};
         boolean[] restarted = {false};
         boolean firstCast = waitFor(ctx, 100, () -> {
+            resyncTick.run();
             if (armed && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, armLine) && tpSpam[0]-- > 0) {
                 c.server().command("execute as @a at @s run tp @s ~ ~ ~");   // only from the chain on: before it, it moved the plan
             }
@@ -5276,6 +5414,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         int[] shoveAt = {-1};
         boolean finished = waitFor(ctx, 600, () -> {
+            resyncTick.run();
             // On the plan etherwarp's landing, standing between two plan steps (a move during the trip is the trip's
             // own to plan again: run q1-def-moved), as his Hyperion click after a landing did in fin3-def-2.
             if (acPlanShove && plan && shoveAt[0] < 0 && logHas(m, "[Path] arrived")) {
@@ -5294,6 +5433,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         if (hits) {
             c.server().command("kill @e[tag=achypehit]");
+        }
+        if (resync[0] >= 0) {
+            resync[0] = -2;
+            ctx.runOnClient(mc -> acSlot(mc, acHype.copy()));
         }
         if (!finished) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
@@ -5352,6 +5495,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(uses.size() >= 2, "the chained cast never reached the wire: Auto Clear weapon uses " + featureUses
                     + ", use_item ticks " + uses.size());
             check(warps == 0, warps + " etherwarp(s) in the chain layout");
+        }
+        if (acResync) {
+            // The resync went in while Auto Clear still had mobs to cast at, it waited, and it carried on with the Hyperion.
+            c.note("resync restore at tick " + restoreAt[0] + ", waited: " + logHas(m, "waiting up to") + ", back: "
+                    + LogTap.since(m).stream().filter(l -> l.contains("is back in the hotbar")).findFirst()
+                    .map(l -> l.replaceAll("^.*?\\[AutoClear\\] ", "")).orElse("never"));
+            check(restoreAt[0] >= 0 && restoreAt[0] < RESYNC_CAP, "Auto Clear never reached for the Hyperion while the AOTV"
+                    + " was in its slot (the case tested nothing)");
+            check(!logHas(m, "stopped: no Hyperion in the hotbar"), "Auto Clear stopped on the slot resync (no Hyperion in the hotbar)");
+            check(logHas(m, "is back in the hotbar"), "Auto Clear never needed the Hyperion during the resync (the case tested nothing)");
         }
         if (plan && tripArm == null) {
             // The plan acted: its casts across and etherwarps are counted by AutoClearFeature.killPlanMoves, and each plan cast
