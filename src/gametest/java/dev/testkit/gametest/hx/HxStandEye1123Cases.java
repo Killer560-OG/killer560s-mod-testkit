@@ -28,8 +28,9 @@ import java.util.Locale;
  *   <li>1125-hx-standeye-twotick[-same-&lt;act&gt;] (autopilot-warp-offaim-1125): the server stalled and took the sneak and the
  *       next tick's packets together (dungeon.standingEye ticks 2), so a hop sent TWO ticks after the sneak is still cast
  *       standing. His 26.3 log 11-25 15:32:40: Interactive Map warp 2, sent so with a crouched-only aim, landed exactly one
- *       standing-eye block past its aim; 15:31:09 warp 2 never landed and the next hop went from the wrong spot. The same
- *       far and near hops, queued two ticks after the sneak, must land on the planned block.</li>
+ *       standing-eye block past its aim; 15:31:09 warp 2 never landed and the next hop went from the wrong spot. Queued two
+ *       ticks after the sneak, the near hop must land on the planned block (re-aimed for both eyes) and the far one must go
+ *       on its first tick (no wait).</li>
  * </ul>
  */
 final class HxStandEye1123Cases {
@@ -157,11 +158,11 @@ final class HxStandEye1123Cases {
                         far[4], far[5], near[0], near[1], near[2], near[3], near[4], near[5]));
                 c.check(far[0] > 0 && near[0] > 0, "a hop never went out (far " + far[0] + ", near " + near[0] + ")");
                 if (after == 2 && act == null) {
-                    // two ticks after the sneak, cast standing by the stalled server: the far hop waits a tick more (no
-                    // look holds for both eyes) and lands crouched on the plan; the near one is re-aimed for both eyes
-                    c.check(far[4] == 1 && Math.abs(far[1] - (X0 + 6.0)) < 0.1 && Math.abs(far[2] - Z0) < 0.1,
-                            "two ticks, far block: want 1 warp landing at x " + (X0 + 6.0) + ", got " + far[4] + " at "
-                                    + far[1] + "," + far[2] + " (" + far[3] + " standing cast(s))");
+                    // two ticks after the sneak, cast standing by the stalled server: the near hop is re-aimed for both
+                    // eyes and lands on the plan; the far one (no look holds for both) goes at once as planned, never
+                    // waiting (Auto Clear speed: a wait there cost 1124-sim-ac-presneak 28 room ticks)
+                    c.check(far[0] == 1 && far[4] == 1, "two ticks, far block: want the use on the first tick and 1 warp, got "
+                            + far[0] + " tick(s), " + far[4] + " warp(s)");
                     c.check(near[4] == 1 && near[3] == 1 && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
                             "two ticks, near block: want a standing cast landing at x " + (X0 + 2.0) + ", got " + near[4]
                                     + " warp(s) at " + near[1] + "," + near[2] + " (" + near[3] + " standing cast(s))");
