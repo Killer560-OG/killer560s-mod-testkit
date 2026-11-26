@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T12:22:14",
- "modSource": "lane-autotune-signal-1126c",
- "modGitSha": "637c14290c7063d10e844f6c17fa6b7611ed326e",
+ "generatedAt": "2026-11-26T12:34:13",
+ "modSource": "lane-score-puzzle-chatdone-1126",
+ "modGitSha": "425369b3ce47cff4a361c314aa5d634f31180eca",
  "modSourceDirty": false,
- "count": 996,
+ "count": 997,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 876,
+  "field": 877,
   "local": 46
  },
  "unresolved": 161,
@@ -10908,6 +10908,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^Party > (?:\\\\[[^\\\\]]{1,24}] )?([A-Za-z0-9_]{1,16}): (.{1,256})$\""
+  },
+  {
+   "id": "scorecalc.ScoreCalculatorFeature#PUZZLE_SOLVED",
+   "cls": "scorecalc.ScoreCalculatorFeature",
+   "field": "PUZZLE_SOLVED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
+   "line": 158,
+   "regex": "^PUZZLE SOLVED! (?:\\[[^\\]]{1,20}\\] )?[A-Za-z0-9_]{1,16} ([^!]{1,80})! Good job!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^PUZZLE SOLVED! (?:\\\\[[^\\\\]]{1,20}\\\\] )?[A-Za-z0-9_]{1,16} ([^!]{1,80})! Good job!$\""
   },
   {
    "id": "secrets.DungeonRun#SERVER",
