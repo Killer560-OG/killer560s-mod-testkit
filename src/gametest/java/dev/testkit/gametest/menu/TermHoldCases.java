@@ -29,6 +29,8 @@ import java.util.TreeMap;
  * </ul>
  */
 final class TermHoldCases {
+    /** True once this client has played a Melody board in lookahead(): the first one of a fresh client can stall a frame. */
+    private static boolean melodyWarm;
 
     static final String FEATURE = TerminalCases.FEATURE;
     static final String CONFIG = TerminalCases.CONFIG;
@@ -277,6 +279,14 @@ final class TermHoldCases {
             List<Long> ticks = new ArrayList<>();
             for (JsonObject e : mine) {
                 ticks.add(e.get("tick").getAsLong());
+            }
+            boolean firstBoard = !melodyWarm;
+            melodyWarm = true;
+            // The first Melody board of a fresh client (this case first in a session) can render a frame late, so a live
+            // click lands after the pane stepped (seen 11-26: "pane there 0 ms of a 0 ms step", server lime one past target).
+            if (firstBoard && attempt == 0) {
+                c.note("Lookahead " + n + ": first Melody board of this client (" + per + ", " + solved.get("wrong") + " wrong) is a warm-up; next board");
+                continue;
             }
             if (n > 0 && fired == 0 && dropped == n && attempt < 2 && solved.get("wrong").getAsInt() == 0
                     && per.equals(Map.of(16, 1, 25, 1, 34, 1))) {
