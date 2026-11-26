@@ -3367,18 +3367,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(40);
             boolean onRan = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
             long bank = chargeNum(ctx, "banked");
-            autoChargeSet(ctx, true, false);
+            autoChargeSet(ctx, false, true); // the arena's scoreboard keeps it a dungeon (F7): the switch going off ends it
             ctx.waitTicks(5);
             boolean leftRan = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
             String line = String.format(Locale.ROOT, "autocharge-off (%s jar): fresh default %s; switch off -> charging %s; "
-                    + "on -> charging %s, bank %d; out of the dungeon -> charging %s", cheat ? "cheat" : "legit", fresh, offRan,
+                    + "on -> charging %s, bank %d; switched off -> charging %s", cheat ? "cheat" : "legit", fresh, offRan,
                     onRan, bank, leftRan);
             println(line);
             c.note(line);
             check(!offRan, "Auto Charge OFF still started Blink Charge");
             check(cheat ? onRan && bank > 0 : !onRan, cheat ? "Auto Charge ON did not charge (bank " + bank + ")"
                     : "a legit jar charged Blink by itself");
-            check(!leftRan, "Auto Charge kept charging after he left the dungeon");
+            check(!leftRan, "Auto Charge kept charging after it was switched off");
         } finally {
             autoChargeSet(ctx, false, false);
             ctx.runOnClient(mc -> {
@@ -3406,7 +3406,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             chainSettings(ctx, true);
             ctx.runOnClient(mc -> tickSplit(true));
-            autoChargeSet(ctx, true, !start);
+            autoChargeSet(ctx, !start, true);
             ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
             ctx.waitTicks(40);
             tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
@@ -3433,7 +3433,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (act == dev.testkit.gametest.SameTick.Act.TP) {
                 c.server().command("execute as " + mcName(ctx) + " at @s run tp @s ~ ~ ~");
             }
-            autoChargeSet(ctx, true, start); // the flip: Auto Charge starts or ends at the head of the next tick
+            autoChargeSet(ctx, start, true); // the flip (its switch; this arena is always floor F7): starts or ends next tick
             ctx.waitTicks(start ? 60 : 20);
             dev.testkit.gametest.SameTick s2 = st;
             ctx.runOnClient(mc -> s2.close());
