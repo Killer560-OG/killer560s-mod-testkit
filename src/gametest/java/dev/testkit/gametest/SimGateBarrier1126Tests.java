@@ -198,6 +198,28 @@ public class SimGateBarrier1126Tests implements FabricClientGameTest {
                         ctx.waitTick();
                     }
                 }
+                // The clear's goal in a room can be its route's start in the doorway (flake262-3, 11-26: New Trap's start
+                // -105,253,-185 is the door column between it and Museum, and the layout read the room he came through).
+                // Standing within 1.5 blocks of the pressed room is in it.
+                if (here != target[1]) {
+                    boolean near = ctx.computeOnClient(mc -> {
+                        Object lay = ModUnderTest.staticCall(LAYOUT, "capture");
+                        for (double dx = -1.5; dx <= 1.5; dx += 1.5) {
+                            for (double dz = -1.5; dz <= 1.5; dz += 1.5) {
+                                Object r = ModUnderTest.call(lay, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                                        new Object[]{mc.player.getX() + dx, mc.player.getZ() + dz});
+                                if (Integer.valueOf(target[1]).equals(r)) {
+                                    return true;
+                                }
+                            }
+                        }
+                        return false;
+                    });
+                    if (near) {
+                        println("ended in the pressed room's doorway (layout reads room " + here + ")");
+                        here = target[1];
+                    }
+                }
                 double moved = ctx.computeOnClient(mc -> mc.player.position().distanceTo(from));
                 int lag = firstUseTick < 0 || gateAirTick < 0 ? -99 : firstUseTick - gateAirTick;
                 pass = Boolean.TRUE.equals(ok) && waitingSeen && "true".equals(shutSeen) && usesHeld == 0 && movedHeld < 0.5
