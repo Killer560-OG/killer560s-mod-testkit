@@ -35,6 +35,8 @@ import java.util.Locale;
 final class HxStandEye1123Cases {
 
     private static final String CE = "livemap.autoclear.ClearExecutor";
+    /** A hotbar slot this class keeps empty. */
+    private static final int EMPTY_SLOT = 8;
     private static final String AOTV = "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,"
             + "tuned_transmission:4},unbreakable={}]";
     private static final double X0 = -424.5;
@@ -77,6 +79,13 @@ final class HxStandEye1123Cases {
     /** One hop (dig: he looks at the floor, so his left click has a block under the crosshair): sneak down, {@code after}
      *  ticks after it goes out queue the hop at {@code d} blocks; returns {ticks to the use, land}. */
     private static double[] hop(Session c, double d, int cycle, boolean dig, int after) {
+        // An empty hand while he stands unsneaked: his same-tick uses (Act.USE) with the Aspect in hand were Instant
+        // Transmissions 12 blocks out before the hop was even queued (diag 11-25 21:06: at queue -412.50 for X0 -424.50),
+        // and the hop then went from the wrong spot. Sneaking with the Aspect, his own uses stay real same-tick uses.
+        c.onClient(mc -> {
+            mc.player.getInventory().setSelectedSlot(EMPTY_SLOT);
+            return null;
+        });
         c.ctx().getInput().releaseKey(o -> o.keyShift);
         c.server().command(String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f -90 %d", X0, Y, Z0, dig ? 45 : 0));
         c.ctx().waitTicks(8);
@@ -147,6 +156,7 @@ final class HxStandEye1123Cases {
             c.hx().give(2, AOTV);
             c.hx().give(4, AOTV);
             c.hx().give(5, AOTV);
+            c.hx().give(EMPTY_SLOT, "minecraft:air");
             c.hx().call("dungeon.abilities", "enabled", true);
             c.hx().call("dungeon.standingEye", "fresh", true, "ticks", after);
             c.server().command("kill @e[tag=sametick]");
