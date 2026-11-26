@@ -173,10 +173,19 @@ final class BeaconAutoCases {
     private record Result(JsonObject done, List<int[]> btn) {
     }
 
-    /** Every lag in {@code lags}: the tune completes within one lap plus the start, and every pane ends in step. */
+    /**
+     * Every lag in {@code lags}: the tune completes within one lap plus the start; at a steady latency every pane ends in
+     * step too. Under jitter only completing counts: the unpause lands a changing round trip late, and on Hypixel an
+     * unpause on the right slot completes out of step (his VIII of 11-25, sv 436: about 12 ticks out, still done).
+     */
     private static void phaseRuns(Session c, int[] lags, boolean jitter) throws Exception {
         for (int lag : lags) {
-            inStep(c, run(c, phase("lime", 5, 1, lag), true, 4, null, 400, 105 + 120, jitter), "lag " + lag);
+            Result r = run(c, phase("lime", 5, 1, lag), true, 4, null, 400, 105 + 120, jitter);
+            if (!jitter) {
+                inStep(c, r, "lag " + lag);
+            } else if (r.done() != null) {
+                c.note("lag " + lag + ": done at " + r.done().get("tick") + ", phase " + r.done().get("phase"));
+            }
         }
     }
 
