@@ -2236,30 +2236,39 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     t.allow(6);
                     return t;
                 });
-        if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-            c.server().command("execute as @a at @s run summon zombie ^ ^ ^1.5 {NoAI:1b,Invulnerable:1b,Silent:1b,"
-                    + "Tags:[\"sametick\"]}");
-        }
-        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
-        ctx.runOnClient(mc -> {
-            BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 22);
-            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
-                    new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5), Direction.UP, lever, false));
-            dev.testkit.compat.McCompat.swingArm(mc.player);
-        });
-        Vec3 top = ctx.computeOnClient(mc -> {
-            Object frame = ModUnderTest.staticCall(FRAME, "current");
-            return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
-                    double.class, double.class}, new Object[]{frame, 16.5, (double) (F + 6), 20.5});
-        });
-        if (act == dev.testkit.gametest.SameTick.Act.TP) {
-            for (int k = 0; k < 3; k++) {
-                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
-                ctx.waitTick();
+        boolean landed;
+        try {
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("execute as @a at @s run summon zombie ^ ^ ^1.5 {NoAI:1b,Invulnerable:1b,Silent:1b,"
+                        + "Tags:[\"sametick\"]}");
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            ctx.runOnClient(mc -> {
+                BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 22);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
+                        new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5), Direction.UP, lever, false));
+                dev.testkit.compat.McCompat.swingArm(mc.player);
+            });
+            Vec3 top = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 16.5, (double) (F + 6), 20.5});
+            });
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                for (int k = 0; k < 3; k++) {
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    ctx.waitTick();
+                }
+            }
+            landed = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
+            ctx.waitTicks(10);
+        } finally {
+            // SameTick's tap sits on top of UseRotationWatch's: closed before stopSampling, also on a failure, or the
+            // next case's watch chains to a dead tap (StackOverflowError, this case's first run).
+            if (st != null) {
+                ctx.runOnClient(mc -> st.close());
             }
         }
-        boolean landed = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
-        ctx.waitTicks(10);
         List<Sample> s = stopSampling(ctx);
         List<dev.testkit.harness.WireCapture.Sent> wire = ctx.computeOnClient(mc -> {
             List<dev.testkit.harness.WireCapture.Sent> l = dev.testkit.harness.WireCapture.snapshot();
@@ -2287,8 +2296,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 delta(before, "etherwarps"), uses));
         check(logHas(m, "lever at") && logHas(m, "secrets met"), "the lever click did not meet the breaker's await");
         check(broke, "the breaker node did not break its snow block");
-        check(paired, "no Dungeon Breaker use paired the lever click before the warp - the case never happened");
-        check(spends == 1, label + ": the breaker use that pairs the click went " + spends + " times, expected once");
+        // His own use pairs the click itself (a use of his AOTV right after it): then nothing is left to spend.
+        boolean his = act == dev.testkit.gametest.SameTick.Act.USE;
+        check(paired || his, "no Dungeon Breaker use paired the lever click before the warp - the case never happened");
+        check(spends == 1 || his && spends == 0, label + ": the breaker use that pairs the click went " + spends + " times, expected once");
         if (act == null || act == dev.testkit.gametest.SameTick.Act.TP || act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK
                 || act == dev.testkit.gametest.SameTick.Act.ATTACK) {
             check(landed, "the warp after the breaker did not land on the target (at " + relPos(ctx) + ")");
