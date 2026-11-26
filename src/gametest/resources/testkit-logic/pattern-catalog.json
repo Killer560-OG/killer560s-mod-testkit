@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T02:51:21",
- "modSource": "lane-craftcost-hud-1126",
- "modGitSha": "8e92917f187f43b5f647ea83ab0294f233b1a065",
+ "generatedAt": "2026-11-26T03:52:20",
+ "modSource": "lane-multiwarp-autocharge-1126b",
+ "modGitSha": "6d9403dce43ecc3c5c8a08b47882cfe6b49538b1",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
