@@ -293,6 +293,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
                 s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
             }
+            // mod mwautocharge-1126 (killer560 2026-11-26 "tick split for multiwarp isnt working either"; he never had Charge on):
+            // Multi Warps' Auto Charge (off by default) charges Blink by itself in a dungeon, no Charge key. Its default and
+            // its legit refusal first (a PASS row on both builds), then the chains spending its bank after standing 1, 5 and
+            // 30 s, his actions in the split tick, and his actions in the tick Auto Charge starts and the tick it ends.
+            s.test("62-argrim-1126-autocharge-off", GrimAutoRoutesTests::caseAutoChargeOff);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                for (int sec : new int[]{1, 5, 30}) {
+                    s.test("62-argrim-1126-autocharge-map-" + sec + "s", c -> withAutoCharge(ctxOf(c), sec * 20,
+                            () -> caseMapChain(c, true, null, true)));
+                }
+                s.test("62-argrim-1126-autocharge-route", c -> withAutoCharge(ctxOf(c), 100, () -> caseChargedChain(c, true)));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
+                    s.test("62-argrim-1126-autocharge-split-same-" + a.name().toLowerCase(Locale.ROOT), c -> withAutoCharge(ctxOf(c),
+                            100, () -> caseMapChain(c, true, a, true)));
+                }
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP,
+                        dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                    String an = a.name().toLowerCase(Locale.ROOT);
+                    s.test("62-argrim-1126-autocharge-start-same-" + an, c -> caseAutoEdge(c, a, true));
+                    s.test("62-argrim-1126-autocharge-end-same-" + an, c -> caseAutoEdge(c, a, false));
+                }
+            }
             // mod acwaits3-1122 (his 11-21 log: a charged map burst's first use became an Instant Transmission and every landing
             // after it slid one hop): with Hypixel's sneak lag on the server (a sneak counts only once a whole server tick saw
             // it), the burst must wait for a tick that already carried the sneak. Fails on a9d22cbef.
@@ -3094,10 +3118,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
             ctx.waitTicks(10);
-            // Charge on, through the test hook the Blink tick reads (Tick Split too: it spends only the bank).
-            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
-            ctx.waitTicks(1);
-            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+            // Charge on, through the test hook the Blink tick reads (Tick Split too: it spends only the bank), or Auto Charge.
+            chargeOn(ctx);
             ctx.waitTicks(35);
             int bank = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall("com.killer560.hub.blink.BlinkCharge", "banked")).intValue());
             int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
@@ -3229,14 +3251,210 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /** Toggles Charge on with the test hook and waits for a full bank of 20; the bank. */
     private static long chargeFull(ClientGameTestContext ctx) {
-        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
-        ctx.waitTicks(1);
-        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+        chargeOn(ctx);
         for (int i = 0; i < 80 && chargeNum(ctx, "banked") < 20; i++) {
             ctx.waitTicks(1);
         }
-        ctx.waitTicks(25); // the answers reach their steady delay, so the bank is covered
+        if (autoStand <= 0) {
+            ctx.waitTicks(25); // the answers reach their steady delay, so the bank is covered
+        }
         return chargeNum(ctx, "banked");
+    }
+
+    /** Ticks Auto Charge stands him still before the chain ({@link #withAutoCharge}); 0 = his Charge key (the test hook). */
+    private static int autoStand;
+
+    /**
+     * Charge on: his Charge key through the test hook, or while {@link #autoStand} is set, Multi Warps' Auto Charge (mod
+     * mwautocharge-1126) - no key at all, a dungeon (the room sim's flag) and the switch on - standing still that long; it
+     * must be charging by then.
+     */
+    private static void chargeOn(ClientGameTestContext ctx) {
+        if (autoStand <= 0) {
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+            ctx.waitTicks(1);
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+            return;
+        }
+        autoChargeSet(ctx, true, true);
+        ctx.waitTicks(autoStand);
+        boolean on = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "autoCharging")));
+        long bank = chargeNum(ctx, "banked");
+        String line = "Auto Charge after " + autoStand + " still tick(s): charging " + on + ", bank " + bank + ", covered "
+                + ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "shotCovered"));
+        println(line);
+        session.note(line);
+        check(on, "Auto Charge did not start Blink Charge with the switch on in a dungeon");
+        check(bank > 0, "Auto Charge banked nothing in " + autoStand + " still tick(s)");
+    }
+
+    /** Auto Charge's switch and the dungeon flag it needs (the room sim's, which is not the boss). Client thread inside. */
+    private static void autoChargeSet(ClientGameTestContext ctx, boolean on, boolean inDungeon) {
+        ctx.runOnClient(mc -> {
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig"), "setAutoCharge", on);
+            ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState", "setRoomSim", new Class<?>[]{boolean.class},
+                    new Object[]{inDungeon});
+        });
+    }
+
+    /** Runs {@code body} with Auto Charge standing him still {@code ticks} before the chain; switched off after. */
+    private static void withAutoCharge(ClientGameTestContext ctx, int ticks, Runnable body) {
+        autoStand = ticks;
+        try {
+            body.run();
+        } finally {
+            autoStand = 0;
+            autoChargeSet(ctx, false, false);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(CHARGE, "reset", new Class<?>[]{String.class}, new Object[]{"test teardown"}));
+        }
+    }
+
+    private static ClientGameTestContext ctxOf(Session c) {
+        return c.ctx();
+    }
+
+    /**
+     * 62-argrim-1126-autocharge-off: a fresh config has Auto Charge OFF (killer560 2026-11-26: "do not default on"), and with
+     * it off (or on a legit jar, with it on) Multi Warps, Tick Split and Blink on in a dungeon start no charge - today's
+     * behavior. On a cheat jar switching it on then does start one (the switch acts).
+     */
+    private static void caseAutoChargeOff(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        boolean cheat = dev.testkit.gametest.mod.Mod.isCheat();
+        try {
+            boolean fresh = ctx.computeOnClient(mc -> {
+                try {
+                    java.lang.reflect.Constructor<?> k = Class.forName("com.killer560.hub.zpew.ZeroPingEtherwarpConfig")
+                            .getDeclaredConstructor();
+                    k.setAccessible(true);
+                    return (Boolean) k.newInstance().getClass().getMethod("isAutoCharge").invoke(k.newInstance());
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            check(!fresh, "a fresh Etherwarp config has Auto Charge ON; it must default OFF");
+            ctx.runOnClient(mc -> {
+                ModUnderTest.call(ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig"), "setMultiWarps",
+                        new Class<?>[]{boolean.class}, new Object[]{true});
+                tickSplit(true);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
+            });
+            autoChargeSet(ctx, false, true);
+            ctx.waitTicks(40);
+            boolean offRan = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
+            autoChargeSet(ctx, true, true);
+            ctx.waitTicks(40);
+            boolean onRan = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
+            long bank = chargeNum(ctx, "banked");
+            autoChargeSet(ctx, true, false);
+            ctx.waitTicks(5);
+            boolean leftRan = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
+            String line = String.format(Locale.ROOT, "autocharge-off (%s jar): fresh default %s; switch off -> charging %s; "
+                    + "on -> charging %s, bank %d; out of the dungeon -> charging %s", cheat ? "cheat" : "legit", fresh, offRan,
+                    onRan, bank, leftRan);
+            println(line);
+            c.note(line);
+            check(!offRan, "Auto Charge OFF still started Blink Charge");
+            check(cheat ? onRan && bank > 0 : !onRan, cheat ? "Auto Charge ON did not charge (bank " + bank + ")"
+                    : "a legit jar charged Blink by itself");
+            check(!leftRan, "Auto Charge kept charging after he left the dungeon");
+        } finally {
+            autoChargeSet(ctx, false, false);
+            ctx.runOnClient(mc -> {
+                tickSplit(false);
+                ModUnderTest.call(ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig"), "setMultiWarps",
+                        new Class<?>[]{boolean.class}, new Object[]{false});
+                ModUnderTest.staticCall(CHARGE, "reset", new Class<?>[]{String.class}, new Object[]{"test teardown"});
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
+            });
+        }
+    }
+
+    /**
+     * 62-argrim-1126-autocharge-{start,end}-same-*: his own action every tick (use, attack, hotbar swap, inventory click, a
+     * teleport accept) while Auto Charge starts ({@code start}: he enters the dungeon) or ends (he leaves it, the held
+     * answers all go) in that same tick. Both on the wire; GrimAC, which fails a flagged case, judges the rest.
+     */
+    private static void caseAutoEdge(Session c, dev.testkit.gametest.SameTick.Act act, boolean start) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        String tag = "autocharge " + (start ? "start" : "end") + " same-" + act;
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            chainSettings(ctx, true);
+            ctx.runOnClient(mc -> tickSplit(true));
+            autoChargeSet(ctx, true, !start);
+            ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
+            ctx.waitTicks(40);
+            tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                Vec3 p = relFeet(ctx, pts[0][0] + 0.5, pts[0][1] + 2.5);
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f %.2f %.2f {NoGravity:1b,"
+                        + "Invulnerable:1b,Tags:[\"mapchainst\"]}", p.x, p.y, p.z));
+            }
+            if (act == dev.testkit.gametest.SameTick.Act.CLICK) {
+                ctx.runOnClient(mc -> McCompat.setScreen(mc,
+                        new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+            }
+            ctx.waitTicks(start ? 10 : 100); // ending: a full bank and answers held a second
+            boolean before = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "autoCharging")));
+            long bankBefore = chargeNum(ctx, "banked");
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                    p -> p instanceof net.minecraft.network.protocol.common.ServerboundPongPacket, 0, 4));
+            if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                st.allow(4);
+            }
+            ctx.waitTicks(4);
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                c.server().command("execute as " + mcName(ctx) + " at @s run tp @s ~ ~ ~");
+            }
+            autoChargeSet(ctx, true, start); // the flip: Auto Charge starts or ends at the head of the next tick
+            ctx.waitTicks(start ? 60 : 20);
+            dev.testkit.gametest.SameTick s2 = st;
+            ctx.runOnClient(mc -> s2.close());
+            st = null;
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            boolean after = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "autoCharging")));
+            long held = chargeNum(ctx, "answersHeld");
+            long pongs = dev.testkit.harness.WireCapture.snapshot().stream().filter(x -> x.type().equals("minecraft:pong")).count();
+            String line = String.format(Locale.ROOT, "%s: charging %s -> %s, bank before %d, answers held after %d, pongs on the "
+                    + "wire %d; same-tick %s", tag, before, after, bankBefore, held, pongs, s2.report());
+            println(line);
+            c.note(line);
+            check(before != start && after == start, tag + ": Auto Charge did not " + (start ? "start" : "end") + " (" + before
+                    + " -> " + after + ")");
+            check(start || bankBefore > 0, tag + ": nothing was banked before it ended (nothing tested)");
+            check(start || held == 0, tag + ": " + held + " answer(s) still held after it ended");
+            check(s2.done() > 0 && s2.playerWindows() > 0, tag + ": his action never reached the wire (" + s2.report() + ")");
+            check(pongs > 0, tag + ": no ping answer went on the wire (nothing tested)");
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            autoChargeSet(ctx, false, false);
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(CLEAR, "cancel");
+                tickSplit(false);
+                McCompat.setScreen(mc, null);
+                dev.testkit.harness.WireCapture.stop();
+                dev.testkit.harness.Latency.remove();
+                mc.player.getInventory().setSelectedSlot(3);
+            });
+            chainSettings(ctx, null);
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=mapchainst]");
+            }
+        }
+    }
+
+    private static String mcName(ClientGameTestContext ctx) {
+        return ZpewCampaignTests.name(ctx);
     }
 
     /** The twelve-warp chain of {@link ArChainMeasure} as the map's own path nodes (ClearNode.EtherNode), from where he stands. */
