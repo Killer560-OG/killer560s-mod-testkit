@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T01:45:06",
- "modSource": "lane-multiwarp-ticksplit-broken-1126",
- "modGitSha": "fd097796e513c5eadc06f9319071f21e11b58478",
+ "generatedAt": "2026-11-26T02:51:21",
+ "modSource": "lane-craftcost-hud-1126",
+ "modGitSha": "8e92917f187f43b5f647ea83ab0294f233b1a065",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
