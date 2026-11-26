@@ -1081,6 +1081,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1102-ui-search-queries", EffectsSearchCases::searchQueries);
                     UiCase.run(ctx, "1102-ui-search-commands", EffectsSearchCases::searchCommands);
                     UiCase.run(ctx, "1102-ui-search-readme", EffectsSearchCases::searchReadme);
+                    UiCase.run(ctx, "1125-ui-search-switch-fresh", EffectsSearchCases::searchSwitchFresh);
                     // ---- the Inventory Search bar never covers a slot or panel (mod storagesearch-1102) ----
                     UiCase.run(ctx, "1102-ui-storagesearch-overlay", StorageSearchCases::overlay);
                     UiCase.run(ctx, "1102-ui-storagesearch-screens", StorageSearchCases::screens);
