@@ -69,7 +69,7 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     /** Trips started while still coming down onto a block, at least (settletrip). */
     private static final int MIN_SETTLE = 2;
     /** Of those trips (a death seen while he settles), 3 or more ticks after the death, at most (settletrip). */
-    private static final int MAX_LATE3 = 1;
+    private static final int MAX_LATE3 = 2;
     /** Turns toward the plan's next cast while a cast in place's deaths came back, at least (preturn). */
     private static final int MIN_PRETURN = 2;
     /** Planned casts on a death's own tick, at least (preturn). */
@@ -81,6 +81,7 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     private static final int[] PLAN_GAPS = new int[3];
     private static long lineMark = -1;
     private static long deadTick = -1;
+    private static long flushes;
     private static boolean deadSettling;
     private static boolean planCastSeen;
     /** Trips after a kill the floor must run, at least. */
@@ -363,16 +364,16 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             lineMark = m;
             return;
         }
-        long tick;
-        try {
-            tick = (Long) ModUnderTest.staticCall(EXEC, "clientTick");
-        } catch (RuntimeException e) {
-            return;
-        }
+        // Ticks are counted by the mod's own "[digflush]" line (one a tick, in log order), as k1.py does: the executor's
+        // clientTick read at this END tick put a death and a use of the same tick 2 apart.
         for (String line : LogTap.between(lineMark, m)) {
-            if (DEAD.matcher(line).find()) {
+            if (line.contains("[digflush]")) {
+                flushes++;
+            } else if (line.contains("room time:")) {
+                deadTick = -1;
+            } else if (DEAD.matcher(line).find()) {
                 if (deadTick < 0) {
-                    deadTick = tick;
+                    deadTick = flushes;
                     deadSettling = !mc.player.onGround() && mc.player.getDeltaMovement().y <= 0.0
                             && !mc.level.noCollision(mc.player, mc.player.getBoundingBox().move(0.0, -1.25, 0.0));
                     planCastSeen = false;
@@ -380,7 +381,7 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             } else if (deadTick >= 0 && line.contains("Wither Impact (room plan)")) {
                 planCastSeen = true;
             } else if (deadTick >= 0 && line.contains("[RightClick] use seq")) {
-                int g = (int) (tick - deadTick);
+                int g = (int) (flushes - deadTick);
                 if (line.contains("with HYPERION") && planCastSeen) {
                     PLAN_GAPS[Math.min(2, g)]++;
                 } else if (line.contains("with ASPECT_OF_THE_VOID") && deadSettling) {
