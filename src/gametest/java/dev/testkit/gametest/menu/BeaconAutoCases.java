@@ -120,6 +120,9 @@ final class BeaconAutoCases {
             + "{\"color\":\"white\",\"speed\":1,\"pitch\":2,\"idx\":5,\"since\":0}],\"mine\":[{\"color\":\"magenta\",\"speed\":1,\"pitch\":1,\"idx\":1,\"since\":0},"
             + "{\"color\":\"yellow\",\"speed\":3,\"pitch\":1,\"idx\":4,\"since\":0}]}";
 
+    /** Set by a case to write Auto Tune's own per-tick view of the next run (see {@link BeaconTrace}). */
+    private static String traceLabel;
+
     private BeaconAutoCases() {
     }
 
@@ -155,7 +158,13 @@ final class BeaconAutoCases {
             // His Upgrade Signal Strength menus of 11-26 2:36 AM as they opened (Auto Tune then took 566, 229, 508 and 230 ticks).
             String[][] runs = {{"II", WIN96, "200"}, {"III", WIN98, "200"}, {"IV", WIN100, "200"}, {"V", WIN2, "200"}};
             for (String[] w : runs) {
-                Result r = run(c, w[1], true, 4, null, 900, Integer.parseInt(w[2]), false);
+                traceLabel = "signal-" + w[0];
+                Result r;
+                try {
+                    r = run(c, w[1], true, 4, null, 900, Integer.parseInt(w[2]), false);
+                } finally {
+                    traceLabel = null;
+                }
                 inStep(c, r, w[0]);
                 List<int[]> b = r.btn();
                 int undo = 0;
@@ -303,6 +312,12 @@ final class BeaconAutoCases {
                     return a == SameTick.Act.CLOSE ? s.armedBy(() -> !tap.buttons().isEmpty()) : s;
                 });
             }
+            if (auto && has && traceLabel != null) {
+                c.onClient(mc -> {
+                    BeaconTrace.start();
+                    return null;
+                });
+            }
             c.hx().call("menu.beacon", args);
             c.waitUntil("the beacon menu", mc -> McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
                     && s.getTitle().getString().equals(title), 80);
@@ -334,6 +349,23 @@ final class BeaconAutoCases {
             c.ctx().waitTicks(act == SameTick.Act.CLOSE ? 40 : 5);
             WireCapture.stop();
             List<int[]> btn = tap.buttons();
+            if (auto && has && traceLabel != null) {
+                StringBuilder srv = new StringBuilder("\nclient clicks (client tick-end count, slot, button):");
+                for (int[] k : btn) {
+                    srv.append(' ').append(k[0]).append(':').append(k[1]).append(':').append(k[2]);
+                }
+                srv.append("\nserver events (beacon.click / beacon.step / beacon.done):\n");
+                for (String kind : new String[]{"beacon.click", "beacon.step", "beacon.done"}) {
+                    for (JsonObject e : c.hx().events(mark, kind)) {
+                        srv.append(kind).append(' ').append(e).append('\n');
+                    }
+                }
+                String label = traceLabel;
+                c.onClient(mc -> {
+                    BeaconTrace.stop(label, srv.toString());
+                    return null;
+                });
+            }
             int served = c.hx().events(mark, "beacon.click").size();
             int maxPerTick = 0;
             int minGap = 1 << 20;

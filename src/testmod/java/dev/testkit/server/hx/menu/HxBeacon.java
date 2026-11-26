@@ -160,6 +160,19 @@ final class HxBeacon implements HxMenus.Ticking {
                 SoundSource.RECORDS, p.getX(), p.getY(), p.getZ(), 1f, PITCH_SOUND[b.pitch], p.getRandom().nextLong()));
     }
 
+    /** {@link #advance}, plus a {@code beacon.step} event {tick, pane, idx} for each step (Auto Tune traces, 11-26). */
+    private boolean stepped(ServerPlayer p, String pane, Beat b) {
+        if (!advance(p, b)) {
+            return false;
+        }
+        JsonObject e = new JsonObject();
+        e.addProperty("tick", tick);
+        e.addProperty("pane", pane);
+        e.addProperty("idx", b.idx);
+        HxEvents.custom("beacon.step", p, e);
+        return true;
+    }
+
     private boolean advance(ServerPlayer p, Beat b) {
         if (b.paused || ++b.since < b.period()) {
             return false;
@@ -197,11 +210,11 @@ final class HxBeacon implements HxMenus.Ticking {
         if (done) {
             return;
         }
-        for (Beat b : beacon) {
-            dirty |= advance(player, b);
+        for (int i = 0; i < beacon.size(); i++) {
+            dirty |= stepped(player, "b" + i, beacon.get(i));
         }
-        for (Beat b : mine) {
-            dirty |= advance(player, b);
+        for (int i = 0; i < mine.size(); i++) {
+            dirty |= stepped(player, "m" + i, mine.get(i));
         }
         if (dirty) {
             steps++;
@@ -334,6 +347,7 @@ final class HxBeacon implements HxMenus.Ticking {
             e.addProperty("slot", slot);
             e.addProperty("kind", k);
             e.addProperty("tick", h.tick);
+            e.addProperty("beat", g);
             // Where the clicked beat and its beacon beat (same dials and slot, else the first beacon beat) stood when it landed.
             Beat t = h.beacon.stream().filter(b::same).findFirst().orElse(h.beacon.get(0));
             e.addProperty("at", b.idx + ":" + b.since + (b.paused ? "p" : "") + " vs " + t.idx + ":" + t.since);
