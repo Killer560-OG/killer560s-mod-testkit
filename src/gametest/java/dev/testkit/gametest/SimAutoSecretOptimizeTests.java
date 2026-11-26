@@ -438,6 +438,17 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private static void clearWaitBody(ClientGameTestContext ctx, List<String> failures) {
         lastFloor = 1;
         enterFloor(ctx);
+        if (!Ap3Crystal1109Cases.cheatBuild()) {
+            // Auto Secret is cheat-only: on a legit jar it must refuse to start and hand nothing to Auto Clear.
+            long mark = LogTap.mark();
+            Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+            ctx.waitTicks(40);
+            if (Boolean.TRUE.equals(started) || LogTap.since(mark).stream().anyMatch(l -> l.contains("to Auto Clear"))) {
+                failures.add("legit jar: Auto Secret started or handed a room to Auto Clear");
+            }
+            println(CLEARWAIT, "legit jar: Auto Secret start returned " + started + ", nothing handed to Auto Clear");
+            return;
+        }
         awaitWarmGraph(ctx, CLEARWAIT);
         auraOn(ctx);
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"),
