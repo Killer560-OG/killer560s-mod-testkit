@@ -215,6 +215,8 @@ public final class SimPuzzleDoneTests {
      * the auto is switched on (reflection, so any jar runs it); the room then plays as 93-solve-higherblaze. Stamped on the
      * test's tick clock: the auto's "ended its last step" line and Auto Secret's "puzzle Higher Blaze: ..." line (its leave).
      * Fails when it leaves more than 2 ticks after the auto ended, before the auto ended, or not within 20 s of the solve.
+     * Case names (built at run time as "93-solve-" + id): 93-solve-higherblaze-leave, 93-solve-higherblaze,
+     * 93-solve-lowerblaze.
      * Also fails when the sim sent any "PUZZLE SOLVED!" line for the room (sim-blaze-solved-line-1126: Hypixel sends none
      * for Blaze, 155 real logs; the sim used to, a tick before the auto ended, so the leave read it and not the auto's own
      * signal). On Hypixel the check came 7 s late; holding it back from the test thread raced the packet and failed.
