@@ -189,6 +189,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "1123-arholds-graphfirst",
             // arstuck-1125: a warp held after both replans gave up lets a fresh movement key take over and a left click send it
             "1125-arstuck-hold",
+            // autoroutes-stuck-1126: the Dungeon Breaker use that pairs a chest click goes once, then the warp
+            "1126-arstuck-spendloop",
+            // la-warpmiss-1126: a path pair on one block finishes in place, or flies from where he stands - never stops
+            "1126-ar-sameblock-pair", "1126-im-failreason",
             // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
             "1115-acslow2-await"};
 
@@ -341,6 +345,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-museum" -> caseMuseum(ctx);
                         case "96-ar-1020-boomsneak" -> caseBoomSneak(ctx);
                         case "96-ar-1016-eaten" -> caseEatenHop(ctx);
+                        case "1126-arstuck-spendloop" -> caseSpendLoop(ctx);
                         case "96-ar-1016-carry" -> ArMainServerCases.carryPastAwaitless(ctx);
                         case "96-ar-1016-farstart" -> ArMainServerCases.farBeforeStart(ctx);
                         case "96-ar-1016-refused" -> ArMainServerCases.refusedWarp(ctx);
@@ -403,6 +408,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
                         case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
                         case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
+                        case "1126-ar-sameblock-pair" -> ArRangeCases.sameBlockPair(ctx);
+                        case "1126-im-failreason" -> ArRangeCases.imFailReason(ctx);
                         case "1123-arholds-graphfirst" -> ArRangeCases.graphFirst(ctx);
                         case "1125-arstuck-hold" -> ArNodesCases.stuckHold(ctx);
                         case "1115-acslow2-await" -> ArMainServerCases.acslow2AwaitNothing(ctx);
@@ -3047,9 +3054,90 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * block half can be sent, and no other look onto the target has rays that agree: the use goes out to be taken as the
      * chest click's second half and dropped. Built here: a stone plate at head height just in front of him (7, F+2, 20), a
      * target block high across the arena (16, F+5, 20) whose west face every look reaches only under the plate. Main: "no
-     * landing after 61 ticks" and the route lets the node go off its ring. Fixed: the warp goes again a round trip later
-     * (the click is paired by then) and lands on the target.
+     * landing after 61 ticks" and the route lets the node go off its ring. Fixed then: the warp goes again a round trip
+     * later (the click is paired by then) and lands on the target.
+     * <p>
+     * arstk-eaten-1126: since mod aa0f8f5ee (2026-11-25) a use whose server ray meets a block sends its block half on THAT
+     * block first (here the plate, the block the 1.54 ray meets), so the use pairs with its own click and nothing is
+     * eaten at all: the case now asserts that - no use dropped, the plate's block click and one use, no resend, no
+     * timeout, landed on the target within 10 ticks of the chest window closing. The resend it used to prove can no
+     * longer happen in this geometry (the sim drops a use only when the server's ray meets a block).
      */
+    /**
+     * autoroutes-stuck-1126 (killer560 2026-11-26: "my auto routes keep getting stuck"; his Banners #5 ETHERWARP 01:07:31,
+     * Mines #6, Cathedral #3, Purple Flags #12). 96-ar-1016-eaten's plate and chest WITH the Dungeon Breaker in the hotbar:
+     * the chest click (AOTV in hand) is unpaired, the warp's look is unpairable, so the route pairs the click with a bare
+     * breaker use first. Since aa0f8f5ee RightClick cleared the click only when every server eye's ray met a block; here the
+     * 1.54 ray meets the plate and the 1.27 one passes under it, so the click stayed unpaired and the route spent it again
+     * every tick (swap to the breaker, use, swap back) and never sent the warp - 153 breaker uses in 154 ticks in his log.
+     * Fixed: one spend, the warp the tick after, landed on the target.
+     */
+    private void caseSpendLoop(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+        forgetRunMemory(ctx);
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx); // AOTV 1, Superboom 2, Dungeon Breaker 3
+        int[] chest = {8, F, 23};
+        Map<int[], BlockState> put = new LinkedHashMap<>();
+        put.put(new int[]{7, F + 2, 20}, Blocks.STONE.defaultBlockState());
+        put.put(new int[]{16, F + 5, 20}, Blocks.STONE.defaultBlockState());
+        put.put(chest, Blocks.CHEST.defaultBlockState());
+        setBlocks(ctx, put);
+        float yaw = relYawTo(6, 20, 16, 20);
+        float pitch = (float) -Math.toDegrees(Math.atan2(5.5 - 1.27, 16.0 - 6.5));
+        JsonObject n = node("ETHERWARP", 6, 20, yaw, pitch);
+        n.addProperty("landing", String.format(Locale.US, "%.3f %.3f %.3f", 16.5, F + 6.05, 20.5));
+        n.addProperty("start", true);
+        n.addProperty("awaitEnabled", true);
+        n.addProperty("await", "SECRET");
+        n.addProperty("amount", 1);
+        writeRoute(ctx, List.of(n));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        tpRel(ctx, 6.5, 20.5, yaw, pitch);
+        ctx.waitTicks(10);
+        Vec3 top = ctx.computeOnClient(mc -> ArPathLandCases.toRealPublic(16.5, F + 6, 20.5));
+        long m = LogTap.mark();
+        boolean met;
+        boolean landed;
+        int landTick = -1;
+        try {
+            rightClick(ctx, chest[0], chest[1], chest[2], Direction.UP);
+            met = waitFor(ctx, 40, () -> awaitMet(m));
+            ctx.runOnClient(mc -> mc.player.closeContainer());
+            landed = false;
+            for (int t = 1; t <= 60 && !landed; t++) {
+                ctx.waitTick();
+                landed = ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4);
+                if (landed) landTick = t;
+            }
+            ctx.waitTicks(5);
+        } finally {
+            stopRoute(ctx);
+        }
+        long spends = 0;
+        long warpUses = 0;
+        long breakerUses = 0;
+        for (String l : LogTap.since(m)) {
+            if (l.contains("paired it with a Dungeon Breaker use")) spends++;
+            if (l.contains("Etherwarp use sent (#1 ETHERWARP)")) warpUses++;
+            if (l.contains("[RightClick] use seq") && l.contains("DUNGEONBREAKER")) breakerUses++;
+            if (l.contains("RightClick") || l.contains("Etherwarp") || l.contains("ETHERWARP")) println("spendloop log: " + l);
+        }
+        println(String.format(Locale.US, "spendloop: await met %s, breaker spends %d (breaker uses on the wire %d), warp uses "
+                + "%d, landed on the target %s %d tick(s) after the chest window closed", met, spends, breakerUses, warpUses,
+                landed, landTick));
+        resetRoutes(ctx);
+        forgetRunMemory(ctx);
+        check(met, "the chest click never met the await - nothing flew");
+        check(spends >= 1, "no Dungeon Breaker use paired the chest click - the case it is about never happened");
+        check(spends == 1 && breakerUses == 1, "the breaker use that pairs the chest click went " + spends + " time(s) ("
+                + breakerUses + " on the wire), expected once - the spend loop that froze his routes");
+        check(warpUses >= 1, "the warp's use never went out after the spend");
+        check(landed && landTick <= 10, "he did not land on the target within 10 ticks of the await (landed " + landed
+                + ", tick " + landTick + ")");
+    }
+
     private void caseEatenHop(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
         forgetRunMemory(ctx);
@@ -3082,25 +3170,38 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(10);
         Vec3 top = ctx.computeOnClient(mc -> ArPathLandCases.toRealPublic(16.5, F + 6, 20.5));
         long m = LogTap.mark();
+        BlockPos plate = ctx.computeOnClient(mc -> BlockPos.containing(ArPathLandCases.toRealPublic(7.5, F + 2.5, 20.5)));
         boolean met;
-        boolean landed;
+        boolean landed = false;
+        int landTick = -1;
         try {
             rightClick(ctx, chest[0], chest[1], chest[2], Direction.UP);
             met = waitFor(ctx, 40, () -> awaitMet(m));
             ctx.runOnClient(mc -> mc.player.closeContainer());
-            landed = waitFor(ctx, 120, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
+            for (int t = 1; t <= 120 && !landed; t++) {
+                ctx.waitTick();
+                landed = ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4);
+                if (landed) landTick = t;
+            }
             ctx.waitTicks(10);
         } finally {
             stopRoute(ctx);
         }
         int dropped = 0;
         int uses = 0;
+        int plateClicks = 0;
+        boolean pairedOwn = false;
+        String plateAt = plate.getX() + ", " + plate.getY() + ", " + plate.getZ();
         for (String l : LogTap.since(m)) {
             if (l.contains("dropped, as on Hypixel")) {
                 dropped++;
             }
             if (l.contains("[RightClick] use seq")) {
                 uses++;
+                pairedOwn |= l.contains("pairs with its own");
+            }
+            if (l.contains("[RightClick] block click seq") && l.contains(" at " + plateAt + " ")) {
+                plateClicks++;
             }
             if (l.contains("RightClick") || l.contains("Etherwarp") || l.contains("ETHERWARP") || l.contains("dropped")) {
                 println("eaten log: " + l);
@@ -3108,17 +3209,20 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
         boolean resent = logHas(m, "sending the warp again");
         boolean timedOut = logHas(m, "no landing after");
-        println(String.format(Locale.US, "eaten: await met %s, uses %d, dropped by the sim %d, resent %s, timed out %s, "
-                + "landed on the target %s", met, uses, dropped, resent, timedOut, landed));
+        println(String.format(Locale.US, "eaten: await met %s, uses %d, plate block clicks %d, paired with its own %s, "
+                + "dropped by the sim %d, resent %s, timed out %s, landed on the target %s %d tick(s) after the window closed",
+                met, uses, plateClicks, pairedOwn, dropped, resent, timedOut, landed, landTick));
         resetRoutes(ctx);
         forgetRunMemory(ctx);
         check(met, "the chest click never met the await - nothing flew");
-        check(dropped >= 1, "no use was dropped as the chest click's second half - the case it is about never happened");
-        check(!timedOut, "the warp waited out the 61-tick landing timeout after its use was dropped");
-        check(resent, "no \"sending the warp again\" line after the dropped use");
-        check(landed, "he never landed on the target block");
-        check(dropped == 1 && uses == 2, "expected exactly one dropped use and one resend (" + uses + " use(s), " + dropped
-                + " dropped)");
+        check(plateClicks == 1, "the warp's block half did not go on the plate the server's ray meets once (" + plateClicks
+                + " block click(s) at " + plateAt + ")");
+        check(uses == 1 && pairedOwn, "expected one use, paired with its own block click (" + uses + " use(s), paired "
+                + pairedOwn + ")");
+        check(dropped == 0, "a use was dropped as the chest click's second half (" + dropped + ")");
+        check(!resent && !timedOut, "the warp was sent again (" + resent + ") or timed out (" + timedOut + ")");
+        check(landed && landTick <= 10, "he did not land on the target within 10 ticks of the window closing (landed "
+                + landed + ", tick " + landTick + ")");
     }
 
     /**
@@ -10969,6 +11073,89 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 hole.put(new int[]{OX, F - 1, MZ}, Blocks.AIR.defaultBlockState());
                 setBlocks(ctx, hole);
             }, "landing block", REPLAN_BOUND + 20, null);
+        }
+
+        /**
+         * la-warpmiss-1126: a path pair whose two nodes share one block (his Pressure Plates #26 -> #28, 2026-11-25
+         * 15:36:52) stopped the route "no etherwarp path ... (the two path nodes are on the same block)" when he stood
+         * 8 blocks off it after the node stacked before it. Now, standing on it, the pair is done; off it, the pair is
+         * planned from where he stands and flown. Stack on (OX, OZ): #1 ETHERWARP to (OX, MZ), #2 PATH, #3 PATH.
+         */
+        static void sameBlockPair(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            inMuseum(ctx, () -> {
+                setReplan(ctx, false);
+                giveAotv(ctx, 0);
+                // ---- on the block: PATH #1 + PATH #2 on one tile finish where he stands ----
+                JsonObject a = node("PATH", OX, OZ, 0f, 0f);
+                a.addProperty("start", true);
+                writeRoute(ctx, List.of(a, node("PATH", OX, OZ, 0f, 0f)));
+                long m0 = LogTap.mark();
+                replayTo(ctx, OZ, 0);
+                boolean ended0 = waitFor(ctx, 60, () -> logHas(m0, "complete") || logHas(m0, "Stopped"));
+                printPathLog("sameblock on", m0);
+                check(ended0, "on the block: the route neither completed nor stopped in 60 ticks");
+                check(!logHas(m0, "on the same block)"), "on the block: the route stopped on a one-block pair");
+                check(logHas(m0, "pair on one block, already on it"), "on the block: the pair was not finished in place");
+                stopRoute(ctx);
+                // ---- off the block: the ETHERWARP before it puts him 17 blocks off; the pair flies him back ----
+                JsonObject w = ew(OX, OZ, OX, MZ, true);
+                writeRoute(ctx, List.of(w, node("PATH", OX, OZ, 0f, 0f), node("PATH", OX, OZ, 0f, 0f)));
+                int r0 = replans(ctx);
+                long m1 = LogTap.mark();
+                replayTo(ctx, OZ, 0);
+                boolean ended1 = waitFor(ctx, 120, () -> logHas(m1, "complete") || logHas(m1, "Stopped"));
+                printPathLog("sameblock off", m1);
+                Vec3 at = relPos(ctx);
+                check(logHas(m1, "Node #1 ETHERWARP"), "premise: the stack's ETHERWARP did not run");
+                check(logHas(m1, "Node #2 PATH begins"), "premise: the stacked PATH #2 did not begin");
+                check(ended1, "off the block: the route neither completed nor stopped in 120 ticks (at " + at + ")");
+                check(!logHas(m1, "on the same block)"), "off the block: the route stopped \"on the same block\" (at "
+                        + at + ")");
+                check(logHas(m1, "off it at"), "off the block: #2 did not see him off its one-block pair");
+                check(logHas(m1, "new warp(s) from here (not saved)"), "off the block: the pair was not flown from here");
+                check(replans(ctx) == r0 + 1, "replans counted " + (replans(ctx) - r0) + ", expected 1");
+                check(Math.floor(at.x) == OX && Math.floor(at.z) == OZ && Math.abs(at.y - F) < 0.2,
+                        "off the block: he did not end on the pair's block (" + OX + ", " + OZ + "), at " + at);
+                check(logHas(m1, "complete"), "off the block: the route did not run to its end");
+            });
+        }
+
+        /**
+         * la-warpmiss-1126: an Interactive Map trip the planner refuses says why (his 11-25 15:34-15:40: five bare "Failed
+         * after Nms"). The goal is the strip's side wall block (3, F+1, 20), stone over it: nothing to stand on.
+         */
+        static void imFailReason(ClientGameTestContext ctx) {
+            inMuseum(ctx, () -> {
+                tpRel(ctx, OX + 0.5, OZ + 0.5, 0f, 0f);
+                ctx.waitTicks(10);
+                long m = LogTap.mark();
+                ctx.runOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    ModUnderTest.staticCall(CLEAR, "etherPath", new Class<?>[]{BlockPos.class, Runnable.class},
+                            new Object[]{real(frame, 3, F + 1, 20), null});
+                });
+                boolean said = waitFor(ctx, 60, () -> logHas(m, "Failed after"));
+                String line = LogTap.since(m).stream().filter(l -> l.contains("Failed after")).findFirst().orElse(null);
+                String reason = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(CLEAR, "lastFailReason"));
+                println("imfail: line " + line + " | lastFailReason " + reason);
+                check(said, "premise: the planner did not refuse the walled-in block within 60 ticks");
+                check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(CLEAR, "lastPathFailed")),
+                        "premise: lastPathFailed is not set after the refusal");
+                check(line != null && line.contains("nothing to stand on at that block"), "the failure line does not say why: " + line);
+                check("nothing to stand on at that block".equals(reason), "lastFailReason reads " + reason);
+            });
+        }
+
+        private static void printPathLog(String tag, long mark) {
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("PATH") || l.contains("ETHERWARP") || l.contains("Stopped") || l.contains("complete")) {
+                    println(tag + " log: " + l);
+                }
+            }
         }
 
         /** Ticks from arming #1 to standing on #2: two hops plus one replan (one planner answer, a few ms here); a missing

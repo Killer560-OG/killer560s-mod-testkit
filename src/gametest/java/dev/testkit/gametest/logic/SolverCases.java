@@ -265,6 +265,20 @@ final class SolverCases {
                 false, "Timer")), false, false, 800L, 0L, 100L, 500L);
         c.eq("chronomatron clicks the first note after the delay", OptionalInt.of(12), first);
 
+        // la-small-1126: a note is a two-slot tile (N and N + 9) and both halves foil; a stale foil of the previous note
+        // must not win over the newly lit tile (origin took the lowest slot).
+        Object tie = R.construct(EXP);
+        Mod.call(tie, "select", "Chronomatron (High)");
+        Mod.call(tie, "observe", List.of(cell(49, "minecraft:clock", 1, false, "Timer"),
+                cell(30, "minecraft:red_terracotta", 1, true, "Note"), cell(39, "minecraft:red_terracotta", 1, true, "Note")), false, 0L);
+        c.eq("chronomatron tile pair is one note", 30, Mod.call(tie, "chronomatronNextClickSlot"));
+        Mod.call(tie, "observe", List.of(cell(49, "minecraft:glowstone", 1, false, "Remember")), false, 100L);
+        Mod.call(tie, "observe", List.of(cell(49, "minecraft:clock", 1, false, "Timer"),
+                cell(30, "minecraft:red_terracotta", 1, true, "Note"), cell(39, "minecraft:red_terracotta", 1, true, "Note"),
+                cell(32, "minecraft:lime_terracotta", 1, true, "Note"), cell(41, "minecraft:lime_terracotta", 1, true, "Note")), false, 200L);
+        c.eq("chronomatron stale foil replays the first note", 30, Mod.call(tie, "chronomatronNextClickSlot"));
+        c.eq("chronomatron stale foil loses to the lit tile", 32, Mod.call(tie, "chronomatronFollowingClickSlot"));
+
         // Ultrasequencer: numbers shown under glowstone give the order (count - 1 -> slot).
         Object ultra = R.construct(EXP);
         Mod.call(ultra, "select", "Ultrasequencer (Supreme)");

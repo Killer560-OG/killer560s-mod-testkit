@@ -159,6 +159,20 @@ final class HxTerminals {
          *  0 = the next row at once. {@code melodyAdvanceAt} is -1 when no advance is pending. */
         int melodyRowDelay;
         long melodyAdvanceAt = -1;
+        /** "rowAtStep" (melody-edges-missed-1126, his Hypixel logs 11-23..25): Hypixel starts the next row only at the pane's
+         *  next step, ~500 ms after the click, with the pane already one column on (a row clicked on column 5 shows the next
+         *  row with the pane on 4). {@code melodyAdvanceAt} is {@link #AT_STEP} while that advance is pending. */
+        boolean melodyRowAtStep;
+        static final long AT_STEP = Long.MAX_VALUE;
+        /** Server tick the active row's pane last arrived on its target (-1 = not on it), and per correct click how many
+         *  ticks after that arrival it came: the wire-side "how fast was each row taken". */
+        long melodyOnTargetSince = -1;
+        final JsonArray melodyOnTargetLags = new JsonArray();
+
+        void noteMelodyOnTarget(long now) {
+            boolean on = melodyAdvanceAt < 0 && melodyLime == melodyTarget && melodyRow <= melodyBandRows;
+            melodyOnTargetSince = on ? (melodyOnTargetSince >= 0 ? melodyOnTargetSince : now) : -1;
+        }
         final Map<Integer, Integer> melodyDoneCol = new LinkedHashMap<>();
 
         Terminal(Type type, long seed, String title, int rows, int[] grid, boolean closeOnSolve, int melodyInterval) {
@@ -196,6 +210,7 @@ final class HxTerminals {
             if (melodyAdvanceAt >= 0 && now >= melodyAdvanceAt) {
                 melodyAdvanceAt = -1;
                 melodyRow++;
+                noteMelodyOnTarget(now);
                 drawMelody(server, menu);
                 menu.broadcastChanges();
             }
@@ -203,7 +218,7 @@ final class HxTerminals {
                 return;
             }
             melodyLastMove = now;
-            if (melodyLime == melodyTarget) {
+            if (melodyLime == melodyTarget && melodyAdvanceAt < 0) {
                 melodyMissedPasses++;
             }
             long wall = System.nanoTime();
@@ -213,6 +228,11 @@ final class HxTerminals {
             if (melodyLime == 1 || melodyLime == 5) {
                 melodyDir *= -1;
             }
+            if (melodyAdvanceAt == AT_STEP) {
+                melodyAdvanceAt = -1;
+                melodyRow++;
+            }
+            noteMelodyOnTarget(now);
             drawMelody(server, menu);
             menu.broadcastChanges();
         }
@@ -325,6 +345,7 @@ final class HxTerminals {
             if (type == Type.MELODY) {
                 o.addProperty("bandRows", melodyBandRows);
                 o.addProperty("missedPasses", melodyMissedPasses);
+                o.add("onTargetLags", melodyOnTargetLags.deepCopy());
             }
             o.addProperty("solved", solved);
             o.addProperty("clicks", clicks);
@@ -481,6 +502,7 @@ final class HxTerminals {
                 t.melodyBandRows = bandRows;
                 t.melodyTarget = a.has("target") ? a.get("target").getAsInt() : 1 + rng.nextInt(5);
                 t.melodyRowDelay = a.has("rowDelay") ? a.get("rowDelay").getAsInt() : 0;
+                t.melodyRowAtStep = a.has("rowAtStep") && a.get("rowAtStep").getAsBoolean();
                 t.melodyKeepDone = a.has("keepDone") && a.get("keepDone").getAsBoolean();
                 t.melodyFrozen = a.has("freeze") && a.get("freeze").getAsBoolean();
                 t.melodyKeepTarget = a.has("keepTarget") && a.get("keepTarget").getAsBoolean();
@@ -493,6 +515,7 @@ final class HxTerminals {
                     t.melodyTarget = t.melodyTargets[0];
                 }
                 t.melodyLastMove = server.getTickCount();
+                t.noteMelodyOnTarget(t.melodyLastMove);
                 items = new ArrayList<>();
                 for (int i = 0; i < t.rows * 9; i++) {
                     items.add(t.melodyItem(server, i % 9, i / 9));
@@ -752,10 +775,17 @@ final class HxTerminals {
                             t.melodyTarget = 1 + t.rng.nextInt(5);
                         }
                         correct = true;
-                        if (t.melodyRowDelay > 0 && t.melodyRow < t.melodyBandRows) {
+                        if (t.melodyOnTargetSince >= 0) {
+                            t.melodyOnTargetLags.add(tick - t.melodyOnTargetSince);
+                        }
+                        t.melodyOnTargetSince = -1;
+                        if (t.melodyRowAtStep && t.melodyRow < t.melodyBandRows) {
+                            t.melodyAdvanceAt = Terminal.AT_STEP;
+                        } else if (t.melodyRowDelay > 0 && t.melodyRow < t.melodyBandRows) {
                             t.melodyAdvanceAt = tick + t.melodyRowDelay;
                         } else {
                             t.melodyRow++;
+                            t.noteMelodyOnTarget(tick);
                             if (t.melodyRow <= t.melodyBandRows) {
                                 t.drawMelody(server, menu);
                             }

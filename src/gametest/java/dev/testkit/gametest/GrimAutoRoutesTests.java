@@ -202,6 +202,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // for good: after 40 given-back ticks the node fires from where he stands.
             s.test("62-argrim-1123-trapwalkalign-attack-every-tick", c -> caseTrapWalkAlign(c,
                     dev.testkit.gametest.SameTick.Act.ATTACK, false, true));
+            // ar-trapplan-eaten-1126: a trap PATH pair with no saved walk is planned ahead, so the route never stands on
+            // its node while AP3 searches; his own right click / hotbar swap in the walk's ticks.
+            s.test("62-argrim-1126-trapplan", c -> caseTrapPlan(c, null));
+            s.test("62-argrim-1126-trapplan-same-use", c -> caseTrapPlan(c, dev.testkit.gametest.SameTick.Act.USE));
+            s.test("62-argrim-1126-trapplan-same-swap", c -> caseTrapPlan(c, dev.testkit.gametest.SameTick.Act.SWAP));
             // apfix-1123: Auto Secret's warp onto a path-less route's walk-gap node, his own actions in the trip's ticks.
             s.test("62-argrim-1123-walkgap", c -> caseWalkGapWarp(c, null, false));
             // Each name written out in full: the merge train finds a case by its literal name.
@@ -254,12 +259,23 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
             }
+            // la-digwindow-1126: DigWindow on a breaker node; with Burst the second block a tick is the owner's burst, no WARN.
+            s.test("62-argrim-1126-digwindow", c -> caseDigWindow(c, false));
+            s.testExpectingFlags("62-argrim-1126-digwindow-burst", c -> caseDigWindow(c, true));
             s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
             s.test("62-argrim-1015-clickwarp", GrimAutoRoutesTests::caseClickWarp); // ar-nexttick-1015
-            s.test("62-argrim-1017-breakerwarp", GrimAutoRoutesTests::caseBreakerWarpPaired); // ar-bridges-bat-1017
+            s.test("62-argrim-1017-breakerwarp", c -> caseBreakerWarpPaired(c, null)); // ar-bridges-bat-1017
+            // autoroutes-stuck-1126: the breaker use that pairs the click goes ONCE, then the warp; his actions in those ticks.
+            for (dev.testkit.gametest.SameTick.Act a : List.of(
+                    dev.testkit.gametest.SameTick.Act.USE, dev.testkit.gametest.SameTick.Act.ATTACK,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
+                    dev.testkit.gametest.SameTick.Act.TP)) {
+                s.test("62-argrim-1126-spendsame-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                        c -> caseBreakerWarpPaired(c, a));
+            }
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             // grimsame-1105: his hotbar scroll / left click in the same server tick as the chain's warps.
@@ -292,6 +308,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
                 // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
                 s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
+            }
+            // mod mwautocharge-1126 (killer560 2026-11-26 "tick split for multiwarp isnt working either"; he never had Charge on):
+            // Multi Warps' Auto Charge (off by default) charges Blink by itself in a dungeon, no Charge key. Its default and
+            // its legit refusal first (a PASS row on both builds), then the chains spending its bank after standing 1, 5 and
+            // 30 s, his actions in the split tick, and his actions in the tick Auto Charge starts and the tick it ends.
+            // A legit jar gives every one of them a PASS row of its own: Auto Charge there charges nothing (cheatOr).
+            s.test("62-argrim-1126-autocharge-off-legit-absent", GrimAutoRoutesTests::caseAutoChargeOff); // runs on legit too (Scenario.legitSkip)
+            for (int sec : new int[]{1, 5, 30}) {
+                s.test("62-argrim-1126-autocharge-map-" + sec + "s", c -> cheatOr(c, () -> withAutoCharge(ctxOf(c), sec * 20,
+                        () -> caseMapChain(c, true, null, true))));
+            }
+            s.test("62-argrim-1126-autocharge-route", c -> cheatOr(c, () -> withAutoCharge(ctxOf(c), 100,
+                    () -> caseChargedChain(c, true))));
+            for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
+                s.test("62-argrim-1126-autocharge-split-same-" + a.name().toLowerCase(Locale.ROOT), c -> cheatOr(c,
+                        () -> withAutoCharge(ctxOf(c), 100, () -> caseMapChain(c, true, a, true))));
+            }
+            for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP,
+                    dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                String an = a.name().toLowerCase(Locale.ROOT);
+                s.test("62-argrim-1126-autocharge-start-same-" + an, c -> cheatOr(c, () -> caseAutoEdge(c, a, true)));
+                s.test("62-argrim-1126-autocharge-end-same-" + an, c -> cheatOr(c, () -> caseAutoEdge(c, a, false)));
             }
             // mod acwaits3-1122 (his 11-21 log: a charged map burst's first use became an Instant Transmission and every landing
             // after it slid one hop): with Hypixel's sneak lag on the server (a sneak counts only once a whole server tick saw
@@ -979,6 +1019,162 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             trapRoom(ctx, false);
             resetRoutes(ctx);
         }
+    }
+
+    /**
+     * 62-argrim-1126-trapplan (ar-trapplan-eaten-1126; his New Trap 11-26 01:02:09-01:02:51: a PATH pair with no saved
+     * walk stood him on the node 50-61 ticks while AP3's full first search ran, and each time he moved and the route
+     * stopped; one plan took 4400 ms). In a trap room a PATH pair with no saved walk must be planned AHEAD, off the tick
+     * thread, while he stands elsewhere in the room: (1) node #1 holds a saved walk before he gets there, (2) arriving on
+     * #1 at rest, the walk replays it ("using the saved") and he moves within 3 ticks of the route starting, (3) arriving
+     * WALKING onto #1 (his speed does not fit the saved walk), the walk drives from the quick search within 10 ticks, and
+     * both walks end on #2 with GrimAC silent. On the origin jar (1) fails: nothing plans ahead. With {@code act}: his own
+     * action in every tick from the route's start (the at-rest run), on the wire in the same server tick as the walk's.
+     */
+    private static void caseTrapPlan(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        tpRel(ctx, 14.5, 24.5, 0f, 0f);
+        trapRoom(ctx, true);
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            JsonObject a = node("PATH", 6, 8, 90f, 0f);
+            a.addProperty("start", true);
+            JsonObject b = node("PATH", 22, 20, 0f, 0f);
+            long mark = LogTap.mark();
+            writeRoute(ctx, List.of(a, b));
+            boolean ahead = waitFor(ctx, 600, () -> walkSteps(ctx) > 0);
+            String aheadLine = logLine(mark, "planned ahead");
+            c.note("planned ahead: " + ahead + " (" + walkSteps(ctx) + " saved step(s)) - " + aheadLine);
+            check(ahead && logHas(mark, "planning it ahead"), "no trap walk was planned ahead for Path #1 -> #2 while he"
+                    + " stood elsewhere in the room (" + walkSteps(ctx) + " saved step(s))");
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> {
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
+                                    || (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
+                                    && mp.hasRotation()), 7, 8)
+                            .armedBy(() -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+                    if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                        t.allow(4);
+                    }
+                    return t;
+                });
+                ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            }
+            // (2) at rest on #1: the route starts from the teleport onto its ring; the saved walk plays at once.
+            long m2 = LogTap.mark();
+            startSampling(ctx);
+            tpRel(ctx, 6.5, 8.5, 90f, 0f);
+            boolean started = waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                    EXECUTOR, "isRunning")));
+            Vec3 at = relPos(ctx);
+            int movedAfter = -1;
+            for (int t = 0; t < 20 && started; t++) {
+                if (relPos(ctx).distanceTo(at) > 0.05) {
+                    movedAfter = t;
+                    break;
+                }
+                ctx.waitTick();
+            }
+            boolean ended = waitFor(ctx, 300, () -> logHas(m2, "walk ends at") || logHas(m2, "refused after"));
+            Vec3 end = relPos(ctx);
+            List<Sample> s = stopSampling(ctx);
+            c.note(String.format(Locale.ROOT, "at rest: route started %s, moved %d tick(s) after it started, saved replay "
+                            + "%s, ended %s at rel (%.2f, %.2f) - %s", started, movedAfter,
+                    logHas(m2, "using the saved"), ended, end.x, end.z, logLine(m2, "walk ends at")));
+            if (st != null) {
+                dev.testkit.gametest.SameTick.judge(c, st, "trapplan " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
+                st = null;
+            }
+            check(started, "the route never started from the teleport onto #1");
+            check(logHas(m2, "using the saved"), "the at-rest walk did not replay the walk planned ahead");
+            check(movedAfter >= 0 && movedAfter <= 3, "he stood " + movedAfter + " tick(s) on #1 before the walk moved him"
+                    + " (at most 3)");
+            check(ended && logHas(m2, "walk ends at") && Math.hypot(end.x - 22.5, end.z - 20.5) < 0.5,
+                    String.format(Locale.ROOT, "the walk did not end on #2 (ended %s, rel %.2f, %.2f)", ended, end.x,
+                            end.z));
+            noteFlags(c, s);
+            if (act != null) {
+                return;
+            }
+            // (3) walked onto #1: his speed does not fit the saved walk, so the quick search drives it, not the full one.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test: second run"}));
+            long m3 = LogTap.mark();
+            List<Sample> s3;
+            startSampling(ctx);
+            walkOnto(ctx, 6.5, 12.5, 6, 8);
+            int fired = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")) ? 0 : -1;
+            int drove = -1;
+            for (int t = 0; t < 60 && fired == 0; t++) {
+                if (logHas(m3, "using the saved")) {
+                    drove = t;
+                    break;
+                }
+                ctx.waitTick();
+            }
+            boolean ended3 = waitFor(ctx, 300, () -> logHas(m3, "walk ends at") || logHas(m3, "refused after"));
+            Vec3 end3 = relPos(ctx);
+            s3 = stopSampling(ctx);
+            c.note(String.format(Locale.ROOT, "walked on: route started %s, walk driving %d tick(s) after it - %s; ended %s"
+                            + " at rel (%.2f, %.2f)", fired == 0, drove, logLine(m3, "[TrapWalk]"), ended3, end3.x,
+                    end3.z));
+            check(fired == 0, "the route never started from walking onto #1");
+            // walking on, he is off the saved start or still moving: the walk aligns onto that start (~10 ticks) and plays
+            // the saved walk - never a fresh search (ar-trapplan-eaten-1126; a full one stood him 50+ ticks)
+            check(drove >= 0 && drove <= 25, "the saved walk was not playing within 25 ticks of the route starting ("
+                    + drove + ")");
+            check(!logHas(m3, "first plan:"), "walking onto #1 ran a fresh search instead of the saved walk");
+            check(ended3 && logHas(m3, "walk ends at") && Math.hypot(end3.x - 22.5, end3.z - 20.5) < 0.5,
+                    String.format(Locale.ROOT, "the second walk did not end on #2 (ended %s, rel %.2f, %.2f)", ended3,
+                            end3.x, end3.z));
+            noteFlags(c, s3);
+        } finally {
+            dev.testkit.gametest.SameTick open = st;
+            if (open != null) {
+                ctx.runOnClient(mc -> open.close());
+            }
+            if (act != null) {
+                ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            }
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=sametick]");
+            }
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
+    /** Saved trap-walk steps on the current room's route's first node (0 when none). */
+    private static int walkSteps(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Object store = ModUnderTest.staticCall(STORE, "getInstance");
+                Object route = ModUnderTest.call(store, "forRoom", new Class<?>[]{String.class}, new Object[]{room});
+                if (route == null) {
+                    return 0;
+                }
+                List<?> nodes = (List<?>) ModUnderTest.call(route, "nodes", new Class<?>[]{}, new Object[]{});
+                Object n = nodes.isEmpty() ? null : nodes.get(0);
+                return n == null ? 0 : ((List<?>) n.getClass().getField("walkSteps").get(n)).size();
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    /** The first log line since {@code mark} holding {@code text}, from its tag on ("" when none). */
+    private static String logLine(long mark, String text) {
+        for (String l : LogTap.since(mark)) {
+            if (l.contains(text)) {
+                int i = l.indexOf('[', Math.max(0, l.indexOf(')')));
+                return i < 0 ? l : l.substring(i);
+            }
+        }
+        return "";
     }
 
     /**
@@ -2014,6 +2210,105 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
+     * 62-argrim-1126-digwindow / -burst (la-digwindow-1126; his 11-24..26 logs held 379 DigWindow "two digs in one server
+     * tick" WARNs, every one with Burst Multi Break on). A breaker node of ten snow blocks round him (rows F and F+1 at
+     * z 11), the card on Legit Multi Break or on Burst. (Breaker Aura beside it is not a real pairing: the aura digs only in
+     * a boss, a route only in a room; the boss override that wakes the aura takes the route's room frame away.) Off Burst:
+     * all ten on the wire, never two blocks between two tick packets (MultiBreakWatch), DigWindow no conflict of either kind,
+     * no WARN, GrimAC silent. Burst: at least one server tick carries two blocks (the burst acted), DigWindow counts them as
+     * burst ({@code burstConflicts}) with no real conflict and no "two digs" WARN; only MultiBreak* may flag (experimental).
+     */
+    private static void caseDigWindow(Session c, boolean burst) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Object dx = ModUnderTest.config(DX_CONFIG);
+        boolean burstBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+        boolean legitBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+        List<int[]> ten = new ArrayList<>();
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int x = 11; x <= 15; x++) {
+            for (int y = 0; y <= 1; y++) {
+                ten.add(new int[]{x, F + y, 11});
+                put.put(new int[]{x, F + y, 11}, "minecraft:snow_block");
+                blocks.add(x + " " + (F + y) + " 11");
+            }
+        }
+        try {
+            warmDig(ctx);
+            setBlocks(ctx, put);
+            JsonObject br = node("DUNGEON_BREAKER", 13, 10, 0f, 0f);
+            br.add("blocks", blocks);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            ctx.runOnClient(mc -> ModUnderTest.set(dx, burst ? "setBreakerAuraBurstMultiBreak" : "setBreakerAuraMultiBreak", true));
+            long conflictsBefore = ctx.computeOnClient(mc -> digWindowCount("conflicts"));
+            long burstConfBefore = ctx.computeOnClient(mc -> digWindowCount("burstConflicts"));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+            walkOnto(ctx, 13.5, 7.5, 13, 10);
+            boolean gone = waitFor(ctx, 120, () -> {
+                for (int[] b : ten) {
+                    if (!blockAir(ctx, b[0], b[1], b[2])) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
+            List<Sample> s = stopSampling(ctx);
+            java.util.Set<String> dug = new java.util.HashSet<>();
+            Map<Integer, java.util.Set<String>> perWindow = new java.util.TreeMap<>();
+            for (var d : dev.testkit.harness.MultiBreakWatch.digs()) {
+                dug.add(d.pos().toShortString());
+                perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos().toShortString());
+            }
+            int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+            List<String> replay = dev.testkit.harness.MultiBreakWatch.violations();
+            long conflicts = ctx.computeOnClient(mc -> digWindowCount("conflicts")) - conflictsBefore;
+            long burstConf = ctx.computeOnClient(mc -> digWindowCount("burstConflicts")) - burstConfBefore;
+            boolean warned = logHas(m, "[DigWindow] two digs in one server tick");
+            ctx.waitTicks(10);
+            List<String> flags = c.scenario().flags();
+            boolean exp = dev.testkit.gametest.boss.AaFastCases.experimentalChecks();
+            String line = String.format(Locale.ROOT, "%s: burst %s, experimental %s: dug %d/10, all gone %s, most blocks in one"
+                            + " server tick %d, replay %s, DigWindow conflicts %d burst %d, WARN %s, GrimAC %s", c.name(), burst,
+                    exp, dug.size(), gone, most, replay.isEmpty() ? "clean" : replay.size() + " violation(s)", conflicts,
+                    burstConf, warned, flags.isEmpty() ? "silent" : flags);
+            println(line);
+            c.note(line);
+            check(dug.size() >= 1, "the breaker node dug nothing (nothing was tested)");
+            check(conflicts == 0, "the mod's DigWindow counted " + conflicts + " real conflict(s)");
+            check(!warned, "DigWindow wrote a 'two digs in one server tick' WARN");
+            if (burst) {
+                check(most >= 2, "Burst never dug two blocks in one server tick (the burst did not act)");
+                check(burstConf >= 1, "DigWindow counted no burst conflict while Burst dug " + most + " in one tick");
+                if (exp) {
+                    check(flags.stream().allMatch(f -> f.contains("MultiBreak")), "Burst drew a flag other than MultiBreak*: " + flags);
+                } else {
+                    check(flags.isEmpty(), "Burst on default GrimAC drew GrimAC: " + flags);
+                }
+            } else {
+                check(gone && dug.size() == 10, "dug " + dug.size() + "/10, all gone " + gone);
+                check(replay.isEmpty() && most <= 1, "two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
+                check(burstConf == 0, "DigWindow counted " + burstConf + " burst conflict(s) with Burst off");
+                check(flags.isEmpty(), "GrimAC flagged: " + flags);
+            }
+            noteFlags(c, s);
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(dx, "setBreakerAuraBurstMultiBreak", burstBefore);
+                ModUnderTest.set(dx, "setBreakerAuraMultiBreak", legitBefore);
+            });
+            tpRel(ctx, 13.5, 6.5, 0f, 0f);
+            ctx.waitTicks(5);
+        }
+    }
+
+    /**
      * One plain dig by hand (the breaker in hand, attack pressed with the look already on a snow block) before a case
      * whose first dig is turned at the movement packet. A fresh server's first dig takes it longer than GrimAC's 15 ms to
      * process, so a turned dig as the session's first draws RotationBreak post-flying, then pre-flying on every later one
@@ -2164,8 +2459,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * the Dungeon Breaker at the look the server has heard, then swaps back and warps the next tick. Against GrimAC: the
      * breaker's digs, the breaker use, the swap and the warp must draw nothing, and the warp must land on the target.
      */
-    private static void caseBreakerWarpPaired(Session c) {
+    private static void caseBreakerWarpPaired(Session c, dev.testkit.gametest.SameTick.Act act) {
         ClientGameTestContext ctx = c.ctx();
+        String label = act == null ? "breakerwarp" : "spendsame-" + act.name().toLowerCase(Locale.ROOT);
         resetRoutes(ctx);
         arena(ctx, false);
         ctx.runOnClient(mc -> {
@@ -2216,21 +2512,60 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         JsonObject before = stats();
         startSampling(ctx);
         long m = LogTap.mark();
-        ctx.runOnClient(mc -> {
-            BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 22);
-            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
-                    new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5), Direction.UP, lever, false));
-            dev.testkit.compat.McCompat.swingArm(mc.player);
-        });
-        Vec3 top = ctx.computeOnClient(mc -> {
-            Object frame = ModUnderTest.staticCall(FRAME, "current");
-            return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
-                    double.class, double.class}, new Object[]{frame, 16.5, (double) (F + 6), 20.5});
-        });
-        boolean landed = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
-        ctx.waitTicks(10);
+        // His own action in the spend's tick and the warp's (autoroutes-stuck-1126): every tick from the lever click on, a
+        // few times; a teleport accept: the server teleports him where he stands on the click's tick and the next two.
+        dev.testkit.gametest.SameTick st = act == null || act == dev.testkit.gametest.SameTick.Act.TP ? null
+                : ctx.computeOnClient(mc -> {
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 6, 7);
+                    t.allow(6);
+                    return t;
+                });
+        boolean landed;
+        try {
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("execute as @a at @s run summon zombie ^ ^ ^1.5 {NoAI:1b,Invulnerable:1b,Silent:1b,"
+                        + "Tags:[\"sametick\"]}");
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            ctx.runOnClient(mc -> {
+                BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 22);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
+                        new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5), Direction.UP, lever, false));
+                dev.testkit.compat.McCompat.swingArm(mc.player);
+            });
+            Vec3 top = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 16.5, (double) (F + 6), 20.5});
+            });
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                for (int k = 0; k < 3; k++) {
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    ctx.waitTick();
+                }
+            }
+            landed = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
+            ctx.waitTicks(10);
+        } finally {
+            // SameTick's tap sits on top of UseRotationWatch's: closed before stopSampling, also on a failure, or the
+            // next case's watch chains to a dead tap (StackOverflowError, this case's first run).
+            if (st != null) {
+                ctx.runOnClient(mc -> st.close());
+            }
+        }
         List<Sample> s = stopSampling(ctx);
-        printTrace("breakerwarp", s);
+        List<dev.testkit.harness.WireCapture.Sent> wire = ctx.computeOnClient(mc -> {
+            List<dev.testkit.harness.WireCapture.Sent> l = dev.testkit.harness.WireCapture.snapshot();
+            dev.testkit.harness.WireCapture.stop();
+            return l;
+        });
+        if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+            c.server().command("kill @e[tag=sametick]");
+        }
+        printTrace(label, s);
         for (String l : LogTap.since(m)) {
             if (l.contains("[RightClick]") || l.contains("ETHERWARP") || l.contains("Etherwarp") || l.contains("Breaker")
                     || l.contains("DUNGEON_BREAKER")) {
@@ -2239,14 +2574,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         boolean paired = logHas(m, "paired the block click at");
         boolean broke = blockAir(ctx, 5, F, 20);
-        c.note(String.format(Locale.ROOT, "breakerwarp: lever click paired by a breaker use %s, snow broken %s, landed on "
-                + "the target %s, server etherwarps %d", paired, broke, landed, delta(before, "etherwarps")));
+        // autoroutes-stuck-1126: the spend goes once. Before the fix it went every tick (his Banners #5: 153 breaker uses in
+        // 154 ticks) whenever one of the server's eyes met the plate and the other passed under it, and the warp never went.
+        long spends = LogTap.since(m).stream().filter(l -> l.contains("paired the block click at")).count();
+        long uses = wire.stream().filter(x -> x.type().equals("minecraft:use_item")).count();
+        c.note(String.format(Locale.ROOT, "%s: lever click paired by a breaker use %s (%d spend(s)), snow broken %s, landed on "
+                + "the target %s, server etherwarps %d, use_item on the wire %d", label, paired, spends, broke, landed,
+                delta(before, "etherwarps"), uses));
         check(logHas(m, "lever at") && logHas(m, "secrets met"), "the lever click did not meet the breaker's await");
         check(broke, "the breaker node did not break its snow block");
-        check(paired, "no Dungeon Breaker use paired the lever click before the warp - the case never happened");
-        check(landed, "the warp after the breaker did not land on the target (at " + relPos(ctx) + ")");
-        check(delta(before, "etherwarps") == 1, "the server made " + delta(before, "etherwarps")
-                + " etherwarp(s), expected 1");
+        // His own use pairs the click itself (a use of his AOTV right after it): then nothing is left to spend.
+        boolean his = act == dev.testkit.gametest.SameTick.Act.USE;
+        check(paired || his, "no Dungeon Breaker use paired the lever click before the warp - the case never happened");
+        check(spends == 1 || his && spends == 0, label + ": the breaker use that pairs the click went " + spends + " times, expected once");
+        if (act == null || act == dev.testkit.gametest.SameTick.Act.TP || act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK
+                || act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+            check(landed, "the warp after the breaker did not land on the target (at " + relPos(ctx) + ")");
+        }
+        if (act == null) {
+            check(delta(before, "etherwarps") == 1, "the server made " + delta(before, "etherwarps")
+                    + " etherwarp(s), expected 1");
+        }
+        if (st != null) {
+            dev.testkit.gametest.SameTick.judge(c, st, label, dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
         noteFlags(c, s);
     }
 
@@ -3094,10 +3445,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
             ctx.waitTicks(10);
-            // Charge on, through the test hook the Blink tick reads (Tick Split too: it spends only the bank).
-            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
-            ctx.waitTicks(1);
-            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+            // Charge on, through the test hook the Blink tick reads (Tick Split too: it spends only the bank), or Auto Charge.
+            chargeOn(ctx);
             ctx.waitTicks(35);
             int bank = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall("com.killer560.hub.blink.BlinkCharge", "banked")).intValue());
             int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
@@ -3229,14 +3578,235 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /** Toggles Charge on with the test hook and waits for a full bank of 20; the bank. */
     private static long chargeFull(ClientGameTestContext ctx) {
-        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
-        ctx.waitTicks(1);
-        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+        chargeOn(ctx);
         for (int i = 0; i < 80 && chargeNum(ctx, "banked") < 20; i++) {
             ctx.waitTicks(1);
         }
-        ctx.waitTicks(25); // the answers reach their steady delay, so the bank is covered
+        if (autoStand <= 0) {
+            ctx.waitTicks(25); // the answers reach their steady delay, so the bank is covered
+        }
         return chargeNum(ctx, "banked");
+    }
+
+    /** Ticks Auto Charge stands him still before the chain ({@link #withAutoCharge}); 0 = his Charge key (the test hook). */
+    private static int autoStand;
+
+    /**
+     * Charge on: his Charge key through the test hook, or while {@link #autoStand} is set, Multi Warps' Auto Charge (mod
+     * mwautocharge-1126) - no key at all, a dungeon (the room sim's flag) and the switch on - standing still that long; it
+     * must be charging by then.
+     */
+    private static void chargeOn(ClientGameTestContext ctx) {
+        if (autoStand <= 0) {
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+            ctx.waitTicks(1);
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+            return;
+        }
+        autoChargeSet(ctx, true, true);
+        ctx.waitTicks(autoStand);
+        boolean on = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "autoCharging")));
+        long bank = chargeNum(ctx, "banked");
+        String line = "Auto Charge after " + autoStand + " still tick(s): charging " + on + ", bank " + bank + ", covered "
+                + ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "shotCovered"));
+        println(line);
+        session.note(line);
+        check(on, "Auto Charge did not start Blink Charge with the switch on in a dungeon");
+        check(bank > 0, "Auto Charge banked nothing in " + autoStand + " still tick(s)");
+    }
+
+    /** Auto Charge's switch and the dungeon flag it needs (the room sim's, which is not the boss). Client thread inside. */
+    private static void autoChargeSet(ClientGameTestContext ctx, boolean on, boolean inDungeon) {
+        ctx.runOnClient(mc -> {
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig"), "setAutoCharge", on);
+            ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState", "setRoomSim", new Class<?>[]{boolean.class},
+                    new Object[]{inDungeon});
+        });
+    }
+
+    /** Runs {@code body} with Auto Charge standing him still {@code ticks} before the chain; switched off after. */
+    private static void withAutoCharge(ClientGameTestContext ctx, int ticks, Runnable body) {
+        autoStand = ticks;
+        try {
+            body.run();
+        } finally {
+            autoStand = 0;
+            autoChargeSet(ctx, false, false);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(CHARGE, "reset", new Class<?>[]{String.class}, new Object[]{"test teardown"}));
+        }
+    }
+
+    /** {@code body} on a cheat jar; on a legit jar the check that Auto Charge, switched on in a dungeon, charges nothing. */
+    private static void cheatOr(Session c, Runnable body) {
+        if (dev.testkit.gametest.mod.Mod.isCheat()) {
+            body.run();
+            return;
+        }
+        ClientGameTestContext ctx = c.ctx();
+        try {
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true));
+            autoChargeSet(ctx, true, true);
+            ctx.waitTicks(20);
+            boolean ran = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
+            c.note("legit jar: Auto Charge on in a dungeon -> charging " + ran);
+            check(!ran, "a legit jar charged Blink by itself");
+        } finally {
+            autoChargeSet(ctx, false, false);
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false));
+        }
+    }
+
+    private static ClientGameTestContext ctxOf(Session c) {
+        return c.ctx();
+    }
+
+    /**
+     * 62-argrim-1126-autocharge-off-legit-absent: a fresh config has Auto Charge OFF (killer560 2026-11-26: "do not default on"), and with
+     * it off (or on a legit jar, with it on) Multi Warps, Tick Split and Blink on in a dungeon start no charge - today's
+     * behavior. On a cheat jar switching it on then does start one (the switch acts).
+     */
+    private static void caseAutoChargeOff(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        boolean cheat = dev.testkit.gametest.mod.Mod.isCheat();
+        try {
+            boolean fresh = ctx.computeOnClient(mc -> {
+                try {
+                    java.lang.reflect.Constructor<?> k = Class.forName("com.killer560.hub.zpew.ZeroPingEtherwarpConfig")
+                            .getDeclaredConstructor();
+                    k.setAccessible(true);
+                    return (Boolean) k.newInstance().getClass().getMethod("isAutoCharge").invoke(k.newInstance());
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            check(!fresh, "a fresh Etherwarp config has Auto Charge ON; it must default OFF");
+            ctx.runOnClient(mc -> {
+                ModUnderTest.call(ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig"), "setMultiWarps",
+                        new Class<?>[]{boolean.class}, new Object[]{true});
+                tickSplit(true);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
+            });
+            autoChargeSet(ctx, false, true);
+            ctx.waitTicks(40);
+            boolean offRan = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
+            autoChargeSet(ctx, true, true);
+            ctx.waitTicks(40);
+            boolean onRan = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
+            long bank = chargeNum(ctx, "banked");
+            autoChargeSet(ctx, false, true); // the arena's scoreboard keeps it a dungeon (F7): the switch going off ends it
+            ctx.waitTicks(5);
+            boolean leftRan = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "isActive")));
+            String line = String.format(Locale.ROOT, "autocharge-off (%s jar): fresh default %s; switch off -> charging %s; "
+                    + "on -> charging %s, bank %d; switched off -> charging %s", cheat ? "cheat" : "legit", fresh, offRan,
+                    onRan, bank, leftRan);
+            println(line);
+            c.note(line);
+            check(!offRan, "Auto Charge OFF still started Blink Charge");
+            check(cheat ? onRan && bank > 0 : !onRan, cheat ? "Auto Charge ON did not charge (bank " + bank + ")"
+                    : "a legit jar charged Blink by itself");
+            check(!leftRan, "Auto Charge kept charging after it was switched off");
+        } finally {
+            autoChargeSet(ctx, false, false);
+            ctx.runOnClient(mc -> {
+                tickSplit(false);
+                ModUnderTest.call(ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig"), "setMultiWarps",
+                        new Class<?>[]{boolean.class}, new Object[]{false});
+                ModUnderTest.staticCall(CHARGE, "reset", new Class<?>[]{String.class}, new Object[]{"test teardown"});
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
+            });
+        }
+    }
+
+    /**
+     * 62-argrim-1126-autocharge-{start,end}-same-*: his own action every tick (use, attack, hotbar swap, inventory click, a
+     * teleport accept) while Auto Charge starts ({@code start}: he enters the dungeon) or ends (he leaves it, the held
+     * answers all go) in that same tick. Both on the wire; GrimAC, which fails a flagged case, judges the rest.
+     */
+    private static void caseAutoEdge(Session c, dev.testkit.gametest.SameTick.Act act, boolean start) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        String tag = "autocharge " + (start ? "start" : "end") + " same-" + act;
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            chainSettings(ctx, true);
+            ctx.runOnClient(mc -> tickSplit(true));
+            autoChargeSet(ctx, !start, true);
+            ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
+            ctx.waitTicks(40);
+            tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) { // a stand 2 blocks down his look, so his click hits it
+                Vec3 p = ctx.computeOnClient(mc -> mc.player.getEyePosition().add(mc.player.getViewVector(1f).scale(2))
+                        .subtract(0, 1.0, 0));
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f %.2f %.2f {NoGravity:1b,"
+                        + "Invulnerable:1b,Tags:[\"mapchainst\"]}", p.x, p.y, p.z));
+            }
+            if (act == dev.testkit.gametest.SameTick.Act.CLICK) {
+                ctx.runOnClient(mc -> McCompat.setScreen(mc,
+                        new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+            }
+            ctx.waitTicks(start ? 10 : 100); // ending: a full bank and answers held a second
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                check(Boolean.TRUE.equals(ctx.computeOnClient(mc -> mc.hitResult
+                        instanceof net.minecraft.world.phys.EntityHitResult)), tag + ": his crosshair is not on the stand");
+            }
+            boolean before = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "autoCharging")));
+            long bankBefore = chargeNum(ctx, "banked");
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                    p -> p instanceof net.minecraft.network.protocol.common.ServerboundPongPacket, 0, 4));
+            if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                st.allow(4);
+            }
+            ctx.waitTicks(4);
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                c.server().command("execute as " + mcName(ctx) + " at @s run tp @s ~ ~ ~");
+            }
+            autoChargeSet(ctx, start, true); // the flip (its switch; this arena is always floor F7): starts or ends next tick
+            ctx.waitTicks(start ? 60 : 20);
+            dev.testkit.gametest.SameTick s2 = st;
+            ctx.runOnClient(mc -> s2.close());
+            st = null;
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            boolean after = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "autoCharging")));
+            long held = chargeNum(ctx, "answersHeld");
+            long pongs = dev.testkit.harness.WireCapture.snapshot().stream().filter(x -> x.type().equals("minecraft:pong")).count();
+            String line = String.format(Locale.ROOT, "%s: charging %s -> %s, bank before %d, answers held after %d, pongs on the "
+                    + "wire %d; same-tick %s", tag, before, after, bankBefore, held, pongs, s2.report());
+            println(line);
+            c.note(line);
+            check(before != start && after == start, tag + ": Auto Charge did not " + (start ? "start" : "end") + " (" + before
+                    + " -> " + after + ")");
+            check(start || bankBefore > 0, tag + ": nothing was banked before it ended (nothing tested)");
+            check(start || held == 0, tag + ": " + held + " answer(s) still held after it ended");
+            check(s2.done() > 0 && s2.playerWindows() > 0, tag + ": his action never reached the wire (" + s2.report() + ")");
+            check(pongs > 0, tag + ": no ping answer went on the wire (nothing tested)");
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            autoChargeSet(ctx, false, false);
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(CLEAR, "cancel");
+                tickSplit(false);
+                McCompat.setScreen(mc, null);
+                dev.testkit.harness.WireCapture.stop();
+                dev.testkit.harness.Latency.remove();
+                mc.player.getInventory().setSelectedSlot(3);
+            });
+            chainSettings(ctx, null);
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=mapchainst]");
+            }
+        }
+    }
+
+    private static String mcName(ClientGameTestContext ctx) {
+        return ZpewCampaignTests.name(ctx);
     }
 
     /** The twelve-warp chain of {@link ArChainMeasure} as the map's own path nodes (ClearNode.EtherNode), from where he stands. */

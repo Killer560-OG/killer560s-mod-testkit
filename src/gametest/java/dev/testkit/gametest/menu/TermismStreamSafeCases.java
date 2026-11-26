@@ -149,8 +149,10 @@ final class TermismStreamSafeCases {
         if (moves < 1) {
             problems.add("ON: the cursor never moved");
         }
-        if (firstClick >= 0 && firstClick < 280) {
-            problems.add("ON: first click " + firstClick + " ms after open, inside the 300 ms First Click Delay (default)");
+        // The configured delay (150 by default since d66751221; this read a fixed 300 until 11-26 and failed on origin).
+        int delay = c.onClient(mc -> ((Number) Mod.get(CONFIG, "getFirstClickDelayMs")).intValue());
+        if (firstClick >= 0 && firstClick < delay - 20) {
+            problems.add("ON: first click " + firstClick + " ms after open, inside the " + delay + " ms First Click Delay");
         }
         if (count != need) {
             problems.add("ON: " + count + " clicks, the board needed " + need);

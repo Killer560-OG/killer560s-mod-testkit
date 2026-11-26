@@ -131,7 +131,7 @@ final class Melody1111Cases {
             {5, 4, 3},   // his 21:44:51 board
             {5, 3, 3},   // row 3's pane arrives on its target
             {1, 4, 4},   // the same from the first slot
-            {5, 5, 5},   // the gamble wins: both lookahead clicks must land
+            {5, 5, 5},   // each row's target repeats: rows taken as they show (since melody-edges-missed-1126 no click goes before)
     };
 
     static void gamble(Session c) throws Exception {
@@ -163,6 +163,7 @@ final class Melody1111Cases {
             for (int b = 0; b < BOARDS.length; b++) {
                 int[] targets = BOARDS[b];
                 int firedBefore = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
+                int lateBefore = c.onClient(mc -> ((Number) Mod.field(FEATURE, "melodyLateSkips")).intValue());
                 int staleBefore = fixed ? c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadStale")) : 0;
                 int clickHead = c.events("terminal.click").size();
                 int solvedHead = c.events("terminal.solved").size();
@@ -186,6 +187,7 @@ final class Melody1111Cases {
                 int wrong = solved.get("wrong").getAsInt();
                 long ticks = solved.get("solvedTick").getAsLong() - solved.get("openedTick").getAsLong();
                 int fired = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired")) - firedBefore;
+                int late = c.onClient(mc -> ((Number) Mod.field(FEATURE, "melodyLateSkips")).intValue()) - lateBefore;
                 int stale = fixed ? c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadStale")) - staleBefore : 0;
                 List<JsonObject> all = c.events("terminal.click");
                 long row2At = -1;
@@ -212,15 +214,16 @@ final class Melody1111Cases {
                         + (row2At < 0 || row3At < 0 ? "?" : (row3At - row2At)) + " ticks after row 2";
                 rows.add(row);
                 c.note(row);
-                if (targets[1] == targets[2]) {
-                    // Row 3's pane arrives on its target: its click must go on that pass, not a bounce later.
+                if (targets[1] == targets[2] && missed > late) {
+                    // Row 3's pane arrives on its target: its click must go on that pass, not a bounce later, unless the
+                    // mod let the pass go as too late for the click to reach the pane (3 rows in one 500 ms stay at 120 ms).
                     c.check(row3At > 0 && row2At > 0 && row3At - row2At <= INTERVAL,
                             java.util.Arrays.toString(targets) + ": row 3 started on its target but was clicked "
                                     + (row3At - row2At) + " ticks after row 2 (a pass missed)");
                 }
                 if (targets[0] == targets[1] && targets[1] == targets[2]) {
-                    c.check(wrong == 0 && fired == 2, "the winning gamble should land both lookahead clicks: sent " + fired
-                            + ", " + wrong + " wrong");
+                    c.check(wrong == 0 && fired >= 1, "the repeated target should be taken by lookahead clicks as each row"
+                            + " shows, none wrong: sent " + fired + ", " + wrong + " wrong");
                 }
             }
             }
