@@ -67,7 +67,13 @@ import java.util.List;
  * while its deaths come back, the body turns to the one-hop Hyperion hop toward the mob the pick takes next, so the hop goes
  * on the deaths' own tick. Origin turned on that tick and hopped the next (about 12 hops a run). Asserts the floor cleared and
  * {@code AutoClearFeature.preHopUses} (hops that went along such a turn with no turn of their own) went up by at least
- * {@link #MIN_PREHOP}. Both new cases give their own PASS row on a legit jar.
+ * {@link #MIN_PREHOP}.
+ * <p>
+ * <b>1126-sim-ac-settlehop</b> (mod acoptimal-1126b), the same floor: coming down onto a block after a kill, the Hyperion
+ * hop count for the next mob is worked out from where he will stand, not from the air. From the air the dash lands elsewhere,
+ * so origin chose a hop, waited 3 ticks to land, and the trip went then anyway (1-3 times a floor, 4 a run). Asserts the
+ * floor cleared and {@code AutoClearFeature.settledHopCounts} (counts from the landing that differ from the count from the
+ * air) went up by at least {@link #MIN_SETTLEHOP}. All three new cases give their own PASS row on a legit jar.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAcPreSneakTests implements FabricClientGameTest {
@@ -80,6 +86,9 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     private static final String PRETURN = "1126-sim-ac-preturn";
     private static final String SIGHT = "1126-sim-ac-sightleave";
     private static final String PREHOP = "1126-sim-ac-prehop";
+    private static final String SETTLEHOP = "1126-sim-ac-settlehop";
+    /** Hop counts the landing changed, at least (settlehop). */
+    private static final int MIN_SETTLEHOP = 1;
     /** Last-death leaves only the tiles seen earlier in the visit allowed, at least (sightleave). */
     private static final int MIN_SIGHT = 1;
     /** Hops that went on a pre-turned look, at least (prehop). */
@@ -143,10 +152,11 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD, NEARPRIME, SETTLE, PRETURN, SIGHT, PREHOP}) {
+        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD, NEARPRIME, SETTLE, PRETURN, SIGHT, PREHOP, SETTLEHOP}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(name)) {
                 NAME = name;
-                if ((name.equals(SETTLE) || name.equals(PRETURN) || name.equals(SIGHT) || name.equals(PREHOP))
+                if ((name.equals(SETTLE) || name.equals(PRETURN) || name.equals(SIGHT) || name.equals(PREHOP)
+                        || name.equals(SETTLEHOP))
                         && !Ap3Crystal1109Cases.cheatBuild()) {
                     legitRow(ctx);
                     continue;
@@ -192,6 +202,7 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         int sightBefore = counter(ctx, "sightSeenLeaves");
         int prehopBefore = counter(ctx, "preHopUses");
         int preturnHopBefore = counter(ctx, "preHopTurns");
+        int settleHopBefore = counter(ctx, "settledHopCounts");
         ctx.runOnClient(mc -> {
             java.util.Arrays.fill(GAPS, 0);
             java.util.Arrays.fill(CAST_GAPS, 0);
@@ -230,12 +241,14 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         int sightAfter = counter(ctx, "sightSeenLeaves");
         int prehopAfter = counter(ctx, "preHopUses");
         int preturnHopAfter = counter(ctx, "preHopTurns");
+        int settleHopAfter = counter(ctx, "settledHopCounts");
         // Rooms the map still had not cleared after a last-death leave ("goes back in"): a leave that missed a mob.
         int backIn = ctx.computeOnClient(mc -> backInLines);
         int afterDeath = rooms.stream().filter(r -> r.lastDeath() >= 0).mapToInt(r -> r.ticks() - r.lastDeath()).sum();
         println("RESULT sight leaves " + sightBefore + " -> " + sightAfter + ", ticks after the rooms' last deaths "
                 + afterDeath + ", rooms gone back into " + backIn + "; hop turns " + preturnHopBefore + " -> "
-                + preturnHopAfter + ", hops on them " + prehopBefore + " -> " + prehopAfter);
+                + preturnHopAfter + ", hops on them " + prehopBefore + " -> " + prehopAfter + "; hop counts the landing changed "
+                + settleHopBefore + " -> " + settleHopAfter);
         int[] gaps = ctx.computeOnClient(mc -> {
             readQueued();
             return GAPS.clone();
@@ -290,6 +303,11 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
                         + prehopAfter + " (turns " + preturnHopBefore + " -> " + preturnHopAfter + "), want at least "
                         + MIN_PREHOP + " more");
             }
+        } else if (NAME.equals(SETTLEHOP)) {
+            if (settleHopBefore < 0 || settleHopAfter - settleHopBefore < MIN_SETTLEHOP) {
+                problems.add("hop counts worked out from the landing that differ from the air's " + settleHopBefore + " -> "
+                        + settleHopAfter + ", want at least " + MIN_SETTLEHOP + " more");
+            }
         } else if (NAME.equals(NEARPRIME)) {
             if (killTrips < MIN_KILL_TRIPS) {
                 problems.add(killTrips + " trip(s) after a kill, want at least " + MIN_KILL_TRIPS);
@@ -315,6 +333,7 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
                     + MIN_SEARCHED + " more");
         }
         if (!searchTick && !NAME.equals(SETTLE) && !NAME.equals(PRETURN) && !NAME.equals(SIGHT) && !NAME.equals(PREHOP)
+                && !NAME.equals(SETTLEHOP)
                 && (primedBefore < 0 || primedAfter <= primedBefore)) {
             problems.add("the sneak was never primed after a cast (primed ticks " + primedBefore + " -> " + primedAfter + ")");
         }
