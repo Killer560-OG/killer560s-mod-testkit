@@ -84,6 +84,7 @@ public class BossSuite implements FabricClientGameTest {
                     SameTickCases.register(s);
                     I4Terror1116Cases.register(s); // Auto i4 Terror Aim same-tick Grim cases (1116-same-i4terror-*, i4terror-1116)
                     SameTickGapCases.register(s); // grimgapB-1105
+                    ApFaceDoor1126Cases.register(s); // Dungeons Autopilot Face Door on Arrival (1126-apfacedoor-*, autopilot-face-witherdoor-1126)
                     WitherAimCases.register(s); // Wither Aimbot in the Wither Boss Triggerbot (1111-witheraim-*, witheraim-1111)
                     FeatHCases.register(s); // Terminator Auto Clicker on both Grim configs (1109-termclick-*, 1109-ghost-*, featH-1109)
                     // M7 P5 with Hypixel's floorless P5 sidebar: dragons tracked, box, tracer, title, end splits (1108-boss-dragons-p5, dragons1108).

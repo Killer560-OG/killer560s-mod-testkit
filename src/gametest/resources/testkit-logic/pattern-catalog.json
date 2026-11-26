@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T23:53:14",
- "modSource": "lane-ee3-r35b-earlydig-1125",
- "modGitSha": "bd1e605790797f57e337b2fa99b8bbac15384dc2",
+ "generatedAt": "2026-11-26T01:45:06",
+ "modSource": "lane-multiwarp-ticksplit-broken-1126",
+ "modGitSha": "fd097796e513c5eadc06f9319071f21e11b58478",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
