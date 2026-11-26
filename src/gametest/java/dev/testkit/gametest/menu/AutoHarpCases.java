@@ -31,6 +31,7 @@ import java.util.List;
  *   <li>1122-autoharp-ping150 / -ping300 / -ping320: 150, 300 and 320 ms round trips (320: two rows early, the wait
  *       after the board ends just before the next step), Auto Detect Ping on (harpmiss-1122: a click was
  *       timed by client ticks, not by when the board arrived, so a 150 ms trip clicked at the very end of the note's step).</li>
+ *   <li>1125-autoharp-campfire: his 11-25 song (217 steps, 197 notes, same-column repeats) at a 100 ms trip: every note.</li>
  *   <li>1124-autoharp-spike / -spike-same: his Pachelbel run (autoharp-misses-1124): clicks answered in 100 ms while the
  *       ping tracker reads 200 ms for steps 6-15: 17 of 17 (the shipped jar clicked early off the ping); -same adds his
  *       clicks. -spike-own adds two clicks whose own trip is 400 ms: those two notes are lost late, nothing else, and no
@@ -64,6 +65,7 @@ final class AutoHarpCases {
         MenuSuite.test(s, "1124-autoharp-spike", c -> play(c, 100, "[]", true, true, 0, null, "[]", PONG_HIGH));
         MenuSuite.test(s, "1124-autoharp-spike-same", c -> play(c, 100, "[]", true, true, 0, SameTick.Act.SCREEN_CLICK, "[]", PONG_HIGH));
         MenuSuite.test(s, "1124-autoharp-spike-own", c -> play(c, 100, "[]", true, true, 0, null, OWN_SPIKE, PONG_HIGH));
+        MenuSuite.test(s, "1125-autoharp-campfire", c -> play(c, 100, "[]", true, true, 0, null, "[]", null, CAMPFIRE, CAMPFIRE_NOTES));
     }
 
     /** His Pachelbel run on Hypixel (autoharp-misses-1124): his clicks were answered in about 100 ms while the ping read
@@ -79,17 +81,30 @@ final class AutoHarpCases {
      *  (13-16 of 17 over runs of one jar): clicks sent a row early off a lead of 160-166 against true 100 ms trips, which
      *  the plings' render-thread timing and the fake's tick coin flip had read long; both are gone (fix10), so the bound
      *  stays 15 with the two lost late and none early. */
-    private static final String OWN_SPIKE = "[[11,400,50],[13,100,50]]";
+    /** "Through the Campfire" as Hypixel played it on 11-25 (campfire-99-1125, from the logger's slot packets: one 250 ms
+     *  step a note or rest, 217 steps, 197 notes, five same-column repeats whose click-row quartz never changes, so no
+     *  slot packet marks them). His 99% that day lost note 179 to one click whose own trip took 365 ms (wire: pling
+     *  pitch 0.571 where both 100% runs had 0.937); at his 100 ms trip every note of the song must be played. */
+    static final String CAMPFIRE = "[[1],[2],[3],[1],[2],[3],[4],[2],[5],[3],[4],[2],[3],[4],[3],[2],[1],[2],[3],[1],[2],[3],"
+            + "[4],[2],[5],[3],[4],[2],[3],[4],[3],[2],[1],[2],[3],[1],[2],[3],[4],[2],[5],[3],[4],[2],[3],[4],[3],[2],[1],[2],"
+            + "[3],[1],[2],[3],[4],[2],[5],[3],[4],[2],[3],[4],[3],[2],[1],[2],[3],[1],[2],[3],[4],[2],[5],[3],[4],[2],[3],[4],"
+            + "[3],[2],[1],[2],[3],[1],[2],[3],[4],[2],[5],[3],[4],[2],[3],[4],[6],[5],[4],[5],[4],[3],[4],[3],[2],[3],[2],[1],"
+            + "[2],[1],[0],[2],[],[0],[2],[],[0],[2],[0],[2],[2],[0],[2],[],[0],[2],[0],[5],[],[2],[5],[],[2],[5],[2],[5],[5],"
+            + "[2],[5],[],[2],[5],[2],[4],[],[1],[4],[],[1],[4],[1],[4],[4],[1],[4],[],[1],[3],[2],[1],[2],[1],[0],[],[2],[],"
+            + "[0],[2],[],[0],[2],[0],[2],[2],[0],[2],[],[0],[2],[0],[5],[],[2],[5],[],[2],[5],[2],[5],[6],[2],[5],[],[2],[5],"
+            + "[2],[4],[],[1],[4],[],[1],[4],[1],[4],[4],[1],[4],[],[1],[3],[2],[1],[2],[1],[0],[],[1],[6]]";
+    static final int CAMPFIRE_NOTES = 197;
+    private static final String OWN_SPIKE ="[[11,400,50],[13,100,50]]";
     private static final int OWN_LOST = 2;
 
     static JsonObject spec(int pingMs, String stalls) {
-        return spec(pingMs, stalls, "[]");
+        return spec(pingMs, stalls, "[]", STEPS);
     }
 
-    static JsonObject spec(int pingMs, String stalls, String pingSteps) {
+    static JsonObject spec(int pingMs, String stalls, String pingSteps, String steps) {
         JsonObject o = MenuKit.obj("{}");
         o.add("pingSteps", MenuKit.obj("{\"s\":" + pingSteps + "}").getAsJsonArray("s"));
-        o.add("steps", MenuKit.obj("{\"s\":" + STEPS + "}").getAsJsonArray("s"));
+        o.add("steps", MenuKit.obj("{\"s\":" + steps + "}").getAsJsonArray("s"));
         boolean freeze = stalls.startsWith("F");
         o.add(freeze ? "freezes" : "stalls", MenuKit.obj("{\"s\":" + (freeze ? stalls.substring(1) : stalls) + "}").getAsJsonArray("s"));
         o.addProperty("stepTicks", 5);
@@ -122,14 +137,19 @@ final class AutoHarpCases {
 
     private static void play(Session c, int pingMs, String stalls, boolean lag, boolean ping, int offset, SameTick.Act his)
             throws Exception {
-        play(c, pingMs, stalls, lag, ping, offset, his, "[]", null);
+        play(c, pingMs, stalls, lag, ping, offset, his, "[]", null, STEPS, NOTES);
+    }
+
+    private static void play(Session c, int pingMs, String stalls, boolean lag, boolean ping, int offset, SameTick.Act his,
+            String pingSteps, int[] pong) throws Exception {
+        play(c, pingMs, stalls, lag, ping, offset, his, pingSteps, pong, STEPS, NOTES);
     }
 
     /** {@code pingSteps} changes the faked round trip mid-song (HxHarp); {@code pong} = {from step, to step, ms} feeds the
      *  ping tracker another reading over those steps. With {@code pong}, no click may go early: the clicks' own answers
      *  show a trip short enough to click every note once it shows. */
     private static void play(Session c, int pingMs, String stalls, boolean lag, boolean ping, int offset, SameTick.Act his,
-            String pingSteps, int[] pong) throws Exception {
+            String pingSteps, int[] pong, String steps, int notes) throws Exception {
         int allowMissed = "[]".equals(pingSteps) ? 0 : OWN_LOST;
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
@@ -154,13 +174,14 @@ final class AutoHarpCases {
                 feedPing(c, pingMs);
             }
             c.ctx().runOnClient(mc -> PacketTrace.start());
-            c.hx().call("menu.harp", spec(pingMs, stalls, pingSteps));
+            c.hx().call("menu.harp", spec(pingMs, stalls, pingSteps, steps));
             MenuKit.awaitScreen(c, "Harp - Test", 100);
             int pongHits = 0;
             long leadMin = Long.MAX_VALUE;
             long leadMax = 0;
             int plingsBefore = pong == null ? 0 : modInt(c, "plingCount");
-            for (int t = 0; t < 1200 && c.events("harp.done").isEmpty(); t++) {
+            int maxTicks = 1200 + 10 * MenuKit.obj("{\"s\":" + steps + "}").getAsJsonArray("s").size();
+            for (int t = 0; t < maxTicks && c.events("harp.done").isEmpty(); t++) {
                 int fed = pingMs;
                 if (pong != null) {
                     List<JsonObject> r = c.events("harp.render");
@@ -214,11 +235,11 @@ final class AutoHarpCases {
                 c.note("plings read " + plings + ", lead " + leadMin + "-" + leadMax + " ms while the ping read " + pong[2]
                         + ", longest pling wait network to render thread " + modInt(c, "plingWaitMax") + " ms");
             }
-            c.check(done.get("ok").getAsInt() >= NOTES - allowMissed, "right clicks " + done.get("ok") + " of " + NOTES);
+            c.check(done.get("ok").getAsInt() >= notes - allowMissed, "right clicks " + done.get("ok") + " of " + notes);
             c.check(done.get("wrong").getAsInt() <= allowMissed, done.get("wrong") + " wrong click(s)");
             c.check(done.get("missed").getAsInt() <= allowMissed, done.get("missed") + " missed note(s)");
-            c.check(mine == NOTES, "the mod counted " + mine + " clicks, not " + NOTES);
-            c.check(clicks.size() == NOTES, "the server got " + clicks.size() + " harp clicks, not " + NOTES);
+            c.check(mine == notes, "the mod counted " + mine + " clicks, not " + notes);
+            c.check(clicks.size() == notes, "the server got " + clicks.size() + " harp clicks, not " + notes);
             if (pong != null) {
                 c.check(plings > 0 || plingsBefore < 0, "the feature read no pling (answer) to its clicks"); // < 0: a jar without it
                 c.check(pongHits > 0, "the ping tracker was never fed " + pong[2] + " ms");
