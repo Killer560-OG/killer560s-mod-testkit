@@ -56,6 +56,13 @@ final class HxBeacon implements HxMenus.Ticking {
         int idx;
         int since;
         boolean paused;
+        /**
+         * {@code seenLag} (beacon beats): its pane is drawn, and its note played, that many ticks after it really steps, as when
+         * a loaded PC or server delays what the client sees (testkit 11-26 under load: a line-up landed 2 ticks out while every
+         * step read 0-1 apart). The tune still completes by the real steps.
+         */
+        int lag;
+        int shown;
 
         int period() {
             return 15 + 10 * (5 - speed);
@@ -112,6 +119,8 @@ final class HxBeacon implements HxMenus.Ticking {
             if (o.has("since")) {
                 b.since = o.get("since").getAsInt();
             }
+            b.lag = o.has("seenLag") ? o.get("seenLag").getAsInt() : 0;
+            b.shown = b.idx;
             into.add(b);
         }
     }
@@ -179,7 +188,9 @@ final class HxBeacon implements HxMenus.Ticking {
         }
         b.since = 0;
         b.idx = (b.idx + 1) % 7;
-        sound(p, b);
+        if (b.lag == 0) {
+            sound(p, b);
+        }
         return true;
     }
 
@@ -211,7 +222,13 @@ final class HxBeacon implements HxMenus.Ticking {
             return;
         }
         for (int i = 0; i < beacon.size(); i++) {
-            dirty |= stepped(player, "b" + i, beacon.get(i));
+            Beat b = beacon.get(i);
+            dirty |= stepped(player, "b" + i, b);
+            if (b.lag > 0 && b.shown != b.idx && b.since >= b.lag) {
+                b.shown = b.idx;
+                sound(player, b);
+                dirty = true;
+            }
         }
         for (int i = 0; i < mine.size(); i++) {
             dirty |= stepped(player, "m" + i, mine.get(i));
@@ -288,7 +305,7 @@ final class HxBeacon implements HxMenus.Ticking {
             }
         }
         for (Beat b : beacon) {
-            set(menu, 10 + b.idx, item(server, "minecraft:" + COLORS.get(b.color) + "_stained_glass_pane", "Beacon Beat"));
+            set(menu, 10 + (b.lag > 0 ? b.shown : b.idx), item(server, "minecraft:" + COLORS.get(b.color) + "_stained_glass_pane", "Beacon Beat"));
         }
         for (int g = 0; g < mine.size(); g++) {
             Beat b = mine.get(g);

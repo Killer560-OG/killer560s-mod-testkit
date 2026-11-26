@@ -69,7 +69,7 @@ final class BeaconTrace {
                 last = s;
                 rows.append(now).append(" | ").append(s).append('\n');
             }
-        } catch (Exception e) {
+        } catch (Throwable e) { // a build without one of the fields (origin's jar): note it, never crash the client
             if (!"error".equals(last)) {
                 last = "error";
                 rows.append(now).append(" | trace error ").append(e).append('\n');

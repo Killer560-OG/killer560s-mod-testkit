@@ -40,6 +40,9 @@ import java.util.function.Consumer;
  *       unpause there, no Speed click, under 90 ticks) and the second a slot behind (Speed 5 must be used, under 140).</li>
  *   <li>1126-menu-autotune-signal: his four Upgrade Signal Strength menus of 11-26 2:36 AM as they opened (Auto Tune took 566,
  *       229, 508 and 230 ticks): each done under 200 ticks with no click undone by the next one on the same button. Legit: nothing clicked.</li>
+ *   <li>1126-menu-autotune-unseen: his II upgrade (win 96) with the orange beacon pane drawn 2 ticks after it really steps,
+ *       so the line-up lands 2 ticks out while the client sees it in step and the first finish fails: done under 200 ticks
+ *       (the finisher is handed over instead of lining the pane up again, which cost a lap: 421 ticks under load, 11-26).</li>
  *   <li>1123-menu-autotune-off: OFF (and the legit jar, which has no such setting) sends nothing.</li>
  *   <li>1123-same-autotune-click / -swap / -close: his own container click, hotbar swap and menu close in the SAME client tick
  *       as an Auto Tune click ({@link SameTick}); run on default and experimental GrimAC (separate checkouts).</li>
@@ -175,6 +178,8 @@ final class BeaconAutoCases {
                 c.check(undo == 0, w[0] + ": " + undo + " clicks undone by the next click on the same button within 12 ticks");
             }
         });
+        MenuSuite.test(s, "1126-menu-autotune-unseen", c -> traced("unseen", () ->
+                inStep(c, run(c, WIN96.replace("\"idx\":6,\"since\":0}", "\"idx\":6,\"since\":0,\"seenLag\":2}"), true, 4, null, 900, 200, false), "unseen")));
         MenuSuite.test(s, "1125-menu-autotune-stale", c -> {
             Result r = run(c, STALE, true, 4, null, 900, 0, false);
             int first = r.btn().stream().filter(k -> k[1] != 48).mapToInt(k -> k[0]).min().orElse(Integer.MAX_VALUE);
