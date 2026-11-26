@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T14:12:47",
- "modSource": "lane-score-puzzle-chatdone-1126c",
- "modGitSha": "9e8da938e4d2a1a671636e10fa9a50875c919faa",
+ "generatedAt": "2026-11-26T14:25:52",
+ "modSource": "lane-acoptimal-1126b",
+ "modGitSha": "6c4d9b5023be679cd29b591be10dcfcad8293549",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
