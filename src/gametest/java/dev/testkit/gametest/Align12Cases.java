@@ -235,6 +235,10 @@ final class Align12Cases {
                     fails.add(String.format(Locale.ROOT, "trial %d ended (%+.6f, %+.6f) off the point", t, last[0] - tx, last[1] - tz));
                 } else if (oneTick && n == 2 && twoTickAllowed-- > 0) {
                     c.note(String.format(Locale.ROOT, "trial %d took 2 ticks (allowed once at walk 400)", t));
+                } else if (oneTick && n == 2 && !plan.isEmpty() && plan.get(plan.size() - 1).contains("1-tick stop was refused")) {
+                    // ee3-r34f-sim-1125: the only 1-tick stop ended on a move the game drops, so no position went out and
+                    // GrimAC flagged Simulation on the next move (this case teleports first and cannot see it); 2 is right
+                    c.note(String.format(Locale.ROOT, "trial %d took 2 ticks: its 1-tick stop would have sent no position", t));
                 } else if (oneTick && n > 1) {
                     // the feature's claim (align12-remerge-1117): from far, by hand or carried by AP3, with no action of his
                     // in the way, the align ends on the point within one tick of the entering tick
