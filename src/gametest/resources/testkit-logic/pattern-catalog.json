@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T08:17:12",
- "modSource": "lane-ar-trapplan-eaten-1126",
- "modGitSha": "cf74ded4540f7d36b3758bfc6cbe8ef07680f091",
+ "generatedAt": "2026-11-26T09:45:23",
+ "modSource": "lane-trapstart-1126-fix",
+ "modGitSha": "54bf6df2e7d96f29164c2db9200fb18f398032eb",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
