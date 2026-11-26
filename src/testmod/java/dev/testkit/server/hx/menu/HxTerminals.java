@@ -141,6 +141,8 @@ final class HxTerminals {
          *  interval x 50 ms is the server running ticks back to back to catch up after a stall ("Can't keep up"). */
         long melodyLastMoveNanos;
         long melodyPrevStepGapMs = -1;
+        /** The longest wall time between two pane steps of this board (a server stall shows here; melody-1126d). */
+        long melodyMaxStepGapMs = -1;
         /** {@code keepDone}: a finished row keeps its lime pane where it was clicked and its lime terracotta, the
          *  board shape Odin's MelodyHandler copes with by taking the LAST lime pane / lime terracotta (indexOfLast,
          *  javap Odin 0.3.1). Off = every row is redrawn (TermismPracticeScreen / Odin's MelodySim). */
@@ -223,6 +225,7 @@ final class HxTerminals {
             }
             long wall = System.nanoTime();
             melodyPrevStepGapMs = melodyLastMoveNanos == 0 ? -1 : (wall - melodyLastMoveNanos) / 1_000_000L;
+            melodyMaxStepGapMs = Math.max(melodyMaxStepGapMs, melodyPrevStepGapMs);
             melodyLastMoveNanos = wall;
             melodyLime += melodyDir;
             if (melodyLime == 1 || melodyLime == 5) {
@@ -345,6 +348,7 @@ final class HxTerminals {
             if (type == Type.MELODY) {
                 o.addProperty("bandRows", melodyBandRows);
                 o.addProperty("missedPasses", melodyMissedPasses);
+                o.addProperty("maxStepGapMs", melodyMaxStepGapMs);
                 o.add("onTargetLags", melodyOnTargetLags.deepCopy());
             }
             o.addProperty("solved", solved);
