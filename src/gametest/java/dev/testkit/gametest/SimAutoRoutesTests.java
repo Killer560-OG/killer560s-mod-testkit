@@ -3054,8 +3054,14 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * block half can be sent, and no other look onto the target has rays that agree: the use goes out to be taken as the
      * chest click's second half and dropped. Built here: a stone plate at head height just in front of him (7, F+2, 20), a
      * target block high across the arena (16, F+5, 20) whose west face every look reaches only under the plate. Main: "no
-     * landing after 61 ticks" and the route lets the node go off its ring. Fixed: the warp goes again a round trip later
-     * (the click is paired by then) and lands on the target.
+     * landing after 61 ticks" and the route lets the node go off its ring. Fixed then: the warp goes again a round trip
+     * later (the click is paired by then) and lands on the target.
+     * <p>
+     * arstk-eaten-1126: since mod aa0f8f5ee (2026-11-25) a use whose server ray meets a block sends its block half on THAT
+     * block first (here the plate, the block the 1.54 ray meets), so the use pairs with its own click and nothing is
+     * eaten at all: the case now asserts that - no use dropped, the plate's block click and one use, no resend, no
+     * timeout, landed on the target within 10 ticks of the chest window closing. The resend it used to prove can no
+     * longer happen in this geometry (the sim drops a use only when the server's ray meets a block).
      */
     /**
      * autoroutes-stuck-1126 (killer560 2026-11-26: "my auto routes keep getting stuck"; his Banners #5 ETHERWARP 01:07:31,
@@ -3164,25 +3170,38 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(10);
         Vec3 top = ctx.computeOnClient(mc -> ArPathLandCases.toRealPublic(16.5, F + 6, 20.5));
         long m = LogTap.mark();
+        BlockPos plate = ctx.computeOnClient(mc -> BlockPos.containing(ArPathLandCases.toRealPublic(7.5, F + 2.5, 20.5)));
         boolean met;
-        boolean landed;
+        boolean landed = false;
+        int landTick = -1;
         try {
             rightClick(ctx, chest[0], chest[1], chest[2], Direction.UP);
             met = waitFor(ctx, 40, () -> awaitMet(m));
             ctx.runOnClient(mc -> mc.player.closeContainer());
-            landed = waitFor(ctx, 120, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
+            for (int t = 1; t <= 120 && !landed; t++) {
+                ctx.waitTick();
+                landed = ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4);
+                if (landed) landTick = t;
+            }
             ctx.waitTicks(10);
         } finally {
             stopRoute(ctx);
         }
         int dropped = 0;
         int uses = 0;
+        int plateClicks = 0;
+        boolean pairedOwn = false;
+        String plateAt = plate.getX() + ", " + plate.getY() + ", " + plate.getZ();
         for (String l : LogTap.since(m)) {
             if (l.contains("dropped, as on Hypixel")) {
                 dropped++;
             }
             if (l.contains("[RightClick] use seq")) {
                 uses++;
+                pairedOwn |= l.contains("pairs with its own");
+            }
+            if (l.contains("[RightClick] block click seq") && l.contains(" at " + plateAt + " ")) {
+                plateClicks++;
             }
             if (l.contains("RightClick") || l.contains("Etherwarp") || l.contains("ETHERWARP") || l.contains("dropped")) {
                 println("eaten log: " + l);
@@ -3190,17 +3209,20 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
         boolean resent = logHas(m, "sending the warp again");
         boolean timedOut = logHas(m, "no landing after");
-        println(String.format(Locale.US, "eaten: await met %s, uses %d, dropped by the sim %d, resent %s, timed out %s, "
-                + "landed on the target %s", met, uses, dropped, resent, timedOut, landed));
+        println(String.format(Locale.US, "eaten: await met %s, uses %d, plate block clicks %d, paired with its own %s, "
+                + "dropped by the sim %d, resent %s, timed out %s, landed on the target %s %d tick(s) after the window closed",
+                met, uses, plateClicks, pairedOwn, dropped, resent, timedOut, landed, landTick));
         resetRoutes(ctx);
         forgetRunMemory(ctx);
         check(met, "the chest click never met the await - nothing flew");
-        check(dropped >= 1, "no use was dropped as the chest click's second half - the case it is about never happened");
-        check(!timedOut, "the warp waited out the 61-tick landing timeout after its use was dropped");
-        check(resent, "no \"sending the warp again\" line after the dropped use");
-        check(landed, "he never landed on the target block");
-        check(dropped == 1 && uses == 2, "expected exactly one dropped use and one resend (" + uses + " use(s), " + dropped
-                + " dropped)");
+        check(plateClicks == 1, "the warp's block half did not go on the plate the server's ray meets once (" + plateClicks
+                + " block click(s) at " + plateAt + ")");
+        check(uses == 1 && pairedOwn, "expected one use, paired with its own block click (" + uses + " use(s), paired "
+                + pairedOwn + ")");
+        check(dropped == 0, "a use was dropped as the chest click's second half (" + dropped + ")");
+        check(!resent && !timedOut, "the warp was sent again (" + resent + ") or timed out (" + timedOut + ")");
+        check(landed && landTick <= 10, "he did not land on the target within 10 ticks of the window closing (landed "
+                + landed + ", tick " + landTick + ")");
     }
 
     /**
