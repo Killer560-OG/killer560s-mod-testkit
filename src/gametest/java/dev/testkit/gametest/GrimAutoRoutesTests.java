@@ -3411,8 +3411,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(40);
             tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
-            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-                Vec3 p = relFeet(ctx, pts[0][0] + 0.5, pts[0][1] + 2.5);
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) { // a stand 2 blocks down his look, so his click hits it
+                Vec3 p = ctx.computeOnClient(mc -> mc.player.getEyePosition().add(mc.player.getViewVector(1f).scale(2))
+                        .subtract(0, 1.0, 0));
                 c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f %.2f %.2f {NoGravity:1b,"
                         + "Invulnerable:1b,Tags:[\"mapchainst\"]}", p.x, p.y, p.z));
             }
@@ -3421,6 +3422,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
             }
             ctx.waitTicks(start ? 10 : 100); // ending: a full bank and answers held a second
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                check(Boolean.TRUE.equals(ctx.computeOnClient(mc -> mc.hitResult
+                        instanceof net.minecraft.world.phys.EntityHitResult)), tag + ": his crosshair is not on the stand");
+            }
             boolean before = Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "autoCharging")));
             long bankBefore = chargeNum(ctx, "banked");
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
