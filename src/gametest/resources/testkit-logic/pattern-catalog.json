@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T04:54:31",
- "modSource": "lane-la-warpmiss-1126",
- "modGitSha": "d05dd40b69d0c847d3ecf701251ac5f7e38b4068",
+ "generatedAt": "2026-11-26T05:17:18",
+ "modSource": "lane-autopilot-clears-1126",
+ "modGitSha": "51fb73ff4bfefd291b211ffdb73181265e0c885b",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
