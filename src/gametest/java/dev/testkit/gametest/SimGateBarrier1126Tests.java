@@ -174,8 +174,16 @@ public class SimGateBarrier1126Tests implements FabricClientGameTest {
                 }
                 ctx.waitTicks(5);
                 ctx.runOnClient(mc -> PacketTrace.stop());
-                int here = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
-                        "currentRoom", new Class<?>[]{}, new Object[]{}));
+                // The map's current room trails a fast chain: on 26.2 (g-o1-2, 11-26) he stood in the pressed room 78
+                // blocks out while the layout still read the room he had flown through. Give it 60 ticks to catch up.
+                int here = -1;
+                for (int t = 0; t < 60 && here != target[1]; t++) {
+                    here = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
+                            "currentRoom", new Class<?>[]{}, new Object[]{}));
+                    if (here != target[1]) {
+                        ctx.waitTick();
+                    }
+                }
                 double moved = ctx.computeOnClient(mc -> mc.player.position().distanceTo(from));
                 int lag = firstUseTick < 0 || gateAirTick < 0 ? -99 : firstUseTick - gateAirTick;
                 pass = Boolean.TRUE.equals(ok) && waitingSeen && "true".equals(shutSeen) && usesHeld == 0 && movedHeld < 0.5
