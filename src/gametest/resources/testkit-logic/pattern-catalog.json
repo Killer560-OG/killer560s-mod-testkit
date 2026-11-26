@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T17:10:05",
- "modSource": "lane-melody-edges-missed-1126d",
- "modGitSha": "dbd0b4de93cf282ed21a17ffabf548797bb0c67e",
+ "generatedAt": "2026-11-26T17:23:55",
+ "modSource": "lane-wandered-mob-1126",
+ "modGitSha": "e1fb8c50d1c6c2221564ec5d7199d06382bfd82d",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
