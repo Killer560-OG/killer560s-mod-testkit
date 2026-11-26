@@ -89,6 +89,19 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        if (!cheatJar()) {
+            // Auto Secret and Secret Aura are cheat-only: a legit jar has nothing to judge, and the case gives its own PASS
+            // instead of failing "Auto Secret refused to start" (lane1125-2103 quarantined 147 for that on l263).
+            boolean[] on = {handoff, order, arrival, last, preblood, small};
+            String[] names = {HANDOFF, ORDER, ARRIVAL, LASTSECRET, PREBLOOD, SMALL};
+            for (int i = 0; i < on.length; i++) {
+                if (on[i]) {
+                    println(names[i], "legit jar: Auto Secret is cheat-only, nothing to judge");
+                    println(names[i], "PASS");
+                }
+            }
+            return;
+        }
         LogTap.install();
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
@@ -1491,5 +1504,13 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
 
     private static void println(String name, String s) {
         System.out.println("[" + name + "] " + s);
+    }
+
+    private static boolean cheatJar() {
+        try {
+            return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 }
