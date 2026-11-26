@@ -254,10 +254,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
             }
-            // la-digwindow-1126: a breaker node and Breaker Aura's own picks digging in the same ticks (two diggers, one
-            // DigWindow); with Burst on the second block per tick is the owner's accepted burst and DigWindow says nothing.
-            s.test("62-argrim-1126-route-aura-digs", c -> caseRouteAuraDigs(c, false));
-            s.testExpectingFlags("62-argrim-1126-route-aura-digs-burst", c -> caseRouteAuraDigs(c, true));
+            // la-digwindow-1126: DigWindow on a breaker node; with Burst the second block a tick is the owner's burst, no WARN.
+            s.test("62-argrim-1126-digwindow", c -> caseDigWindow(c, false));
+            s.testExpectingFlags("62-argrim-1126-digwindow-burst", c -> caseDigWindow(c, true));
             s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
@@ -2026,44 +2025,31 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
-     * 62-argrim-1126-route-aura-digs / -burst (la-digwindow-1126; his 11-24..26 logs held 379 DigWindow "two digs in one
-     * server tick" WARNs, every one with Burst Multi Break on). A breaker node of ten snow blocks (rows F and F+1 at z 11)
-     * fires while Breaker Aura (on, Auto Swap on) has five picks of its own on row F+2 of the same wall, so both diggers
-     * want the same ticks. Off Burst (card on Legit Multi Break): every block of both on the wire, never two blocks between
-     * two tick packets (MultiBreakWatch), DigWindow no conflict, GrimAC silent. Burst on: at least one server tick carries
-     * two blocks (the burst acted), DigWindow counts them as burst ({@code burstConflicts}) and writes no "two digs" WARN,
-     * its real {@code conflicts} stay 0, and only MultiBreak* may flag (experimental GrimAC).
+     * 62-argrim-1126-digwindow / -burst (la-digwindow-1126; his 11-24..26 logs held 379 DigWindow "two digs in one server
+     * tick" WARNs, every one with Burst Multi Break on). A breaker node of ten snow blocks round him (rows F and F+1 at
+     * z 11), the card on Legit Multi Break or on Burst. (Breaker Aura beside it is not a real pairing: the aura digs only in
+     * a boss, a route only in a room; the boss override that wakes the aura takes the route's room frame away.) Off Burst:
+     * all ten on the wire, never two blocks between two tick packets (MultiBreakWatch), DigWindow no conflict of either kind,
+     * no WARN, GrimAC silent. Burst: at least one server tick carries two blocks (the burst acted), DigWindow counts them as
+     * burst ({@code burstConflicts}) with no real conflict and no "two digs" WARN; only MultiBreak* may flag (experimental).
      */
-    private static void caseRouteAuraDigs(Session c, boolean burst) {
+    private static void caseDigWindow(Session c, boolean burst) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
         Object dx = ModUnderTest.config(DX_CONFIG);
-        String store = "com.killer560.hub.dungeonextras.BreakerAuraStore";
         boolean burstBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
         boolean legitBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
-        boolean swapBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraAutoSwap"));
         List<int[]> ten = new ArrayList<>();
-        List<int[]> five = new ArrayList<>();
         Map<int[], String> put = new LinkedHashMap<>();
         JsonArray blocks = new JsonArray();
         for (int x = 11; x <= 15; x++) {
             for (int y = 0; y <= 1; y++) {
                 ten.add(new int[]{x, F + y, 11});
+                put.put(new int[]{x, F + y, 11}, "minecraft:snow_block");
                 blocks.add(x + " " + (F + y) + " 11");
             }
-            five.add(new int[]{x, F + 2, 11});
         }
-        for (int[] b : ten) {
-            put.put(b, "minecraft:snow_block");
-        }
-        for (int[] b : five) {
-            put.put(b, "minecraft:snow_block");
-        }
-        java.util.Set<net.minecraft.core.BlockPos> tenPos = new java.util.HashSet<>();
-        java.util.Set<net.minecraft.core.BlockPos> fivePos = new java.util.HashSet<>();
-        final String DS = "com.killer560.hub.secrets.DungeonState";
-        boolean[] simOn = {false};
         try {
             warmDig(ctx);
             setBlocks(ctx, put);
@@ -2071,41 +2057,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             br.add("blocks", blocks);
             br.addProperty("start", true);
             writeRoute(ctx, List.of(br));
-            // The room frame can take a moment after the session's paste (run2 11-26: null on Andesite at once).
-            check(waitFor(ctx, 200, () -> ctx.computeOnClient(mc -> ModUnderTest.staticCall(FRAME, "current") != null)), "no room frame for the route");
-            ctx.runOnClient(mc -> {
-                Object frame = ModUnderTest.staticCall(FRAME, "current");
-                for (int[] b : ten) {
-                    tenPos.add(real(frame, b[0], b[1], b[2]));
-                }
-                for (int[] b : five) {
-                    fivePos.add(real(frame, b[0], b[1], b[2]));
-                }
-                Object st = ModUnderTest.staticCall(store, "getInstance");
-                ModUnderTest.call(st, "clear", new Class<?>[0], new Object[0]);
-                for (net.minecraft.core.BlockPos p : fivePos) {
-                    ModUnderTest.call(st, "addPick", new Class<?>[]{String.class},
-                            new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
-                }
-                ModUnderTest.call(st, "save", new Class<?>[0], new Object[0]);
-                ModUnderTest.set(dx, burst ? "setBreakerAuraBurstMultiBreak" : "setBreakerAuraMultiBreak", true);
-                ModUnderTest.set(dx, "setBreakerAuraAutoSwap", true);
-            });
+            ctx.runOnClient(mc -> ModUnderTest.set(dx, burst ? "setBreakerAuraBurstMultiBreak" : "setBreakerAuraMultiBreak", true));
             long conflictsBefore = ctx.computeOnClient(mc -> digWindowCount("conflicts"));
             long burstConfBefore = ctx.computeOnClient(mc -> digWindowCount("burstConflicts"));
             long m = LogTap.mark();
             startSampling(ctx);
             ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
-            // Breaker Aura works only in a boss: the mod's F7 sim override opens that gate (as BreakerAuraTests does).
-            simOn[0] = ctx.computeOnClient(mc -> Boolean.TRUE.equals(ModUnderTest.staticCall(DS, "toggleSimOverride")));
-            if (!simOn[0]) {
-                ctx.runOnClient(mc -> ModUnderTest.staticCall(DS, "toggleSimOverride")); // it was on: leave it on
-            }
-            // The aura wakes as he walks onto the node: both diggers have blocks in reach from the same tick.
-            ctx.runOnClient(mc -> ModUnderTest.set(dx, "setBreakerAuraEnabled", true));
             walkOnto(ctx, 13.5, 7.5, 13, 10);
-            boolean gone = waitFor(ctx, 160, () -> {
-                for (int[] b : put.keySet()) {
+            boolean gone = waitFor(ctx, 120, () -> {
+                for (int[] b : ten) {
                     if (!blockAir(ctx, b[0], b[1], b[2])) {
                         return false;
                     }
@@ -2115,24 +2075,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(5);
             ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
             List<Sample> s = stopSampling(ctx);
-            ctx.runOnClient(mc -> ModUnderTest.set(dx, "setBreakerAuraEnabled", false));
-            java.util.Set<String> nodeDug = new java.util.HashSet<>();
-            java.util.Set<String> auraDug = new java.util.HashSet<>();
+            java.util.Set<String> dug = new java.util.HashSet<>();
             Map<Integer, java.util.Set<String>> perWindow = new java.util.TreeMap<>();
-            Map<Integer, java.util.Set<String>> who = new java.util.TreeMap<>();
             for (var d : dev.testkit.harness.MultiBreakWatch.digs()) {
-                String k = d.pos().toShortString();
-                boolean node = tenPos.contains(d.pos());
-                boolean aura = fivePos.contains(d.pos());
-                if (!node && !aura) {
-                    continue;
-                }
-                (node ? nodeDug : auraDug).add(k);
-                perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(k);
-                who.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(node ? "node" : "aura");
+                dug.add(d.pos().toShortString());
+                perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos().toShortString());
             }
             int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
-            long mixed = who.values().stream().filter(w -> w.size() > 1).count();
             List<String> replay = dev.testkit.harness.MultiBreakWatch.violations();
             long conflicts = ctx.computeOnClient(mc -> digWindowCount("conflicts")) - conflictsBefore;
             long burstConf = ctx.computeOnClient(mc -> digWindowCount("burstConflicts")) - burstConfBefore;
@@ -2140,15 +2089,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(10);
             List<String> flags = c.scenario().flags();
             boolean exp = dev.testkit.gametest.boss.AaFastCases.experimentalChecks();
-            String line = String.format(Locale.ROOT, "%s: burst %s, experimental %s: node dug %d/10, aura dug %d/5, all gone %s,"
-                            + " most blocks in one server tick %d, ticks with both diggers %d, replay %s, DigWindow conflicts %d"
-                            + " burst %d, WARN %s, GrimAC %s", c.name(), burst, exp, nodeDug.size(), auraDug.size(), gone, most,
-                    mixed, replay.isEmpty() ? "clean" : replay.size() + " violation(s)", conflicts, burstConf, warned,
-                    flags.isEmpty() ? "silent" : flags);
+            String line = String.format(Locale.ROOT, "%s: burst %s, experimental %s: dug %d/10, all gone %s, most blocks in one"
+                            + " server tick %d, replay %s, DigWindow conflicts %d burst %d, WARN %s, GrimAC %s", c.name(), burst,
+                    exp, dug.size(), gone, most, replay.isEmpty() ? "clean" : replay.size() + " violation(s)", conflicts,
+                    burstConf, warned, flags.isEmpty() ? "silent" : flags);
             println(line);
             c.note(line);
-            check(nodeDug.size() >= 1 && auraDug.size() >= 1, "both diggers must reach the wire (node "
-                    + nodeDug.size() + ", aura " + auraDug.size() + "), or nothing was tested");
+            check(dug.size() >= 1, "the breaker node dug nothing (nothing was tested)");
             check(conflicts == 0, "the mod's DigWindow counted " + conflicts + " real conflict(s)");
             check(!warned, "DigWindow wrote a 'two digs in one server tick' WARN");
             if (burst) {
@@ -2160,8 +2107,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     check(flags.isEmpty(), "Burst on default GrimAC drew GrimAC: " + flags);
                 }
             } else {
-                check(gone, "not every node and aura block broke");
-                check(nodeDug.size() == 10 && auraDug.size() == 5, "node dug " + nodeDug.size() + "/10, aura " + auraDug.size() + "/5");
+                check(gone && dug.size() == 10, "dug " + dug.size() + "/10, all gone " + gone);
                 check(replay.isEmpty() && most <= 1, "two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
                 check(burstConf == 0, "DigWindow counted " + burstConf + " burst conflict(s) with Burst off");
                 check(flags.isEmpty(), "GrimAC flagged: " + flags);
@@ -2169,16 +2115,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             noteFlags(c, s);
         } finally {
             ctx.runOnClient(mc -> {
-                ModUnderTest.set(dx, "setBreakerAuraEnabled", false);
                 ModUnderTest.set(dx, "setBreakerAuraBurstMultiBreak", burstBefore);
                 ModUnderTest.set(dx, "setBreakerAuraMultiBreak", legitBefore);
-                ModUnderTest.set(dx, "setBreakerAuraAutoSwap", swapBefore);
-                Object st = ModUnderTest.staticCall(store, "getInstance");
-                ModUnderTest.call(st, "clear", new Class<?>[0], new Object[0]);
-                ModUnderTest.call(st, "save", new Class<?>[0], new Object[0]);
-                if (simOn[0]) {
-                    ModUnderTest.staticCall(DS, "toggleSimOverride");
-                }
             });
             tpRel(ctx, 13.5, 6.5, 0f, 0f);
             ctx.waitTicks(5);
