@@ -37,9 +37,10 @@ final class MelodyEdges1126Cases {
     }
 
     static void register(Session s) {
-        for (int ms : new int[]{0, 65, 137, 200}) {
-            MenuSuite.test(s, "1126-menu-term-melody-edges-p" + ms, c -> edges(c, ms));
-        }
+        MenuSuite.test(s, "1126-menu-term-melody-edges-p0", c -> edges(c, 0));
+        MenuSuite.test(s, "1126-menu-term-melody-edges-p65", c -> edges(c, 65));
+        MenuSuite.test(s, "1126-menu-term-melody-edges-p137", c -> edges(c, 137));
+        MenuSuite.test(s, "1126-menu-term-melody-edges-p200", c -> edges(c, 200));
         MenuSuite.test(s, "1126-same-melody-edges", c -> sameTick(c, false));
         MenuSuite.test(s, "1126-same-melody-edges-ss", c -> sameTick(c, true));
     }
