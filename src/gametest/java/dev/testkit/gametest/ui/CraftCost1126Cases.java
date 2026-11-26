@@ -63,7 +63,7 @@ final class CraftCost1126Cases {
                 if (mode == 0) {
                     box.setItem(23, new ItemStack(Items.CRAFTING_TABLE));
                     for (int i : new int[]{14, 15, 16, 22, 24}) {
-                        box.setItem(i, new ItemStack(Items.BLACK_STAINED_GLASS_PANE));
+                        box.setItem(i, new ItemStack(Items.STICK));
                     }
                 }
             }
