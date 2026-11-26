@@ -189,6 +189,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "1123-arholds-graphfirst",
             // arstuck-1125: a warp held after both replans gave up lets a fresh movement key take over and a left click send it
             "1125-arstuck-hold",
+            // autoroutes-stuck-1126: the Dungeon Breaker use that pairs a chest click goes once, then the warp
+            "1126-arstuck-spendloop",
             // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
             "1115-acslow2-await"};
 
@@ -341,6 +343,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-museum" -> caseMuseum(ctx);
                         case "96-ar-1020-boomsneak" -> caseBoomSneak(ctx);
                         case "96-ar-1016-eaten" -> caseEatenHop(ctx);
+                        case "1126-arstuck-spendloop" -> caseSpendLoop(ctx);
                         case "96-ar-1016-carry" -> ArMainServerCases.carryPastAwaitless(ctx);
                         case "96-ar-1016-farstart" -> ArMainServerCases.farBeforeStart(ctx);
                         case "96-ar-1016-refused" -> ArMainServerCases.refusedWarp(ctx);
@@ -3050,6 +3053,81 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * landing after 61 ticks" and the route lets the node go off its ring. Fixed: the warp goes again a round trip later
      * (the click is paired by then) and lands on the target.
      */
+    /**
+     * autoroutes-stuck-1126 (killer560 2026-11-26: "my auto routes keep getting stuck"; his Banners #5 ETHERWARP 01:07:31,
+     * Mines #6, Cathedral #3, Purple Flags #12). 96-ar-1016-eaten's plate and chest WITH the Dungeon Breaker in the hotbar:
+     * the chest click (AOTV in hand) is unpaired, the warp's look is unpairable, so the route pairs the click with a bare
+     * breaker use first. Since aa0f8f5ee RightClick cleared the click only when every server eye's ray met a block; here the
+     * 1.54 ray meets the plate and the 1.27 one passes under it, so the click stayed unpaired and the route spent it again
+     * every tick (swap to the breaker, use, swap back) and never sent the warp - 153 breaker uses in 154 ticks in his log.
+     * Fixed: one spend, the warp the tick after, landed on the target.
+     */
+    private void caseSpendLoop(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+        forgetRunMemory(ctx);
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx); // AOTV 1, Superboom 2, Dungeon Breaker 3
+        int[] chest = {8, F, 23};
+        Map<int[], BlockState> put = new LinkedHashMap<>();
+        put.put(new int[]{7, F + 2, 20}, Blocks.STONE.defaultBlockState());
+        put.put(new int[]{16, F + 5, 20}, Blocks.STONE.defaultBlockState());
+        put.put(chest, Blocks.CHEST.defaultBlockState());
+        setBlocks(ctx, put);
+        float yaw = relYawTo(6, 20, 16, 20);
+        float pitch = (float) -Math.toDegrees(Math.atan2(5.5 - 1.27, 16.0 - 6.5));
+        JsonObject n = node("ETHERWARP", 6, 20, yaw, pitch);
+        n.addProperty("landing", String.format(Locale.US, "%.3f %.3f %.3f", 16.5, F + 6.05, 20.5));
+        n.addProperty("start", true);
+        n.addProperty("awaitEnabled", true);
+        n.addProperty("await", "SECRET");
+        n.addProperty("amount", 1);
+        writeRoute(ctx, List.of(n));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        tpRel(ctx, 6.5, 20.5, yaw, pitch);
+        ctx.waitTicks(10);
+        Vec3 top = ctx.computeOnClient(mc -> ArPathLandCases.toRealPublic(16.5, F + 6, 20.5));
+        long m = LogTap.mark();
+        boolean met;
+        boolean landed;
+        int landTick = -1;
+        try {
+            rightClick(ctx, chest[0], chest[1], chest[2], Direction.UP);
+            met = waitFor(ctx, 40, () -> awaitMet(m));
+            ctx.runOnClient(mc -> mc.player.closeContainer());
+            landed = false;
+            for (int t = 1; t <= 60 && !landed; t++) {
+                ctx.waitTick();
+                landed = ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4);
+                if (landed) landTick = t;
+            }
+            ctx.waitTicks(5);
+        } finally {
+            stopRoute(ctx);
+        }
+        long spends = 0;
+        long warpUses = 0;
+        long breakerUses = 0;
+        for (String l : LogTap.since(m)) {
+            if (l.contains("paired it with a Dungeon Breaker use")) spends++;
+            if (l.contains("Etherwarp use sent (#1 ETHERWARP)")) warpUses++;
+            if (l.contains("[RightClick] use seq") && l.contains("DUNGEONBREAKER")) breakerUses++;
+            if (l.contains("RightClick") || l.contains("Etherwarp") || l.contains("ETHERWARP")) println("spendloop log: " + l);
+        }
+        println(String.format(Locale.US, "spendloop: await met %s, breaker spends %d (breaker uses on the wire %d), warp uses "
+                + "%d, landed on the target %s %d tick(s) after the chest window closed", met, spends, breakerUses, warpUses,
+                landed, landTick));
+        resetRoutes(ctx);
+        forgetRunMemory(ctx);
+        check(met, "the chest click never met the await - nothing flew");
+        check(spends >= 1, "no Dungeon Breaker use paired the chest click - the case it is about never happened");
+        check(spends == 1 && breakerUses == 1, "the breaker use that pairs the chest click went " + spends + " time(s) ("
+                + breakerUses + " on the wire), expected once - the spend loop that froze his routes");
+        check(warpUses >= 1, "the warp's use never went out after the spend");
+        check(landed && landTick <= 10, "he did not land on the target within 10 ticks of the await (landed " + landed
+                + ", tick " + landTick + ")");
+    }
+
     private void caseEatenHop(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
         forgetRunMemory(ctx);
