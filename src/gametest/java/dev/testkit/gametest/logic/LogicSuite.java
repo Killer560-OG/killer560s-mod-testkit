@@ -133,6 +133,9 @@ public class LogicSuite implements FabricClientGameTest {
         // ---- his 11-26 clears (mod autopilot-clears-1126), client thread
         LogicCase.run(ctx, "1126-logic-acclears-doorgap", AcClears1126Cases::doorGap);
         LogicCase.run(ctx, "1126-logic-acclears-castteleport", AcClears1126Cases::castTeleport);
+        // ---- long-trip pathfinding (mod pathfind-bench-1126): exact-aim shortcut, exact Fairy Soul route order
+        LogicCase.run(ctx, "1126-logic-pathfind-shortcut", PathfindBenchCases::shortcut);
+        LogicCase.run(ctx, "1126-logic-pathfind-tour", PathfindBenchCases::tour);
         ManaResetCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
         // ---- static scan fixes (mod scanbugs-1104): \s escapes, Revert Master Stars null name
