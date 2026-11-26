@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T23:53:14",
- "modSource": "lane-ee3-r35b-earlydig-1125",
- "modGitSha": "bd1e605790797f57e337b2fa99b8bbac15384dc2",
+ "generatedAt": "2026-11-26T00:29:47",
+ "modSource": "lane-autopilot-face-witherdoor-1126",
+ "modGitSha": "f3bd7ec798b6d30e6896a0735d8f7d972ca1d809",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
