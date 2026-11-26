@@ -143,6 +143,7 @@
 			"dev.testkit.gametest.SimMapRunStartTests",
 			"dev.testkit.gametest.MapLabelRender1122Tests",
 			"dev.testkit.gametest.SimPrerunTripTests",
+			"dev.testkit.gametest.SimGateBarrier1126Tests",
 			"dev.testkit.gametest.SimMapUnknownRoomTests",
 			"dev.testkit.gametest.SimNoammMapTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",
