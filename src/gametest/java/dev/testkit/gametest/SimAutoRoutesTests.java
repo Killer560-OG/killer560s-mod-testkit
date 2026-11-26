@@ -118,6 +118,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1014-jumpcd",
             // ac-route-memory (2026-10-14): run memory of secrets/bats/routed rooms, and the auto-puzzle hold
             "96-ar-1014-awaitmem", "96-ar-1014-batmem", "96-ar-1014-routedroom", "96-ar-1014-puzzlehold",
+            // bat-crypt-reroute-1126: a crypt node remembers its kill, a dead bat is skipped, a bat goal is capped at the room's bats
+            "96-ar-1126-cryptmem", "96-ar-1126-batdead", "96-ar-1126-batgoal",
             // ar-mainserver (2026-10-15): Hypixel's pickup-with-the-landing order; left click skips in flight / under Kill Mimic
             "96-ar-1015-landpickup", "96-ar-1015-earlyskip", "96-ar-1015-mimicskip",
             // doc-etable-1101: the Emergency Cancel Key stops a route and Mimic Killer, and its hold starts no route
@@ -365,6 +367,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1014-jumpcd" -> ArJumpCooldownCases.jumpCooldown(ctx);
                         case "96-ar-1014-awaitmem" -> ArRouteMemoryCases.awaitMemory(ctx);
                         case "96-ar-1014-batmem" -> ArRouteMemoryCases.batMemory(ctx);
+                        case "96-ar-1126-cryptmem" -> ArRouteMemoryCases.cryptMemory(ctx);
+                        case "96-ar-1126-batdead" -> ArRouteMemoryCases.batDead(ctx);
+                        case "96-ar-1126-batgoal" -> ArRouteMemoryCases.batGoal(ctx);
                         case "96-ar-1014-routedroom" -> ArRouteMemoryCases.routedRoom(ctx);
                         case "96-ar-1014-puzzlehold" -> ArRouteMemoryCases.puzzleHold(ctx);
                         case "96-ar-1015-landpickup" -> ArMainServerCases.landPickup(ctx);
@@ -8524,6 +8529,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      */
     static final class ArRouteMemoryCases {
         static final String MEMORY = "com.killer560.hub.autoroutes.RouteRunMemory";
+        static final String DUNGEON_STATE = "com.killer560.hub.secrets.DungeonState";
 
         private ArRouteMemoryCases() {
         }
@@ -8692,6 +8698,234 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 keepRunMemory = false;
                 forgetRunMemory(ctx);
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+            }
+        }
+
+        /**
+         * bat-crypt-reroute-1126 (killer560, 11-26: "it keeps not registering that it killed crypts or bats"). His
+         * Sarcophagus #3 and Deathmite #16 crypt nodes held 1.5 s on crypts they had killed seconds earlier, after the
+         * route ran again in the same run. A crypt node that reached its goal is remembered for the run, as a bat node is.
+         */
+        static void cryptMemory(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            giveSlot(ctx, 4, "HYPERION");
+            keepRunMemory = true;
+            try {
+                forgetRunMemory(ctx);
+                setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+                int x = 19;
+                slabCrypt(ctx, x, 18);
+                float p = standPitch(x, 16, x, 18, 0.25);
+                JsonObject boom = node("BOOM", x, 16, 0f, p);
+                boom.addProperty("start", true);
+                writeRoute(ctx, List.of(boom, cryptNode(x, 16, 0f, p, false, 0)));
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                // ---- 1: boom + crypt kill ----
+                long m1 = LogTap.mark();
+                check(arm(ctx, x, 16, 0f, p), "run 1 did not start");
+                boolean killed = waitFor(ctx, 160, () -> logHas(m1, "CRYPT: 1 kill(s)"));
+                waitFor(ctx, 40, () -> !running(ctx));
+                stopRoute(ctx);
+                println("cryptmem run 1: acted " + logHas(m1, "CRYPT acted") + ", killed " + killed);
+                check(logHas(m1, "CRYPT acted") && killed, "run 1: the crypt node did not kill its crypt");
+
+                // ---- 2: the same route again this run (Autopilot off and on): the crypt node moves on at once ----
+                long m2 = LogTap.mark();
+                check(arm(ctx, x, 16, 0f, p), "run 2 did not start");
+                int skipped = ticksUntil(ctx, m2, "crypts were already killed earlier this run", 30);
+                ctx.waitTicks(10);
+                boolean acted2 = logHas(m2, "CRYPT acted");
+                stopRoute(ctx);
+                println("cryptmem run 2 (same run): skipped from memory after " + skipped + " tick(s), acted " + acted2);
+                check(skipped >= 0, "run 2's crypt node did not remember its crypt was already killed this run");
+                check(!acted2, "run 2's crypt node attacked for a crypt it killed earlier this run");
+
+                // ---- 3: control - a new run: the crypt node attacks again ----
+                forgetRunMemory(ctx);
+                long m3 = LogTap.mark();
+                check(arm(ctx, x, 16, 0f, p), "run 3 did not start");
+                boolean acted3 = waitFor(ctx, 60, () -> logHas(m3, "CRYPT acted"));
+                stopRoute(ctx);
+                println("cryptmem run 3 (new run, control): acted " + acted3);
+                check(acted3, "after a new run the crypt node did not attack - run 2's skip proves nothing");
+            } finally {
+                keepRunMemory = false;
+                forgetRunMemory(ctx);
+            }
+        }
+
+        /** Spawns the sim's secret bat at {@code spot} and waits for the client to see it alive. */
+        private static void spawnBat(ClientGameTestContext ctx, BlockPos spot) {
+            ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimSecretItems", "registerBat", new Class<?>[]{BlockPos.class},
+                    new Object[]{spot})));
+            check(waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> {
+                for (var e : mc.level.entitiesForRendering()) {
+                    if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
+                            && !b.isDeadOrDying() && b.blockPosition().closerThan(spot, 2)) {
+                        return true;
+                    }
+                }
+                return false;
+            })), "the secret bat never appeared");
+        }
+
+        /**
+         * bat-crypt-reroute-1126: his Doors #7 and Lava Ravine #3 bat nodes held 1.5 s for bats Auto Clear had killed
+         * 3 s and 48 s before (no route was running, so the death was never remembered). A secret bat that dies near
+         * him with no route running is remembered for the run, and a bat node with its bat dead moves on at once.
+         */
+        static void batDead(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            clearSecretBats(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            giveSlot(ctx, 4, "HYPERION");
+            boolean sim = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(DUNGEON_STATE, "isRoomSim"));
+            keepRunMemory = true;
+            try {
+                forgetRunMemory(ctx);
+                setRoomSim(ctx, true);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 20));
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+                int x = 19;
+                BlockPos spot = realNow(ctx, x, F + 2, 13);
+                JsonObject bat = node("BAT", x, 10, 0f, 30f);
+                bat.addProperty("start", true);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, x + 0.5, 6.5, 0f, 30f);
+                writeRoute(ctx, List.of(bat));
+                spawnBat(ctx, spot);
+                // ---- 1: the bat dies with no route running (Auto Clear's hit, his own) ----
+                check(!running(ctx), "a route was running before the bat died - nothing below would mean anything");
+                long m1 = LogTap.mark();
+                serverRun(ctx, (server, sp) -> {
+                    for (var e : server.overworld().getAllEntities()) {
+                        if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.blockPosition().closerThan(spot, 3)) {
+                            b.setHealth(0f);
+                        }
+                    }
+                });
+                ctx.waitTicks(30);
+                println("batdead: memory after the kill " + memory(ctx));
+                // ---- 2: the bat node of that bat: no attack, it moves on at once ----
+                long m2 = LogTap.mark();
+                check(arm(ctx, x, 10, 0f, 30f), "run 2 did not start");
+                int skipped = ticksUntil(ctx, m2, "already died within", 20);
+                ctx.waitTicks(10);
+                boolean acted2 = logHas(m2, "BAT acted");
+                stopRoute(ctx);
+                println("batdead run 2: remembered death " + logHas(m1, "secret bat") + ", skipped after " + skipped
+                        + " tick(s), acted " + acted2);
+                check(skipped >= 0, "the bat node did not know its bat had died before the route ran");
+                check(!acted2, "the bat node attacked for a bat that was already dead");
+
+                // ---- 3: control - a new run: the node attacks ----
+                forgetRunMemory(ctx);
+                long m3 = LogTap.mark();
+                check(arm(ctx, x, 10, 0f, 30f), "run 3 did not start");
+                boolean acted3 = waitFor(ctx, 40, () -> logHas(m3, "BAT acted"));
+                stopRoute(ctx);
+                println("batdead run 3 (new run, control): acted " + acted3);
+                check(acted3, "after a new run the bat node did not attack - run 2's skip proves nothing");
+            } finally {
+                keepRunMemory = false;
+                forgetRunMemory(ctx);
+                setRoomSim(ctx, sim);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+            }
+        }
+
+        private static void setRoomSim(ClientGameTestContext ctx, boolean on) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(DUNGEON_STATE, "setRoomSim", new Class<?>[]{boolean.class},
+                    new Object[]{on}));
+        }
+
+        /** Secret bats the room database lists for {@code name}, -1 when it has no entry. */
+        private static int dbBats(ClientGameTestContext ctx, String name) {
+            return ctx.computeOnClient(mc -> {
+                Object e = ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "lookupByName",
+                        new Class<?>[]{String.class}, new Object[]{name});
+                try {
+                    Object sc = e == null ? null : e.getClass().getField("secretCoords").get(e);
+                    Object bats = sc == null ? null : sc.getClass().getField("bat").get(sc);
+                    return bats == null ? -1 : ((List<?>) bats).size();
+                } catch (ReflectiveOperationException x) {
+                    return -1;
+                }
+            });
+        }
+
+        /**
+         * bat-crypt-reroute-1126: his Pirate #8 bat node (route "await 2 secret": bat + chest) held 1.5 s after its one
+         * bat died, three times, for a second bat Pirate does not have. A bat node never waits for more bats than the
+         * room database lists for its room.
+         */
+        static void batGoal(ClientGameTestContext ctx) {
+            String saved = room;
+            if (dbBats(ctx, room) != 1) {
+                List<String> names = ctx.computeOnClient(mc -> new ArrayList<>((List<String>) ModUnderTest.staticCall(
+                        ROOM_LIBRARY, "names")));
+                for (String n : names) {
+                    if (dbBats(ctx, n) == 1 && !n.contains("Trap") && !n.contains("Maze")) {
+                        int[] size = ctx.computeOnClient(mc -> {
+                            Object r = ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class},
+                                    new Object[]{n});
+                            try {
+                                return new int[]{r.getClass().getField("sizeX").getInt(r), r.getClass().getField("sizeZ").getInt(r)};
+                            } catch (ReflectiveOperationException e) {
+                                return new int[]{999, 999};
+                            }
+                        });
+                        if (size[0] <= 33 && size[1] <= 33) {
+                            room = n;
+                            break;
+                        }
+                    }
+                }
+                check(!room.equals(saved), "no 1x1 room with exactly one bat in the library and room database");
+                buildRoom(ctx, 0);
+            }
+            println("batgoal: room " + room + " has " + dbBats(ctx, room) + " bat(s) in the room database");
+            resetRoutes(ctx);
+            clearSecretBats(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            giveSlot(ctx, 4, "HYPERION");
+            try {
+                forgetRunMemory(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 40));
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+                int x = 19;
+                BlockPos spot = realNow(ctx, x, F + 2, 13);
+                JsonObject bat = node("BAT", x, 10, 0f, 30f);
+                bat.addProperty("start", true);
+                bat.addProperty("awaitEnabled", true);
+                bat.addProperty("await", "SECRET");
+                bat.addProperty("amount", 2);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, x + 0.5, 6.5, 0f, 30f);
+                writeRoute(ctx, List.of(bat));
+                spawnBat(ctx, spot);
+                long m = LogTap.mark();
+                tpRel(ctx, x + 0.5, 10.5, 0f, 30f);
+                boolean done = waitFor(ctx, 160, () -> logHas(m, "BAT: 1 kill(s)") || logHas(m, "BAT: 1 of 2 kill(s)"));
+                waitFor(ctx, 40, () -> !running(ctx));
+                stopRoute(ctx);
+                boolean one = logHas(m, "BAT: 1 kill(s)");
+                println("batgoal: acted " + logHas(m, "BAT acted") + ", ended on its one bat " + one + ", held for a second "
+                        + logHas(m, "BAT: 1 of 2 kill(s)"));
+                check(logHas(m, "BAT acted") && done, "the bat node never killed its bat - nothing below would mean anything");
+                check(one, "the bat node waited for a second bat its room does not have");
+            } finally {
+                forgetRunMemory(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+                if (!room.equals(saved)) {
+                    room = saved;
+                    buildRoom(ctx, 0);
+                }
             }
         }
 
