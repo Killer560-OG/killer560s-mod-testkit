@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T05:33:17",
- "modSource": "lane-craftcost-notshowing-1126",
- "modGitSha": "bdd48a6fded37fb7bcc7859e1a235521a88ea3d6",
+ "generatedAt": "2026-11-26T05:25:03",
+ "modSource": "lane-la-warpmiss-1126",
+ "modGitSha": "4c6e8f377efb1cbd2f110b0adf16bbd7c5d0ad69",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {

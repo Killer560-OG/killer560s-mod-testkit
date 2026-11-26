@@ -191,6 +191,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "1125-arstuck-hold",
             // autoroutes-stuck-1126: the Dungeon Breaker use that pairs a chest click goes once, then the warp
             "1126-arstuck-spendloop",
+            // la-warpmiss-1126: a path pair on one block finishes in place, or flies from where he stands - never stops
+            "1126-ar-sameblock-pair", "1126-im-failreason",
             // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
             "1115-acslow2-await"};
 
@@ -406,6 +408,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
                         case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
                         case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
+                        case "1126-ar-sameblock-pair" -> ArRangeCases.sameBlockPair(ctx);
+                        case "1126-im-failreason" -> ArRangeCases.imFailReason(ctx);
                         case "1123-arholds-graphfirst" -> ArRangeCases.graphFirst(ctx);
                         case "1125-arstuck-hold" -> ArNodesCases.stuckHold(ctx);
                         case "1115-acslow2-await" -> ArMainServerCases.acslow2AwaitNothing(ctx);
@@ -11047,6 +11051,89 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 hole.put(new int[]{OX, F - 1, MZ}, Blocks.AIR.defaultBlockState());
                 setBlocks(ctx, hole);
             }, "landing block", REPLAN_BOUND + 20, null);
+        }
+
+        /**
+         * la-warpmiss-1126: a path pair whose two nodes share one block (his Pressure Plates #26 -> #28, 2026-11-25
+         * 15:36:52) stopped the route "no etherwarp path ... (the two path nodes are on the same block)" when he stood
+         * 8 blocks off it after the node stacked before it. Now, standing on it, the pair is done; off it, the pair is
+         * planned from where he stands and flown. Stack on (OX, OZ): #1 ETHERWARP to (OX, MZ), #2 PATH, #3 PATH.
+         */
+        static void sameBlockPair(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            inMuseum(ctx, () -> {
+                setReplan(ctx, false);
+                giveAotv(ctx, 0);
+                // ---- on the block: PATH #1 + PATH #2 on one tile finish where he stands ----
+                JsonObject a = node("PATH", OX, OZ, 0f, 0f);
+                a.addProperty("start", true);
+                writeRoute(ctx, List.of(a, node("PATH", OX, OZ, 0f, 0f)));
+                long m0 = LogTap.mark();
+                replayTo(ctx, OZ, 0);
+                boolean ended0 = waitFor(ctx, 60, () -> logHas(m0, "complete") || logHas(m0, "Stopped"));
+                printPathLog("sameblock on", m0);
+                check(ended0, "on the block: the route neither completed nor stopped in 60 ticks");
+                check(!logHas(m0, "on the same block)"), "on the block: the route stopped on a one-block pair");
+                check(logHas(m0, "pair on one block, already on it"), "on the block: the pair was not finished in place");
+                stopRoute(ctx);
+                // ---- off the block: the ETHERWARP before it puts him 17 blocks off; the pair flies him back ----
+                JsonObject w = ew(OX, OZ, OX, MZ, true);
+                writeRoute(ctx, List.of(w, node("PATH", OX, OZ, 0f, 0f), node("PATH", OX, OZ, 0f, 0f)));
+                int r0 = replans(ctx);
+                long m1 = LogTap.mark();
+                replayTo(ctx, OZ, 0);
+                boolean ended1 = waitFor(ctx, 120, () -> logHas(m1, "complete") || logHas(m1, "Stopped"));
+                printPathLog("sameblock off", m1);
+                Vec3 at = relPos(ctx);
+                check(logHas(m1, "Node #1 ETHERWARP"), "premise: the stack's ETHERWARP did not run");
+                check(logHas(m1, "Node #2 PATH begins"), "premise: the stacked PATH #2 did not begin");
+                check(ended1, "off the block: the route neither completed nor stopped in 120 ticks (at " + at + ")");
+                check(!logHas(m1, "on the same block)"), "off the block: the route stopped \"on the same block\" (at "
+                        + at + ")");
+                check(logHas(m1, "off it at"), "off the block: #2 did not see him off its one-block pair");
+                check(logHas(m1, "new warp(s) from here (not saved)"), "off the block: the pair was not flown from here");
+                check(replans(ctx) == r0 + 1, "replans counted " + (replans(ctx) - r0) + ", expected 1");
+                check(Math.floor(at.x) == OX && Math.floor(at.z) == OZ && Math.abs(at.y - F) < 0.2,
+                        "off the block: he did not end on the pair's block (" + OX + ", " + OZ + "), at " + at);
+                check(logHas(m1, "complete"), "off the block: the route did not run to its end");
+            });
+        }
+
+        /**
+         * la-warpmiss-1126: an Interactive Map trip the planner refuses says why (his 11-25 15:34-15:40: five bare "Failed
+         * after Nms"). The goal is the strip's side wall block (3, F+1, 20), stone over it: nothing to stand on.
+         */
+        static void imFailReason(ClientGameTestContext ctx) {
+            inMuseum(ctx, () -> {
+                tpRel(ctx, OX + 0.5, OZ + 0.5, 0f, 0f);
+                ctx.waitTicks(10);
+                long m = LogTap.mark();
+                ctx.runOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    ModUnderTest.staticCall(CLEAR, "etherPath", new Class<?>[]{BlockPos.class, Runnable.class},
+                            new Object[]{real(frame, 3, F + 1, 20), null});
+                });
+                boolean said = waitFor(ctx, 60, () -> logHas(m, "Failed after"));
+                String line = LogTap.since(m).stream().filter(l -> l.contains("Failed after")).findFirst().orElse(null);
+                String reason = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(CLEAR, "lastFailReason"));
+                println("imfail: line " + line + " | lastFailReason " + reason);
+                check(said, "premise: the planner did not refuse the walled-in block within 60 ticks");
+                check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(CLEAR, "lastPathFailed")),
+                        "premise: lastPathFailed is not set after the refusal");
+                check(line != null && line.contains("nothing to stand on at that block"), "the failure line does not say why: " + line);
+                check("nothing to stand on at that block".equals(reason), "lastFailReason reads " + reason);
+            });
+        }
+
+        private static void printPathLog(String tag, long mark) {
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("PATH") || l.contains("ETHERWARP") || l.contains("Stopped") || l.contains("complete")) {
+                    println(tag + " log: " + l);
+                }
+            }
         }
 
         /** Ticks from arming #1 to standing on #2: two hops plus one replan (one planner answer, a few ms here); a missing
