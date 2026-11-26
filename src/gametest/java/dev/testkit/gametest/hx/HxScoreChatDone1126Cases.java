@@ -148,6 +148,7 @@ final class HxScoreChatDone1126Cases {
             c.ctx().waitTicks(25);
             c.check(c.onClient(mc -> done()) == f0, "a party line or a last-blaze kill after PUZZLE FAIL counted: " + c.onClient(mc -> done()));
             c.hx().chat(RESET_BLAZE);
+            c.ctx().waitTicks(10);
             c.ctx().runOnClient(mc -> Mod.staticCall(SCF, "onBlazeCleared"));
             c.waitUntil("completed " + (f0 + 1) + " (own last blaze killed after the reset)", mc -> done() == f0 + 1, 10);
             c.hx().chat(RESET_BLAZE);
