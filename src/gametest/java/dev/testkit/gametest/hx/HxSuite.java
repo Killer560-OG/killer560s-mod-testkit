@@ -39,6 +39,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxAcDoorOnly1115Cases.register(s);
                     HxDoorPrime1122Cases.register(s);
                     HxStandEye1123Cases.register(s);
+                    HxStray1125Cases.register(s);
                     HxAcCut1122Cases.register(s);
                     HxAcDoorLeft1121Cases.register(s);
                     HxGreenStart1122Cases.register(s);
