@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T17:30:54",
- "modSource": "lane-craftcost-supercraft-1126b",
- "modGitSha": "554aed3b2145176679bbf60f8dd7fedaef27828f",
+ "generatedAt": "2026-11-26T17:51:14",
+ "modSource": "lane-beams-hold-loop-1126",
+ "modGitSha": "db8abaafa4856a7f2552f952347a273e331f5174",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
