@@ -96,12 +96,20 @@ final class HxStandEye1123Cases {
         int warpsBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt();
         int transBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("transmissions").getAsInt();
         int missBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarpMisses").getAsInt();
+        // Two ticks: the Aspect comes into his hand one tick after the sneak, so his same-tick use in the sneak's own tick
+        // (which reaches the server before the sneak, an Instant Transmission 12 blocks out: diag 11-25 21:18) is empty-handed
+        // and his uses in the hop's window are real sneaking Aspect uses.
+        int early = after >= 2 ? 1 : 0;
+        if (early == 1) {
+            c.ctx().getInput().holdKey(o -> o.keyShift);
+            c.ctx().waitTicks(1);
+        }
         c.onClient(mc -> {
             mc.player.getInventory().setSelectedSlot(2);
             return null;
         });
         c.ctx().getInput().holdKey(o -> o.keyShift);
-        c.ctx().waitTicks(after); // the sneak goes out at the end of the first tick; the hop is queued for the one after
+        c.ctx().waitTicks(after - early); // the sneak goes out at the end of the first tick; the hop is queued for the one after
         float pitch = (float) Math.toDegrees(Math.atan2(1.27, d));
         BlockPos block = BlockPos.containing(X0 + d, Y - 1, Z0);
         Vec3 atQueue = c.onClient(mc -> mc.player.position());
@@ -180,7 +188,7 @@ final class HxStandEye1123Cases {
                     // two ticks after the sneak, cast standing by the stalled server: the near hop is re-aimed for both
                     // eyes and lands on the plan; the far one (no look holds for both) goes at once as planned, never
                     // waiting (Auto Clear speed: a wait there cost 1124-sim-ac-presneak 28 room ticks)
-                    c.check(far[0] == 1 && far[4] == 1, "two ticks, far block: want the use on the first tick and 1 warp, got "
+                    c.check((far[0] == 1 || act != null && far[0] <= 2) && far[4] == 1, "two ticks, far block: want the use on the first tick (his own action may take that tick) and 1 warp, got "
                             + far[0] + " tick(s), " + far[4] + " warp(s)");
                     c.check(near[4] == 1 && (act != null || near[3] == 1) && Math.abs(near[1] - (X0 + 2.0)) < 0.1 && Math.abs(near[2] - Z0) < 0.1,
                             "two ticks, near block: want a standing cast landing at x " + (X0 + 2.0) + ", got " + near[4]
