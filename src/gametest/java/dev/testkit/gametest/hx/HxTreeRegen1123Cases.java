@@ -26,6 +26,7 @@ final class HxTreeRegen1123Cases {
         s.test("1124-foraging-treeregen-styles", HxTreeRegen1123Cases::styles);
         s.test("1124-foraging-treeregen-onstart", HxTreeRegen1123Cases::onStart);
         s.test("1124-foraging-treeregen-lingers", HxTreeRegen1123Cases::lingers);
+        s.test("1125-treeregen-leaves", HxTreeRegen1123Cases::leaves);
     }
 
     private static int num(Session c, String m) {
@@ -253,6 +254,94 @@ final class HxTreeRegen1123Cases {
         } finally {
             style(c, 2);
             c.ctx().runOnClient(mc -> Mod.call(Mod.field(T, "CFG"), "save"));
+            off(c, t, wasOn);
+        }
+    }
+
+    /**
+     * killer560, 11-25: "for regenerating trees ... it also needs to factor in the leaves. not just the wood". Tree A (a
+     * four-log trunk, azalea leaves above and beside its top) and tree B (one log, mangrove leaves) have canopies that touch.
+     * Both are chopped whole, logs and leaves. A's logs return: the tree is regenerating, the drawn set holds the logs AND the
+     * returned leaf, and stays drawn while A leaves are still missing; the last leaf back clears A at once even though B is
+     * still missing blocks (two trees, not one); B clears with its own last leaf; a leaf-only loss starts only when a leaf returns.
+     */
+    private static void leaves(Session c) {
+        boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(Mod.field(T, "CFG"), "isEnabledRaw"));
+        on(c);
+        BlockPos[] t = trunk(c);
+        BlockPos top = t[3];
+        BlockPos l1 = top.above(), l2 = top.east(), l3 = top.east(2);
+        BlockPos b0 = top.east(5), b1 = top.east(4), b2 = top.east(3);
+        BlockState air = Blocks.AIR.defaultBlockState();
+        BlockState az = Blocks.AZALEA_LEAVES.defaultBlockState();
+        BlockState mg = Blocks.MANGROVE_LEAVES.defaultBlockState();
+        BlockState log = Blocks.OAK_LOG.defaultBlockState();
+        BlockPos[] a = {l1, l2, l3};
+        BlockPos[] b = {b1, b2};
+        try {
+            for (BlockPos p : a) {
+                set(c, p, az);
+            }
+            set(c, b0, log);
+            for (BlockPos p : b) {
+                set(c, p, mg);
+            }
+            c.ctx().waitTicks(2);
+            // Both trees chopped whole: 4 logs + 3 leaves, 1 log + 2 leaves.
+            for (BlockPos p : t) {
+                set(c, p, air);
+            }
+            for (BlockPos p : a) {
+                set(c, p, air);
+            }
+            set(c, b0, air);
+            for (BlockPos p : b) {
+                set(c, p, air);
+            }
+            c.ctx().waitTicks(12);
+            c.check(num(c, "trackedLogs") == 10 && num(c, "drawnBoxes") == 0, "chopped trees: tracked " + num(c, "trackedLogs")
+                    + " drawn " + num(c, "drawnBoxes"));
+            for (BlockPos p : t) {
+                set(c, p, log);
+            }
+            set(c, l1, az);
+            c.waitUntil("logs and a leaf drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 5, 60);
+            c.check(draws(c, l1) && draws(c, t[0]) && !draws(c, l2) && !draws(c, l3), "the drawn shape misses the returned leaf or draws a missing one");
+            c.ctx().waitTicks(25);
+            c.check(num(c, "drawnBoxes") == 5, "logs back but two leaves missing: drawn " + num(c, "drawnBoxes"));
+            set(c, l2, az);
+            c.waitUntil("second leaf drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 6, 60);
+            set(c, l3, az);
+            c.ctx().waitTicks(2);
+            c.check(num(c, "drawnBoxes") == 0 && !draws(c, l1), "tree A is whole but still drawn (tree B still missing blocks): " + num(c, "drawnBoxes"));
+            c.check(num(c, "trackedLogs") == 3, "tracked after A is whole: " + num(c, "trackedLogs"));
+            set(c, b0, log);
+            c.waitUntil("tree B log drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 1, 60);
+            set(c, b1, mg);
+            c.waitUntil("tree B leaf drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 2, 60);
+            set(c, b2, mg);
+            c.ctx().waitTicks(2);
+            c.check(num(c, "drawnBoxes") == 0 && num(c, "trackedLogs") == 0, "tree B whole but drawn " + num(c, "drawnBoxes")
+                    + ", tracked " + num(c, "trackedLogs"));
+            // Leaves lost on their own: nothing drawn until one returns, then the whole tree while another is missing.
+            set(c, l2, air);
+            set(c, l3, air);
+            for (BlockPos p : t) {
+                set(c, p, log);
+            }
+            c.ctx().waitTicks(12);
+            c.check(num(c, "drawnBoxes") == 0, "two lost leaves drew the tree before any returned");
+            set(c, l2, az);
+            c.waitUntil("leaf-only start drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 6, 60);
+            set(c, l3, az);
+            c.ctx().waitTicks(2);
+            c.check(num(c, "drawnBoxes") == 0, "leaf-only loss still drawn after its last leaf returned");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                for (BlockPos p : new BlockPos[]{l1, l2, l3, b0, b1, b2}) {
+                    mc.level.setServerVerifiedBlockState(p, air, 3);
+                }
+            });
             off(c, t, wasOn);
         }
     }
