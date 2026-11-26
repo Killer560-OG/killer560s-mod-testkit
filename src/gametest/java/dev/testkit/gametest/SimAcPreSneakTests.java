@@ -45,14 +45,17 @@ import java.util.List;
  * <b>1126-sim-ac-settletrip</b> (mod acoptimal-1126), the same floor: a trip after a kill no longer waits for him to stand
  * when he is coming down a short way onto a block (the half block onto a slab or carpet after an etherwarp's 1.05 landing or
  * a Wither Impact in place). Origin waited for the ground: 25 of the 6 floors' kill-to-warp gaps were 3-4 ticks, all
- * falls onto slabs and carpets. Asserts the floor cleared, {@code AutoClearFeature.settlingTrips} went up by at least
- * {@link #MIN_SETTLE} and at most {@link #MAX_LATE3} trips after a kill left 3 or more ticks late.
+ * falls onto slabs and carpets. The probe reads the log each tick: a death line ("is dead") seen while he is coming down
+ * onto a block opens a gap that the next AOTV use closes. Asserts the floor cleared, {@code AutoClearFeature.settlingTrips}
+ * went up by at least {@link #MIN_SETTLE}, at least {@link #MIN_SETTLE} such trips and at most {@link #MAX_LATE3} of them 3 or
+ * more ticks after the death.
  * <p>
  * <b>1126-sim-ac-preturn</b> (mod acoptimal-1126), the same floor: the tick after the room plan's cast in place, while its
  * deaths come back, the body turns to the plan's cast across that follows, so that cast goes on the deaths' own tick. Origin
- * turned on that tick and cast the next (24-27 casts a run one tick late). Asserts the floor cleared,
- * {@code AutoClearFeature.preTurns} went up by at least {@link #MIN_PRETURN} and at least {@link #MIN_CAST_SAME_TICK} casts
- * went on a kill's own tick. Both cases give their own PASS row on a legit jar (Auto Clear refuses to start there).
+ * turned on that tick and cast the next (24-27 casts a run one tick late). The probe pairs each death line with the next
+ * Hyperion use that follows a "Wither Impact (room plan)" decision. Asserts the floor cleared, {@code AutoClearFeature.preTurns}
+ * went up by at least {@link #MIN_PRETURN}, at least {@link #MIN_CAST_SAME_TICK} such casts went on the death's own tick and
+ * no more went a tick late than on it. Both cases give their own PASS row on a legit jar (Auto Clear refuses to start there).
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAcPreSneakTests implements FabricClientGameTest {
@@ -65,12 +68,21 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     private static final String PRETURN = "1126-sim-ac-preturn";
     /** Trips started while still coming down onto a block, at least (settletrip). */
     private static final int MIN_SETTLE = 2;
-    /** Trips after a kill 3 or more ticks late, at most (settletrip). */
-    private static final int MAX_LATE3 = 2;
+    /** Of those trips (a death seen while he settles), 3 or more ticks after the death, at most (settletrip). */
+    private static final int MAX_LATE3 = 1;
     /** Turns toward the plan's next cast while a cast in place's deaths came back, at least (preturn). */
-    private static final int MIN_PRETURN = 3;
-    /** Casts on a kill's own tick, at least (preturn). */
-    private static final int MIN_CAST_SAME_TICK = 3;
+    private static final int MIN_PRETURN = 2;
+    /** Planned casts on a death's own tick, at least (preturn). */
+    private static final int MIN_CAST_SAME_TICK = 2;
+    private static final java.util.regex.Pattern DEAD = java.util.regex.Pattern.compile("\\[AutoClear\\] .+ in .+ is dead");
+    /** Death line -> next AOTV use while he was settling at the death, by gap 0, 1, 2, 3+ (settletrip). */
+    private static final int[] SETTLE_GAPS = new int[4];
+    /** Death line -> next planned Hyperion cast, by gap 0, 1, 2+ (preturn). */
+    private static final int[] PLAN_GAPS = new int[3];
+    private static long lineMark = -1;
+    private static long deadTick = -1;
+    private static boolean deadSettling;
+    private static boolean planCastSeen;
     /** Trips after a kill the floor must run, at least. */
     private static final int MIN_KILL_TRIPS = 25;
     /** Trips after a kill allowed to leave one tick late (origin 3-7 on this floor over four runs, the fix 0-2). */
@@ -160,6 +172,10 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             java.util.Arrays.fill(GAPS, 0);
             java.util.Arrays.fill(CAST_GAPS, 0);
+            java.util.Arrays.fill(SETTLE_GAPS, 0);
+            java.util.Arrays.fill(PLAN_GAPS, 0);
+            lineMark = LogTap.mark();
+            deadTick = -1;
             killTrips = 0;
             unsneakedTrips = 0;
             killTick = -1;
@@ -199,30 +215,35 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
                 + " ms " + slowQueued + " (worst " + worstQueued + " ms); trips after a kill " + killTrips
                 + ", unsneaked at the kill " + unsneakedTrips + "; casts after a kill gap 0:" + CAST_GAPS[0] + " 1:"
                 + CAST_GAPS[1] + " 2+:" + CAST_GAPS[2] + "; settling trips " + settleBefore + " -> " + settleAfter
-                + "; pre-turns " + preturnBefore + " -> " + preturnAfter);
+                + "; pre-turns " + preturnBefore + " -> " + preturnAfter + "; death-to-warp while settling 0:" + SETTLE_GAPS[0]
+                + " 1:" + SETTLE_GAPS[1] + " 2:" + SETTLE_GAPS[2] + " 3+:" + SETTLE_GAPS[3] + "; death-to-planned-cast 0:"
+                + PLAN_GAPS[0] + " 1:" + PLAN_GAPS[1] + " 2+:" + PLAN_GAPS[2]);
         long notCleared = rooms.stream().filter(r -> !r.cleared()).count();
         if (rooms.size() < 10 || notCleared > 0) {
             problems.add(rooms.size() + " room line(s), " + notCleared + " not cleared - the floor was not cleared");
         }
         int want = searchTick ? MIN_SAME_TICK_SEARCH : MIN_SAME_TICK;
-        int late3 = gaps[3] + gaps[4] + gaps[5];
+        int settled = SETTLE_GAPS[0] + SETTLE_GAPS[1] + SETTLE_GAPS[2] + SETTLE_GAPS[3];
         if (NAME.equals(SETTLE)) {
             if (settleBefore < 0 || settleAfter - settleBefore < MIN_SETTLE) {
                 problems.add("trips started while coming down onto a block " + settleBefore + " -> " + settleAfter
                         + ", want at least " + MIN_SETTLE + " more");
             }
-            if (late3 > MAX_LATE3) {
-                problems.add(late3 + " trip(s) after a kill left 3 or more ticks late, want at most " + MAX_LATE3
-                        + " (gaps 0:" + gaps[0] + " 1:" + gaps[1] + " 2:" + gaps[2] + ")");
+            if (settled < MIN_SETTLE) {
+                problems.add(settled + " trip(s) after a death seen while he settled, want at least " + MIN_SETTLE);
+            }
+            if (SETTLE_GAPS[3] > MAX_LATE3) {
+                problems.add(SETTLE_GAPS[3] + " trip(s) after a death seen while he settled left 3 or more ticks later, want at"
+                        + " most " + MAX_LATE3 + " (0:" + SETTLE_GAPS[0] + " 1:" + SETTLE_GAPS[1] + " 2:" + SETTLE_GAPS[2] + ")");
             }
         } else if (NAME.equals(PRETURN)) {
             if (preturnBefore < 0 || preturnAfter - preturnBefore < MIN_PRETURN) {
                 problems.add("turns toward the plan's next cast " + preturnBefore + " -> " + preturnAfter + ", want at least "
                         + MIN_PRETURN + " more");
             }
-            if (CAST_GAPS[0] < MIN_CAST_SAME_TICK) {
-                problems.add(CAST_GAPS[0] + " cast(s) on a kill's own tick, want at least " + MIN_CAST_SAME_TICK
-                        + " (gap 1:" + CAST_GAPS[1] + " 2+:" + CAST_GAPS[2] + ")");
+            if (PLAN_GAPS[0] < MIN_CAST_SAME_TICK || PLAN_GAPS[1] > PLAN_GAPS[0]) {
+                problems.add(PLAN_GAPS[0] + " planned cast(s) on a death's own tick and " + PLAN_GAPS[1] + " a tick late, want at"
+                        + " least " + MIN_CAST_SAME_TICK + " and no more late than on time (2+: " + PLAN_GAPS[2] + ")");
             }
         } else if (NAME.equals(NEARPRIME)) {
             if (killTrips < MIN_KILL_TRIPS) {
@@ -284,6 +305,7 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         if (mc.player.tickCount % 20 == 0) {
             readQueued();
         }
+        readDeaths(mc);
         int kills;
         long tick;
         int uses;
@@ -332,6 +354,42 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         lastKills = kills;
         lastUses = uses;
         lastHops = hopCount;
+    }
+
+    /** This tick's log lines: a death opens a gap (noting whether he is settling onto a block), the next use closes it. */
+    private static void readDeaths(Minecraft mc) {
+        long m = LogTap.mark();
+        if (lineMark < 0 || mc.level == null) {
+            lineMark = m;
+            return;
+        }
+        long tick;
+        try {
+            tick = (Long) ModUnderTest.staticCall(EXEC, "clientTick");
+        } catch (RuntimeException e) {
+            return;
+        }
+        for (String line : LogTap.between(lineMark, m)) {
+            if (DEAD.matcher(line).find()) {
+                if (deadTick < 0) {
+                    deadTick = tick;
+                    deadSettling = !mc.player.onGround() && mc.player.getDeltaMovement().y <= 0.0
+                            && !mc.level.noCollision(mc.player, mc.player.getBoundingBox().move(0.0, -1.25, 0.0));
+                    planCastSeen = false;
+                }
+            } else if (deadTick >= 0 && line.contains("Wither Impact (room plan)")) {
+                planCastSeen = true;
+            } else if (deadTick >= 0 && line.contains("[RightClick] use seq")) {
+                int g = (int) (tick - deadTick);
+                if (line.contains("with HYPERION") && planCastSeen) {
+                    PLAN_GAPS[Math.min(2, g)]++;
+                } else if (line.contains("with ASPECT_OF_THE_VOID") && deadSettling) {
+                    SETTLE_GAPS[Math.min(3, g)]++;
+                }
+                deadTick = -1;
+            }
+        }
+        lineMark = m;
     }
 
     private static void killTrip() {
