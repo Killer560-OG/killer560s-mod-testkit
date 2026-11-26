@@ -31,6 +31,7 @@ final class InventoryCases {
         MenuSuite.test(s, "240-menu-autosell-sell-menu", InventoryCases::autosell);
         // doc-auto-1101: any NPC sell menu (slot 49's sell lore, a title the pattern refuses) and a ghost sell resold
         MenuSuite.test(s, "240-menu-autosell-npc-menu", InventoryCases::autosellNpcMenu);
+        MenuSuite.test(s, "1125-menu-autosell-bazaar-never", InventoryCases::autosellBazaarNever);
         MenuSuite.test(s, "240-menu-autosell-ghost-resell", InventoryCases::autosellGhost);
         MenuSuite.test(s, "240-menu-autosell-keep-max-smcp", InventoryCases::autosellKeepMaxSmcp);
         MenuSuite.test(s, "1105-autosell-potion", InventoryCases::autosellPotion);
@@ -227,6 +228,45 @@ final class InventoryCases {
      * Any NPC Sell Menu (doc-auto-1101): the Sell fixture retitled "Farm Merchant", which the pattern "(?i).*sell.*"
      * refuses. Off: nothing sold in 40 ticks (control). On: the listed stack is sold, the stone kept.
      */
+    static void autosellBazaarNever(Session c) throws Exception {
+        MenuKit.reset(c);
+        clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Sell does not exist - nothing to check");
+            return;
+        }
+        Object cfgObj = c.onClient(mc -> Mod.cfg("autosell.AutoSellConfig"));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("autosell.AutoSellConfig", "Enabled", true).set("autosell.AutoSellConfig", "AnyNpcMenu", true);
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "addSellIdentity", "ENCHANTED_DIAMOND"));
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setScreenTitlePattern", "(?i).*(sell|trade).*"));
+            c.hx().call("give", "slot", 0, "stack", MenuKit.item("items.enchanted-diamond"), "count", 16);
+            for (String title : new String[] {"At what price are you selling?", "Confirm Sell Offer", "Bazaar ➜ Oddities",
+                    "Enchanted Diamond ➜ Sell Offer"}) {
+                JsonObject shop = MenuKit.menu("menus.sell");
+                shop.addProperty("title", title);
+                MenuKit.show(c, shop);
+                MenuKit.awaitScreen(c, title, 100);
+                c.ctx().waitTicks(40);
+                c.check(c.events("container.click").isEmpty(), "Auto Sell clicked in the Bazaar screen \"" + title + "\"");
+                c.check(c.events("sell.sold").isEmpty(), "Auto Sell sold in the Bazaar screen \"" + title + "\"");
+                MenuKit.reset(c);
+            }
+            // the real thing still sells afterwards (the false visits left nothing behind)
+            JsonObject trades = MenuKit.menu("menus.sell");
+            trades.addProperty("title", "Trades");
+            MenuKit.show(c, trades);
+            MenuKit.awaitScreen(c, "Trades", 100);
+            MenuKit.awaitEvent(c, "sell.sold", 200);
+            c.check(c.events("sell.sold").size() == 1, "Trades did not sell after the Bazaar screens: " + c.events("sell.sold"));
+            c.note("Bazaar screens: 0 clicks, 0 sold; Trades still sold the diamonds");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "ENCHANTED_DIAMOND"));
+            MenuKit.reset(c);
+            clearInv(c);
+        }
+    }
+
     static void autosellNpcMenu(Session c) throws Exception {
         MenuKit.reset(c);
         clearInv(c);
