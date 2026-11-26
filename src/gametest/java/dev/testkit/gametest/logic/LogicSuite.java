@@ -130,6 +130,9 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1122-logic-acrev-lastdeath", AcRevClearCases::lastDeath);
         LogicCase.run(ctx, "1122-logic-acrev-refused-direct", AcRevClearCases::refusedDirect);
         LogicCase.run(ctx, "1122-logic-acrev-offreason", AcRevClearCases::offReason);
+        // ---- his 11-26 clears (mod autopilot-clears-1126), client thread
+        LogicCase.run(ctx, "1126-logic-acclears-doorgap", AcClears1126Cases::doorGap);
+        LogicCase.run(ctx, "1126-logic-acclears-castteleport", AcClears1126Cases::castTeleport);
         ManaResetCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
         // ---- static scan fixes (mod scanbugs-1104): \s escapes, Revert Master Stars null name
