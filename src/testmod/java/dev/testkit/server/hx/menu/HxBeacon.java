@@ -32,8 +32,10 @@ import java.util.List;
  * like the recording: left click forward, right click back, Speed 5 wraps to 1, Pitch High wraps to Low, Color red wraps to
  * white; Pause freezes your beat's step timer and unpause resumes it (recorded 11-24: five unpauses, each next step came the
  * rest of the period later). The tune completes when EVERY one of
- * your beats equals a beacon beat in color, speed, pitch AND slot, unpaused, checked at each click (and at each step with
- * {@code onStep}): chat "BEACON REWARDS", the menu closes. {@code menu.beacon.state} returns {clicks, done, steps, ...};
+ * your beats equals a beacon beat in color, speed, pitch AND slot, unpaused, and steps on the same tick as it (within one),
+ * checked at each click (and at each step with {@code onStep}); the beat an unpause click frees needs only the slot (11-25
+ * recording: his white pane shared the beacon's slot but stepped 5 ticks after it, and no Pitch click completed it, while
+ * his unpause on the slot did): chat "BEACON REWARDS", the menu closes. {@code menu.beacon.state} returns {clicks, done, steps, ...};
  * {@code beacon.click} {slot, kind, tick} and {@code beacon.done} are events.
  */
 final class HxBeacon implements HxMenus.Ticking {
@@ -62,6 +64,10 @@ final class HxBeacon implements HxMenus.Ticking {
         boolean same(Beat o) {
             return color == o.color && speed == o.speed && pitch == o.pitch && idx == o.idx;
         }
+
+        boolean inStep(Beat o) {
+            return same(o) && Math.abs(since - o.since) <= 1;
+        }
     }
 
     private final List<Beat> beacon = new ArrayList<>();
@@ -71,6 +77,12 @@ final class HxBeacon implements HxMenus.Ticking {
     private int clicks;
     private int steps;
     private int tick;
+    /**
+     * {@code answerLag} ticks: a click takes effect that many ticks later and the old buttons are sent back at once (recorded
+     * 11-25 4:54 PM: a Speed click answered 4 ticks later, the click's own pickup undone first).
+     */
+    private int answerLag;
+    private final List<int[]> due = new ArrayList<>();
     private boolean done;
     private boolean dirty = true;
 
@@ -110,6 +122,7 @@ final class HxBeacon implements HxMenus.Ticking {
         HxBeacon h = new HxBeacon(upgrade, a.has("onStep") && a.get("onStep").getAsBoolean());
         read(a.getAsJsonArray("beacon"), h.beacon);
         read(a.getAsJsonArray("mine"), h.mine);
+        h.answerLag = a.has("answerLag") ? a.get("answerLag").getAsInt() : 0;
         HxChestMenu menu = HxMenus.open(player, 6, Component.literal(upgrade ? "Upgrade Signal Strength" : "Tune Frequency"),
                 HxMenus.filled(server, 6), SCRIPT, h);
         h.render(server, menu);
@@ -129,6 +142,16 @@ final class HxBeacon implements HxMenus.Ticking {
             m.add(COLORS.get(b.color) + "," + b.speed + "," + b.pitch + "," + b.idx + (b.paused ? ",paused" : ""));
         }
         o.add("mine", m);
+        JsonArray ph = new JsonArray(); // per beat of yours: ticks its step timer is ahead of the matching beacon beat's, or null
+        for (Beat b : mine) {
+            Beat t = beacon.stream().filter(b::same).findFirst().orElse(null);
+            if (t == null) {
+                ph.add(com.google.gson.JsonNull.INSTANCE);
+            } else {
+                ph.add(b.since - t.since);
+            }
+        }
+        o.add("phase", ph);
         return o;
     }
 
@@ -152,7 +175,28 @@ final class HxBeacon implements HxMenus.Ticking {
         if (done) {
             return;
         }
+        inTick = true;
+        try {
+            tickBody(menu, player, server);
+        } finally {
+            inTick = false;
+        }
+    }
+
+    private void tickBody(HxChestMenu menu, ServerPlayer player, MinecraftServer server) {
         tick++;
+        for (int i = 0; i < due.size() && !done; ) {
+            int[] c = due.get(i);
+            if (c[0] <= tick) {
+                due.remove(i);
+                apply(menu, player, c[1], c[2], c[3], c[4]);
+            } else {
+                i++;
+            }
+        }
+        if (done) {
+            return;
+        }
         for (Beat b : beacon) {
             dirty |= advance(player, b);
         }
@@ -162,27 +206,39 @@ final class HxBeacon implements HxMenus.Ticking {
         if (dirty) {
             steps++;
             render(server, menu);
-            if (onStep && complete()) {
-                finish(player);
+            if (onStep && complete(null)) {
+                finish(player, "step");
             }
         }
     }
 
-    private boolean complete() {
+    /** {@code freed}: the beat this click just unpaused, which needs only the slot. */
+    private boolean complete(Beat freed) {
         for (Beat m : mine) {
-            if (m.paused || beacon.stream().noneMatch(m::same)) { // 11-24: matched while paused completed only at the unpause click
+            if (m.paused || beacon.stream().noneMatch(m == freed ? m::same : m::inStep)) { // 11-24: matched while paused completed only at the unpause click
                 return false;
             }
         }
         return true;
     }
 
-    private void finish(ServerPlayer player) {
+    /** Inside {@link #tick}: a completion there may close the menu at once. */
+    private boolean inTick;
+
+    /** {@code on}: what completed it, "step", "click" or "unpause" (the freed beat needed only the slot). */
+    private void finish(ServerPlayer player, String on) {
         done = true;
         JsonObject e = state();
+        e.addProperty("on", on);
         HxEvents.custom("beacon.done", player, e);
         player.sendSystemMessage(Component.literal("BEACON REWARDS"));
-        HxMenus.later(player::closeContainer);
+        // The menu closes in the tick that completes it, as on Hypixel (11-25): from a tick (a step, a late answer) at once;
+        // from a click handler at the end of this tick, once vanilla's click handling is done.
+        if (inTick) {
+            player.closeContainer();
+        } else {
+            HxMenus.later(player::closeContainer);
+        }
     }
 
     private static ItemStack item(MinecraftServer s, String spec, String name, String... lore) {
@@ -246,8 +302,21 @@ final class HxBeacon implements HxMenus.Ticking {
             if (k < 0) {
                 continue;
             }
-            Beat b = h.mine.get(g);
             int d = button == 1 ? -1 : 1;
+            if (h.answerLag > 0) {
+                h.due.add(new int[]{h.tick + h.answerLag, g, k, d, slot});
+                menu.sendAllDataToRemote(); // the old buttons back, the answer later
+            } else {
+                h.apply(menu, player, g, k, d, slot);
+            }
+            return;
+        }
+    }
+
+    private void apply(HxChestMenu menu, ServerPlayer player, int g, int k, int d, int slot) {
+        HxBeacon h = this;
+        {
+            Beat b = h.mine.get(g);
             switch (k) {
                 case 0 -> b.color = Math.floorMod(b.color + d, 13);
                 case 1 -> b.speed = Math.floorMod(b.speed - 1 + d, 5) + 1;
@@ -261,10 +330,14 @@ final class HxBeacon implements HxMenus.Ticking {
             e.addProperty("slot", slot);
             e.addProperty("kind", k);
             e.addProperty("tick", h.tick);
+            // Where the clicked beat and its beacon beat (same dials and slot, else the first beacon beat) stood when it landed.
+            Beat t = h.beacon.stream().filter(b::same).findFirst().orElse(h.beacon.get(0));
+            e.addProperty("at", b.idx + ":" + b.since + (b.paused ? "p" : "") + " vs " + t.idx + ":" + t.since);
             HxEvents.custom("beacon.click", player, e);
             h.render(player.level().getServer(), menu);
-            if (h.complete()) {
-                h.finish(player);
+            boolean freed = k == 3 && !b.paused;
+            if (h.complete(freed ? b : null)) {
+                h.finish(player, freed ? "unpause" : "click");
             }
             return;
         }
