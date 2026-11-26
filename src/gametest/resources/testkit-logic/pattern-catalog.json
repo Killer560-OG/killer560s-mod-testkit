@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T02:08:32",
- "modSource": "lane-craftcost-hud-1126",
- "modGitSha": "d4bbc25d45bee2129dabeb02f8d114b0b9f1d2e3",
+ "generatedAt": "2026-11-26T02:43:43",
+ "modSource": "lane-autoroutes-stuck-1126",
+ "modGitSha": "f5645459eea33185695ae40d2505e2de1359f3b9",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
