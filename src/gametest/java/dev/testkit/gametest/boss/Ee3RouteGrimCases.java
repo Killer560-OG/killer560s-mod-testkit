@@ -108,6 +108,23 @@ final class Ee3RouteGrimCases {
         }
     }
 
+    /** The route file's BOOM nodes (x, y, z), from every chain. */
+    private static List<double[]> boomNodes(Path route) throws java.io.IOException {
+        List<double[]> out = new ArrayList<>();
+        var chains = com.google.gson.JsonParser.parseString(Files.readString(route)).getAsJsonObject().getAsJsonObject("chains");
+        for (var chain : chains.entrySet()) {
+            var v = chain.getValue();
+            var nodes = v.isJsonArray() ? v.getAsJsonArray() : v.getAsJsonObject().getAsJsonArray("nodes");
+            for (var n : nodes) {
+                var o = n.getAsJsonObject();
+                if ("BOOM".equals(o.get("type").getAsString())) {
+                    out.add(new double[]{o.get("x").getAsDouble(), o.get("y").getAsDouble(), o.get("z").getAsDouble()});
+                }
+            }
+        }
+        return out;
+    }
+
     private static boolean powered(net.minecraft.client.Minecraft mc, BlockPos p) {
         BlockState st = mc.level.getBlockState(p);
         return st.getBlock() instanceof LeverBlock && st.getValue(LeverBlock.POWERED);
@@ -120,8 +137,12 @@ final class Ee3RouteGrimCases {
         int dig;
         int twoLevers;
         int leverAndDig;
+        /** Block uses that are not a lever click (the BOOM's Superboom tap), and server ticks holding one and a dig. */
+        int boom;
+        int boomAndDig;
         int curLever;
         int curDig;
+        int curBoom;
         boolean moved;
 
         @Override
@@ -132,6 +153,9 @@ final class Ee3RouteGrimCases {
             if (LEVER_CLICK.test(p)) {
                 lever++;
                 curLever++;
+            } else if (p instanceof ServerboundUseItemOnPacket) {
+                boom++;
+                curBoom++;
             } else if (p instanceof ServerboundPlayerActionPacket a
                     && a.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
                 dig++;
@@ -146,14 +170,16 @@ final class Ee3RouteGrimCases {
             if (end) {
                 twoLevers += curLever > 1 ? 1 : 0;
                 leverAndDig += curLever > 0 && curDig > 0 ? 1 : 0;
+                boomAndDig += curBoom > 0 && curDig > 0 ? 1 : 0;
                 curLever = 0;
                 curDig = 0;
+                curBoom = 0;
             }
         }
 
         synchronized String report() {
             return "lever clicks " + lever + ", digs " + dig + ", ticks with two lever clicks " + twoLevers
-                    + ", ticks with a lever click and a dig " + leverAndDig;
+                    + ", ticks with a lever click and a dig " + leverAndDig + ", boom taps " + boom + ", ticks with a boom tap and a dig " + boomAndDig;
         }
     }
 
@@ -162,7 +188,8 @@ final class Ee3RouteGrimCases {
             return "dig " + a.getAction();
         }
         if (p instanceof ServerboundMovePlayerPacket m) {
-            return (m.hasRotation() ? "move rot " : "move ") + String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", m.getX(0), m.getY(0), m.getZ(0));
+            return (m.hasRotation() ? "move rot " : "move ") + (m.hasPosition() ? String.format(java.util.Locale.ROOT, "%.5f,%.3f,%.5f",
+                    m.getX(0), m.getY(0), m.getZ(0)) : "nopos") + (m.hasRotation() ? String.format(java.util.Locale.ROOT, " y%.2f", m.getYRot(0)) : "");
         }
         if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket in) {
             net.minecraft.world.entity.player.Input i = in.input();
@@ -501,7 +528,20 @@ final class Ee3RouteGrimCases {
                     return p != null && (p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(LOW)) < 49
                             || p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(HIGH)) < 49);
                 });
+                if (act == SameTick.Act.DIG) {
+                    // ee3-r34f-sim-1125: his dig went only with a block under his crosshair, and on r34f the BOOM fires mid-jump
+                    // over the void (nothing under it): his dig never met the boom. Within 2 blocks of the plan's BOOM node(s)
+                    // his click goes every tick whatever is under the crosshair, so it is queued at the tap's tick on any route.
+                    List<double[]> booms = boomNodes(route);
+                    c.check(!booms.isEmpty(), "no BOOM node in " + route);
+                    st.digAnywhereWhen(() -> {
+                        var p = net.minecraft.client.Minecraft.getInstance().player;
+                        return p != null && booms.stream().anyMatch(b -> Math.hypot(p.getX() - b[0], p.getZ() - b[2]) < 2
+                                && Math.abs(p.getY() - b[1]) < 3);
+                    });
+                }
             }
+            final SameTick st0 = st;
             int holds0 = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue();
             int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
             WireCapture.describe = Ee3RouteGrimCases::describe;
@@ -657,6 +697,16 @@ final class Ee3RouteGrimCases {
                     System.out.println("[ee3route] lever wire" + sb);
                 }
             }
+            if (System.getenv("KM_GRIM_DEBUG") != null && arriveNs != Long.MAX_VALUE) {
+                // ee3-r34f-sim-1125: every packet from 6 ticks before the arrival on (the EE3 align's ticks), beside Grim's P/A/O
+                StringBuilder sb = new StringBuilder();
+                for (WireCapture.Sent w : wireAll) {
+                    if (w.nanos() >= arriveNs - 300_000_000L) {
+                        sb.append(" | ").append(w.text());
+                    }
+                }
+                System.out.println("[ee3route] align wire" + sb);
+            }
             boolean[] lev = c.onClient(mc -> new boolean[]{powered(mc, LOW), powered(mc, HIGH)});
             String wire = ticks.report();
             c.note(String.format(Locale.ROOT, "route %s: left HEE2 t%d, at EE3 t%d (%d ticks), levers low/high %s/%s, boom t%d,"
@@ -713,6 +763,12 @@ final class Ee3RouteGrimCases {
                     int holds = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue() - holds0;
                     c.check(holds > 0, "AP3 never held his hand for its act (" + act + ")");
                     c.note("hand holds: " + holds);
+                    if (act == SameTick.Act.DIG) {
+                        // ee3-r34f-sim-1125: the hold above is his click queued at the boom's own tick (it goes the tick
+                        // after). The boom's own probe dig shares the tap's tick in every run, so that count is a note only.
+                        c.note("his clicks in the air near the plan's BOOM " + st0.forced() + ", ticks with a boom tap and a dig "
+                                + ticks.boomAndDig);
+                    }
                 }
             }
             // leverkey-1110: Lever Aura's pre-turn re-picked the keys as A alone for a tick (W and sprint dropped mid-route).
@@ -752,8 +808,22 @@ final class Ee3RouteGrimCases {
             // fastest.aalone then holds how many such inputs its plain walk puts on the wire, and only more than that is a drop.
             Path aa = routeDir().resolve(ROUTE + ".aalone");
             int plannedA = Files.isRegularFile(aa) ? Integer.parseInt(Files.readString(aa).strip()) : 0;
-            c.check(noW == 0 && aAlone <= plannedA, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone
-                    + " (the route's own: " + plannedA + ")");
+            // ee3-r34f-sim-1125-fix2: the EE3 Fast Align can enter up to ~4 blocks out, before the 1-block arrival box, and its
+            // tick-exact stop may press A alone (r34f #76 t2 "input keys[A]", nolook-off and same-swap alike). That is the
+            // align stopping him, not a lever turn: each run of A-alone align ticks in its trace is allowed one wire input.
+            int alignA = 0;
+            boolean prevA = false;
+            for (String l : logs) {
+                int k = l.contains(" ALIGN #") && l.contains(" DO ") ? l.indexOf("input keys[") : -1;
+                if (k >= 0) {
+                    String keys = l.substring(k + 11);
+                    boolean a = keys.startsWith("A") && !keys.startsWith("AS") && !keys.startsWith("AD");
+                    alignA += a && !prevA ? 1 : 0;
+                    prevA = a;
+                }
+            }
+            c.check(noW == 0 && aAlone <= plannedA + alignA, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs "
+                    + aAlone + " (the route's own: " + plannedA + ", the Fast Align's own: " + alignA + ")");
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
                 // ap3digrot-1109: his dig under AP3's held camera turns the body onto his block, and the movement packet

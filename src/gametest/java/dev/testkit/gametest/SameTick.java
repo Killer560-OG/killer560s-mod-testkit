@@ -150,9 +150,11 @@ public final class SameTick implements AutoCloseable {
                     boolean on = act == Act.ATTACK ? mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult
                             : mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
                             && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK;
-                    if (on) {
+                    boolean force = !on && act == Act.DIG && digAnywhere != null && digAnywhere.getAsBoolean();
+                    if (on || force) {
                         net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getDefaultKey());
                         done++;
+                        forced += force ? 1 : 0;
                     }
                 }
                 case USE_KEY -> {
@@ -392,6 +394,20 @@ public final class SameTick implements AutoCloseable {
     public SameTick keepWhen(java.util.function.BooleanSupplier c) {
         keepWhen = c;
         return this;
+    }
+
+    private volatile java.util.function.BooleanSupplier digAnywhere;
+    private volatile int forced;
+
+    /** DIG: while {@code c} holds (client thread) his left click goes even with no block under the crosshair (a click in the air). */
+    public SameTick digAnywhereWhen(java.util.function.BooleanSupplier c) {
+        digAnywhere = c;
+        return this;
+    }
+
+    /** DIG clicks that went only because {@link #digAnywhereWhen} held. */
+    public int forced() {
+        return forced;
     }
 
     /** Every {@code n}-th of his injections is skipped, leaving a free tick as a real player's scrolling does (0: none). */
