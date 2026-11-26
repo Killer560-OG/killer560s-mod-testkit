@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-25T18:39:11",
- "modSource": "lane-autosell-bazaar-1125",
- "modGitSha": "6b5c1791f5578747b0dd9392dcac71a51683afc7",
+ "generatedAt": "2026-11-25T18:46:16",
+ "modSource": "lane-cmdfix-ax-sax-1125",
+ "modGitSha": "f53c1e16a42c8f8e7db63a2f79c22979929df50a",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
