@@ -97,6 +97,26 @@ final class BeaconAutoCases {
             + "{\"color\":\"magenta\",\"speed\":3,\"pitch\":1,\"idx\":3,\"since\":0}],\"mine\":[{\"color\":\"white\",\"speed\":4,\"pitch\":1,\"idx\":6,\"since\":0},"
             + "{\"color\":\"white\",\"speed\":2,\"pitch\":1,\"idx\":2,\"since\":20}]}";
 
+    /** A speed 1 cyan beacon pane and yours a slot behind it, both step timers starting together. */
+    private static final String BEHIND = "{\"beacon\":[{\"color\":\"cyan\",\"speed\":1,\"pitch\":1,\"idx\":3,\"since\":0}],"
+            + "\"mine\":[{\"color\":\"cyan\",\"speed\":1,\"pitch\":1,\"idx\":2,\"since\":0}]}";
+    /** 11-26 2:36:41 AM (Torrhus II to III, logger win 96): beacon light blue speed 3 Normal and orange speed 1 High, his orange speed 5 Normal and orange speed 1 Low. */
+    private static final String WIN96 = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"light_blue\",\"speed\":3,\"pitch\":1,\"idx\":3,\"since\":0},"
+            + "{\"color\":\"orange\",\"speed\":1,\"pitch\":2,\"idx\":6,\"since\":0}],\"mine\":[{\"color\":\"orange\",\"speed\":5,\"pitch\":1,\"idx\":4,\"since\":0},"
+            + "{\"color\":\"orange\",\"speed\":1,\"pitch\":0,\"idx\":0,\"since\":0}]}";
+    /** 2:37:12 AM (III to IV, win 98): beacon red speed 1 Normal and white speed 1 High stepping together, his white speed 3 Low and purple speed 2 Low. */
+    private static final String WIN98 = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"red\",\"speed\":1,\"pitch\":1,\"idx\":1,\"since\":0},"
+            + "{\"color\":\"white\",\"speed\":1,\"pitch\":2,\"idx\":4,\"since\":0}],\"mine\":[{\"color\":\"white\",\"speed\":3,\"pitch\":0,\"idx\":6,\"since\":0},"
+            + "{\"color\":\"purple\",\"speed\":2,\"pitch\":0,\"idx\":2,\"since\":0}]}";
+    /** 2:37:26 AM (IV to V, win 100): beacon purple speed 4 Normal and magenta speed 1 High, his blue speed 1 Normal and red speed 5 Low. */
+    private static final String WIN100 = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"purple\",\"speed\":4,\"pitch\":1,\"idx\":3,\"since\":0},"
+            + "{\"color\":\"magenta\",\"speed\":1,\"pitch\":2,\"idx\":6,\"since\":0}],\"mine\":[{\"color\":\"blue\",\"speed\":1,\"pitch\":1,\"idx\":6,\"since\":0},"
+            + "{\"color\":\"red\",\"speed\":5,\"pitch\":0,\"idx\":2,\"since\":0}]}";
+    /** 2:37:57 AM (V to VI, win 2): beacon orange speed 4 High and white speed 1 High, his magenta speed 1 Normal and yellow speed 3 Normal. */
+    private static final String WIN2 = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"orange\",\"speed\":4,\"pitch\":2,\"idx\":1,\"since\":0},"
+            + "{\"color\":\"white\",\"speed\":1,\"pitch\":2,\"idx\":5,\"since\":0}],\"mine\":[{\"color\":\"magenta\",\"speed\":1,\"pitch\":1,\"idx\":1,\"since\":0},"
+            + "{\"color\":\"yellow\",\"speed\":3,\"pitch\":1,\"idx\":4,\"since\":0}]}";
+
     private BeaconAutoCases() {
     }
 
@@ -116,9 +136,29 @@ final class BeaconAutoCases {
         MenuSuite.test(s, "1125-menu-autotune-phase-jitter", c -> phaseRuns(c, new int[]{2, 5, 9, 13}, true));
         MenuSuite.test(s, "1125-menu-autotune-viii", c -> inStep(c, run(c, VIII, true, 4, null, 1400, 0, false), "VIII"));
         MenuSuite.test(s, "1125-menu-autotune-slowboost", c -> {
-            Result r = run(c, phase("cyan", 1, 1, 10), true, 4, null, 600, 200, false);
+            // On the beacon pane's slot, 10 ticks behind it: the unpause there finishes (11-26), no lap and no Speed click.
+            Result r = run(c, phase("cyan", 1, 1, 10), true, 4, null, 600, 60, false);
             inStep(c, r, "slow 10 behind");
-            c.check(r.btn().stream().anyMatch(k -> k[1] == 48), "a pane 10 ticks behind a speed 1 beacon was not run at Speed 5 (it waited the lap)");
+            c.check(r.btn().stream().noneMatch(k -> k[1] == 48), "a pane on a speed 1 beacon pane's slot was run at Speed 5 instead of paused and unpaused there");
+            // A slot behind it: pausing waits 6 of its 55-tick steps, Speed 5 gets ahead of it in about 20 ticks.
+            r = run(c, BEHIND, true, 4, null, 600, 140, false);
+            inStep(c, r, "slow 1 slot behind");
+            c.check(r.btn().stream().anyMatch(k -> k[1] == 48), "a pane a slot behind a speed 1 beacon pane was not run at Speed 5 (it waited 6 steps)");
+        });
+        MenuSuite.test(s, "1126-menu-autotune-signal", c -> {
+            // His Upgrade Signal Strength menus of 11-26 2:36 AM as they opened (Auto Tune then took 566, 229, 508 and 230 ticks).
+            String[][] runs = {{"II", WIN96, "300"}, {"III", WIN98, "300"}, {"IV", WIN100, "300"}, {"V", WIN2, "300"}};
+            for (String[] w : runs) {
+                Result r = run(c, w[1], true, 4, null, 900, Integer.parseInt(w[2]), false);
+                inStep(c, r, w[0]);
+                List<int[]> b = r.btn();
+                int undo = 0;
+                for (int i = 1; i < b.size(); i++) {
+                    undo += b.get(i)[1] == b.get(i - 1)[1] && b.get(i)[2] != b.get(i - 1)[2] && b.get(i)[0] - b.get(i - 1)[0] <= 12 ? 1 : 0;
+                }
+                c.note(w[0] + ": " + b.size() + " clicks, " + undo + " undone at once");
+                c.check(undo == 0, w[0] + ": " + undo + " clicks undone by the next click on the same button within 12 ticks");
+            }
         });
         MenuSuite.test(s, "1125-menu-autotune-stale", c -> {
             Result r = run(c, STALE, true, 4, null, 900, 0, false);
@@ -149,7 +189,7 @@ final class BeaconAutoCases {
                 prev.accept(p);
             }
             if (p instanceof ServerboundContainerClickPacket cp) {
-                sent.add(new int[]{tick, cp.slotNum()});
+                sent.add(new int[]{tick, cp.slotNum(), cp.buttonNum()});
             } else if (p instanceof ServerboundClientTickEndPacket) {
                 tick++;
             }
@@ -194,13 +234,22 @@ final class BeaconAutoCases {
         if (r.done() == null) {
             return; // run() already failed it
         }
-        String ph = r.done().get("phase").toString();
         String on = r.done().has("on") ? r.done().get("on").getAsString() : "?";
+        // The beat whose unpause finished needs only the slot (11-26: all 11 of his upgrades, up to 140 ticks out of step).
+        com.google.gson.JsonArray all = r.done().getAsJsonArray("phase");
+        com.google.gson.JsonArray rest = new com.google.gson.JsonArray();
+        int freed = on.equals("unpause") && r.done().has("freed") ? r.done().get("freed").getAsInt() : -1;
+        for (int i = 0; i < all.size(); i++) {
+            if (i != freed) {
+                rest.add(all.get(i));
+            }
+        }
+        String ph = rest.isEmpty() ? "[0]" : rest.toString();
         c.note(what + ": done at " + r.done().get("tick") + " on " + on + ", phase " + ph);
         // An unpause on the slot completes out of step on Hypixel (his VIII of 11-25, sv 436, about 12 ticks out), so a
         // round-trip tick of error there still counts as lined up; any other completion must be within one.
-        c.check(ph.matches(on.equals("unpause") ? "\\[(-?[012],?)+\\]" : "\\[(-?[01],?)+\\]"),
-                what + ": a pane ended out of step with its beacon pane (ticks apart " + ph + ", completed on " + on + ")");
+        c.check(ph.matches("\\[(-?[01],?)+\\]"),
+                what + ": a pane other than the one unpaused last ended out of step with its beacon pane (ticks apart " + all + ", completed on " + on + ")");
     }
 
     private static void run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks) throws Exception {

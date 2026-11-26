@@ -222,6 +222,9 @@ final class HxBeacon implements HxMenus.Ticking {
         return true;
     }
 
+    /** The beat whose unpause completed it, else -1. */
+    private int freed = -1;
+
     /** Inside {@link #tick}: a completion there may close the menu at once. */
     private boolean inTick;
 
@@ -230,6 +233,7 @@ final class HxBeacon implements HxMenus.Ticking {
         done = true;
         JsonObject e = state();
         e.addProperty("on", on);
+        e.addProperty("freed", freed);
         HxEvents.custom("beacon.done", player, e);
         player.sendSystemMessage(Component.literal("BEACON REWARDS"));
         // The menu closes in the tick that completes it, as on Hypixel (11-25): from a tick (a step, a late answer) at once;
@@ -337,6 +341,7 @@ final class HxBeacon implements HxMenus.Ticking {
             h.render(player.level().getServer(), menu);
             boolean freed = k == 3 && !b.paused;
             if (h.complete(freed ? b : null)) {
+                h.freed = freed ? g : -1;
                 h.finish(player, freed ? "unpause" : "click");
             }
             return;
