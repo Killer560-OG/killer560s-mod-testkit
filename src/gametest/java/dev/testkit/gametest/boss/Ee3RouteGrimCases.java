@@ -808,8 +808,22 @@ final class Ee3RouteGrimCases {
             // fastest.aalone then holds how many such inputs its plain walk puts on the wire, and only more than that is a drop.
             Path aa = routeDir().resolve(ROUTE + ".aalone");
             int plannedA = Files.isRegularFile(aa) ? Integer.parseInt(Files.readString(aa).strip()) : 0;
-            c.check(noW == 0 && aAlone <= plannedA, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone
-                    + " (the route's own: " + plannedA + ")");
+            // ee3-r34f-sim-1125-fix2: the EE3 Fast Align can enter up to ~4 blocks out, before the 1-block arrival box, and its
+            // tick-exact stop may press A alone (r34f #76 t2 "input keys[A]", nolook-off and same-swap alike). That is the
+            // align stopping him, not a lever turn: each run of A-alone align ticks in its trace is allowed one wire input.
+            int alignA = 0;
+            boolean prevA = false;
+            for (String l : logs) {
+                int k = l.contains(" ALIGN #") && l.contains(" DO ") ? l.indexOf("input keys[") : -1;
+                if (k >= 0) {
+                    String keys = l.substring(k + 11);
+                    boolean a = keys.startsWith("A") && !keys.startsWith("AS") && !keys.startsWith("AD");
+                    alignA += a && !prevA ? 1 : 0;
+                    prevA = a;
+                }
+            }
+            c.check(noW == 0 && aAlone <= plannedA + alignA, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs "
+                    + aAlone + " (the route's own: " + plannedA + ", the Fast Align's own: " + alignA + ")");
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
                 // ap3digrot-1109: his dig under AP3's held camera turns the body onto his block, and the movement packet
