@@ -75,6 +75,8 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     private static final int[][] SPOTS ={{0, 0}, {-9, -9}, {9, -9}, {-9, 9}, {9, 9}};
 
     private static final List<String> SUMMARY = new ArrayList<>();
+    private static final long LAG_MS = System.getenv("TESTKIT_TRAP_LAG_MS") == null ? 0
+            : Long.parseLong(System.getenv("TESTKIT_TRAP_LAG_MS").trim());
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -95,14 +97,23 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         // He accepted that in game (killer560 2026-11-23: "It has been fine for me if it breaks then I will change it"),
         // so the test throws without spread; a stall with the pearl on target still fails below.
         dev.testkit.harness.PearlSpread.set(true);
+        // acflakes-1126: env TESTKIT_TRAP_ONLY="Old Trap:90" runs one trap and rotation, TESTKIT_TRAP_REPEAT=N times, and
+        // TESTKIT_CPU_BURN=N loads the CPUs meanwhile (the r90 failure came only inside a full run).
+        String only = System.getenv("TESTKIT_TRAP_ONLY");
+        int repeat = System.getenv("TESTKIT_TRAP_REPEAT") == null ? 1 : Integer.parseInt(System.getenv("TESTKIT_TRAP_REPEAT").trim());
+        dev.testkit.harness.CpuBurn.startFromEnv();
         try {
-            for (String trap : new String[]{"New Trap", "Old Trap"}) {
-                for (int rot = 0; rot < 360; rot += 90) {
-                    oneFloor(ctx, failures, trap, rot, SimTrapRoutes1121Tests::body);
+            for (int k = 0; k < repeat; k++) {
+                for (String trap : new String[]{"New Trap", "Old Trap"}) {
+                    for (int rot = 0; rot < 360; rot += 90) {
+                        if (only == null || only.equals(trap + ":" + rot)) {
+                            oneFloor(ctx, failures, trap, rot, SimTrapRoutes1121Tests::body);
+                        }
+                    }
                 }
             }
             println("pearls thrown without spread: " + dev.testkit.harness.PearlSpread.removed);
-            if (dev.testkit.harness.PearlSpread.removed < 4) {
+            if (only == null && dev.testkit.harness.PearlSpread.removed < 4) {
                 failures.add("the no-spread pearl hook acted on " + dev.testkit.harness.PearlSpread.removed
                         + " pearl(s), fewer than New Trap's 4 rotations");
             }
@@ -110,6 +121,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
         } finally {
+            dev.testkit.harness.CpuBurn.stop();
             dev.testkit.harness.PearlSpread.set(false);
             tearDown(ctx, renderBefore);
         }
@@ -404,6 +416,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         int n6At = -1;
         int awaitNode = newTrap ? 6 : 4;   // oldtrap-default-1123: Old Trap's #4 (PATH, await 1 secret) holds the same way
         String waitVerdict = null;
+        boolean lagged = false;
         for (int t = 0; t < 1400 && !done; t++) {
             ctx.waitTicks(1);
             minY = Math.min(minY, ctx.computeOnClient(mc -> mc.player.getY()));
@@ -415,6 +428,12 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                 }
                 if (beganAt < 0 && l.contains("Node #1 ") && l.contains(" begins: player (")) {
                     beganAt = t;
+                }
+                if (!lagged && LAG_MS > 0 && l.contains("Node #2 ") && l.contains(" begins: player (")) {
+                    // acflakes-1126: the server hears nothing for LAG_MS as the walk starts (a server seconds behind)
+                    lagged = true;
+                    ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.start(LAG_MS));
+                    println(tag + ": lag spike of " + LAG_MS + " ms started at node #2");
                 }
             }
             // trapawait-1122: node #6 carries "await 1 secret" and the sim's trap room places none, so the route must WAIT

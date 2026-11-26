@@ -100,10 +100,15 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
         List<String> f = new ArrayList<>();
         List<String> floors = new ArrayList<>();
         int trips = 0;
-        for (int i = 0; i < SEEDS.length; i++) {
+        // acflakes-1126: env TESTKIT_EE_REPEAT=N plays the floors N times, TESTKIT_CPU_BURN=N loads the CPUs meanwhile (floor 1
+        // failed only inside a full run: the door trip's planner out of time while its floor graph still warmed).
+        String rep = System.getenv("TESTKIT_EE_REPEAT");
+        int rounds = rep == null ? 1 : Integer.parseInt(rep.trim());
+        dev.testkit.harness.CpuBurn.startFromEnv();
+        for (int i = 0; i < SEEDS.length * rounds; i++) {
             try {
                 int[] t = new int[1];
-                floors.add("floor " + (i + 1) + ": " + floorCase(ctx, SEEDS[i], i + 1, f, t));
+                floors.add("floor " + (i + 1) + ": " + floorCase(ctx, SEEDS[i % SEEDS.length], i + 1, f, t));
                 trips += t[0];
             } catch (Throwable e) {
                 e.printStackTrace(System.out);
@@ -120,6 +125,7 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
                 leave(ctx);
             }
         }
+        dev.testkit.harness.CpuBurn.stop();
         ctx.runOnClient(mc -> {
             Object as = ModUnderTest.config(AS_CONFIG);
             Object none = ModUnderTest.enumValue(AS_CONFIG + "$BloodRush", "NONE");
