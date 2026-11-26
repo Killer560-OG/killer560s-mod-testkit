@@ -202,6 +202,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // for good: after 40 given-back ticks the node fires from where he stands.
             s.test("62-argrim-1123-trapwalkalign-attack-every-tick", c -> caseTrapWalkAlign(c,
                     dev.testkit.gametest.SameTick.Act.ATTACK, false, true));
+            // ar-trapplan-eaten-1126: a trap PATH pair with no saved walk is planned ahead, so the route never stands on
+            // its node while AP3 searches; his own right click / hotbar swap in the walk's ticks.
+            s.test("62-argrim-1126-trapplan", c -> caseTrapPlan(c, null));
+            s.test("62-argrim-1126-trapplan-same-use", c -> caseTrapPlan(c, dev.testkit.gametest.SameTick.Act.USE));
+            s.test("62-argrim-1126-trapplan-same-swap", c -> caseTrapPlan(c, dev.testkit.gametest.SameTick.Act.SWAP));
             // apfix-1123: Auto Secret's warp onto a path-less route's walk-gap node, his own actions in the trip's ticks.
             s.test("62-argrim-1123-walkgap", c -> caseWalkGapWarp(c, null, false));
             // Each name written out in full: the merge train finds a case by its literal name.
@@ -254,6 +259,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
             }
+            // la-digwindow-1126: DigWindow on a breaker node; with Burst the second block a tick is the owner's burst, no WARN.
+            s.test("62-argrim-1126-digwindow", c -> caseDigWindow(c, false));
+            s.testExpectingFlags("62-argrim-1126-digwindow-burst", c -> caseDigWindow(c, true));
             s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
@@ -1011,6 +1019,162 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             trapRoom(ctx, false);
             resetRoutes(ctx);
         }
+    }
+
+    /**
+     * 62-argrim-1126-trapplan (ar-trapplan-eaten-1126; his New Trap 11-26 01:02:09-01:02:51: a PATH pair with no saved
+     * walk stood him on the node 50-61 ticks while AP3's full first search ran, and each time he moved and the route
+     * stopped; one plan took 4400 ms). In a trap room a PATH pair with no saved walk must be planned AHEAD, off the tick
+     * thread, while he stands elsewhere in the room: (1) node #1 holds a saved walk before he gets there, (2) arriving on
+     * #1 at rest, the walk replays it ("using the saved") and he moves within 3 ticks of the route starting, (3) arriving
+     * WALKING onto #1 (his speed does not fit the saved walk), the walk drives from the quick search within 10 ticks, and
+     * both walks end on #2 with GrimAC silent. On the origin jar (1) fails: nothing plans ahead. With {@code act}: his own
+     * action in every tick from the route's start (the at-rest run), on the wire in the same server tick as the walk's.
+     */
+    private static void caseTrapPlan(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        tpRel(ctx, 14.5, 24.5, 0f, 0f);
+        trapRoom(ctx, true);
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            JsonObject a = node("PATH", 6, 8, 90f, 0f);
+            a.addProperty("start", true);
+            JsonObject b = node("PATH", 22, 20, 0f, 0f);
+            long mark = LogTap.mark();
+            writeRoute(ctx, List.of(a, b));
+            boolean ahead = waitFor(ctx, 600, () -> walkSteps(ctx) > 0);
+            String aheadLine = logLine(mark, "planned ahead");
+            c.note("planned ahead: " + ahead + " (" + walkSteps(ctx) + " saved step(s)) - " + aheadLine);
+            check(ahead && logHas(mark, "planning it ahead"), "no trap walk was planned ahead for Path #1 -> #2 while he"
+                    + " stood elsewhere in the room (" + walkSteps(ctx) + " saved step(s))");
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> {
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
+                                    || (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
+                                    && mp.hasRotation()), 7, 8)
+                            .armedBy(() -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+                    if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                        t.allow(4);
+                    }
+                    return t;
+                });
+                ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            }
+            // (2) at rest on #1: the route starts from the teleport onto its ring; the saved walk plays at once.
+            long m2 = LogTap.mark();
+            startSampling(ctx);
+            tpRel(ctx, 6.5, 8.5, 90f, 0f);
+            boolean started = waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                    EXECUTOR, "isRunning")));
+            Vec3 at = relPos(ctx);
+            int movedAfter = -1;
+            for (int t = 0; t < 20 && started; t++) {
+                if (relPos(ctx).distanceTo(at) > 0.05) {
+                    movedAfter = t;
+                    break;
+                }
+                ctx.waitTick();
+            }
+            boolean ended = waitFor(ctx, 300, () -> logHas(m2, "walk ends at") || logHas(m2, "refused after"));
+            Vec3 end = relPos(ctx);
+            List<Sample> s = stopSampling(ctx);
+            c.note(String.format(Locale.ROOT, "at rest: route started %s, moved %d tick(s) after it started, saved replay "
+                            + "%s, ended %s at rel (%.2f, %.2f) - %s", started, movedAfter,
+                    logHas(m2, "using the saved"), ended, end.x, end.z, logLine(m2, "walk ends at")));
+            if (st != null) {
+                dev.testkit.gametest.SameTick.judge(c, st, "trapplan " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
+                st = null;
+            }
+            check(started, "the route never started from the teleport onto #1");
+            check(logHas(m2, "using the saved"), "the at-rest walk did not replay the walk planned ahead");
+            check(movedAfter >= 0 && movedAfter <= 3, "he stood " + movedAfter + " tick(s) on #1 before the walk moved him"
+                    + " (at most 3)");
+            check(ended && logHas(m2, "walk ends at") && Math.hypot(end.x - 22.5, end.z - 20.5) < 0.5,
+                    String.format(Locale.ROOT, "the walk did not end on #2 (ended %s, rel %.2f, %.2f)", ended, end.x,
+                            end.z));
+            noteFlags(c, s);
+            if (act != null) {
+                return;
+            }
+            // (3) walked onto #1: his speed does not fit the saved walk, so the quick search drives it, not the full one.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test: second run"}));
+            long m3 = LogTap.mark();
+            List<Sample> s3;
+            startSampling(ctx);
+            walkOnto(ctx, 6.5, 12.5, 6, 8);
+            int fired = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")) ? 0 : -1;
+            int drove = -1;
+            for (int t = 0; t < 60 && fired == 0; t++) {
+                if (logHas(m3, "using the saved")) {
+                    drove = t;
+                    break;
+                }
+                ctx.waitTick();
+            }
+            boolean ended3 = waitFor(ctx, 300, () -> logHas(m3, "walk ends at") || logHas(m3, "refused after"));
+            Vec3 end3 = relPos(ctx);
+            s3 = stopSampling(ctx);
+            c.note(String.format(Locale.ROOT, "walked on: route started %s, walk driving %d tick(s) after it - %s; ended %s"
+                            + " at rel (%.2f, %.2f)", fired == 0, drove, logLine(m3, "[TrapWalk]"), ended3, end3.x,
+                    end3.z));
+            check(fired == 0, "the route never started from walking onto #1");
+            // walking on, he is off the saved start or still moving: the walk aligns onto that start (~10 ticks) and plays
+            // the saved walk - never a fresh search (ar-trapplan-eaten-1126; a full one stood him 50+ ticks)
+            check(drove >= 0 && drove <= 25, "the saved walk was not playing within 25 ticks of the route starting ("
+                    + drove + ")");
+            check(!logHas(m3, "first plan:"), "walking onto #1 ran a fresh search instead of the saved walk");
+            check(ended3 && logHas(m3, "walk ends at") && Math.hypot(end3.x - 22.5, end3.z - 20.5) < 0.5,
+                    String.format(Locale.ROOT, "the second walk did not end on #2 (ended %s, rel %.2f, %.2f)", ended3,
+                            end3.x, end3.z));
+            noteFlags(c, s3);
+        } finally {
+            dev.testkit.gametest.SameTick open = st;
+            if (open != null) {
+                ctx.runOnClient(mc -> open.close());
+            }
+            if (act != null) {
+                ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            }
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=sametick]");
+            }
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
+    /** Saved trap-walk steps on the current room's route's first node (0 when none). */
+    private static int walkSteps(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Object store = ModUnderTest.staticCall(STORE, "getInstance");
+                Object route = ModUnderTest.call(store, "forRoom", new Class<?>[]{String.class}, new Object[]{room});
+                if (route == null) {
+                    return 0;
+                }
+                List<?> nodes = (List<?>) ModUnderTest.call(route, "nodes", new Class<?>[]{}, new Object[]{});
+                Object n = nodes.isEmpty() ? null : nodes.get(0);
+                return n == null ? 0 : ((List<?>) n.getClass().getField("walkSteps").get(n)).size();
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    /** The first log line since {@code mark} holding {@code text}, from its tag on ("" when none). */
+    private static String logLine(long mark, String text) {
+        for (String l : LogTap.since(mark)) {
+            if (l.contains(text)) {
+                int i = l.indexOf('[', Math.max(0, l.indexOf(')')));
+                return i < 0 ? l : l.substring(i);
+            }
+        }
+        return "";
     }
 
     /**
@@ -2040,6 +2204,105 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(dx, "setBreakerAuraMultiBreak", cardLegitBefore);
             });
             session.server().command("kill @e[type=minecraft:zombie]");
+            tpRel(ctx, 13.5, 6.5, 0f, 0f);
+            ctx.waitTicks(5);
+        }
+    }
+
+    /**
+     * 62-argrim-1126-digwindow / -burst (la-digwindow-1126; his 11-24..26 logs held 379 DigWindow "two digs in one server
+     * tick" WARNs, every one with Burst Multi Break on). A breaker node of ten snow blocks round him (rows F and F+1 at
+     * z 11), the card on Legit Multi Break or on Burst. (Breaker Aura beside it is not a real pairing: the aura digs only in
+     * a boss, a route only in a room; the boss override that wakes the aura takes the route's room frame away.) Off Burst:
+     * all ten on the wire, never two blocks between two tick packets (MultiBreakWatch), DigWindow no conflict of either kind,
+     * no WARN, GrimAC silent. Burst: at least one server tick carries two blocks (the burst acted), DigWindow counts them as
+     * burst ({@code burstConflicts}) with no real conflict and no "two digs" WARN; only MultiBreak* may flag (experimental).
+     */
+    private static void caseDigWindow(Session c, boolean burst) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Object dx = ModUnderTest.config(DX_CONFIG);
+        boolean burstBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+        boolean legitBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+        List<int[]> ten = new ArrayList<>();
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int x = 11; x <= 15; x++) {
+            for (int y = 0; y <= 1; y++) {
+                ten.add(new int[]{x, F + y, 11});
+                put.put(new int[]{x, F + y, 11}, "minecraft:snow_block");
+                blocks.add(x + " " + (F + y) + " 11");
+            }
+        }
+        try {
+            warmDig(ctx);
+            setBlocks(ctx, put);
+            JsonObject br = node("DUNGEON_BREAKER", 13, 10, 0f, 0f);
+            br.add("blocks", blocks);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            ctx.runOnClient(mc -> ModUnderTest.set(dx, burst ? "setBreakerAuraBurstMultiBreak" : "setBreakerAuraMultiBreak", true));
+            long conflictsBefore = ctx.computeOnClient(mc -> digWindowCount("conflicts"));
+            long burstConfBefore = ctx.computeOnClient(mc -> digWindowCount("burstConflicts"));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+            walkOnto(ctx, 13.5, 7.5, 13, 10);
+            boolean gone = waitFor(ctx, 120, () -> {
+                for (int[] b : ten) {
+                    if (!blockAir(ctx, b[0], b[1], b[2])) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
+            List<Sample> s = stopSampling(ctx);
+            java.util.Set<String> dug = new java.util.HashSet<>();
+            Map<Integer, java.util.Set<String>> perWindow = new java.util.TreeMap<>();
+            for (var d : dev.testkit.harness.MultiBreakWatch.digs()) {
+                dug.add(d.pos().toShortString());
+                perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos().toShortString());
+            }
+            int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+            List<String> replay = dev.testkit.harness.MultiBreakWatch.violations();
+            long conflicts = ctx.computeOnClient(mc -> digWindowCount("conflicts")) - conflictsBefore;
+            long burstConf = ctx.computeOnClient(mc -> digWindowCount("burstConflicts")) - burstConfBefore;
+            boolean warned = logHas(m, "[DigWindow] two digs in one server tick");
+            ctx.waitTicks(10);
+            List<String> flags = c.scenario().flags();
+            boolean exp = dev.testkit.gametest.boss.AaFastCases.experimentalChecks();
+            String line = String.format(Locale.ROOT, "%s: burst %s, experimental %s: dug %d/10, all gone %s, most blocks in one"
+                            + " server tick %d, replay %s, DigWindow conflicts %d burst %d, WARN %s, GrimAC %s", c.name(), burst,
+                    exp, dug.size(), gone, most, replay.isEmpty() ? "clean" : replay.size() + " violation(s)", conflicts,
+                    burstConf, warned, flags.isEmpty() ? "silent" : flags);
+            println(line);
+            c.note(line);
+            check(dug.size() >= 1, "the breaker node dug nothing (nothing was tested)");
+            check(conflicts == 0, "the mod's DigWindow counted " + conflicts + " real conflict(s)");
+            check(!warned, "DigWindow wrote a 'two digs in one server tick' WARN");
+            if (burst) {
+                check(most >= 2, "Burst never dug two blocks in one server tick (the burst did not act)");
+                check(burstConf >= 1, "DigWindow counted no burst conflict while Burst dug " + most + " in one tick");
+                if (exp) {
+                    check(flags.stream().allMatch(f -> f.contains("MultiBreak")), "Burst drew a flag other than MultiBreak*: " + flags);
+                } else {
+                    check(flags.isEmpty(), "Burst on default GrimAC drew GrimAC: " + flags);
+                }
+            } else {
+                check(gone && dug.size() == 10, "dug " + dug.size() + "/10, all gone " + gone);
+                check(replay.isEmpty() && most <= 1, "two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
+                check(burstConf == 0, "DigWindow counted " + burstConf + " burst conflict(s) with Burst off");
+                check(flags.isEmpty(), "GrimAC flagged: " + flags);
+            }
+            noteFlags(c, s);
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(dx, "setBreakerAuraBurstMultiBreak", burstBefore);
+                ModUnderTest.set(dx, "setBreakerAuraMultiBreak", legitBefore);
+            });
             tpRel(ctx, 13.5, 6.5, 0f, 0f);
             ctx.waitTicks(5);
         }
