@@ -131,6 +131,10 @@ final class HxGreenWarp1126Cases {
         try {
             BlockPos[] ends = stage(c, act == SameTick.Act.ATTACK);
             int warps0 = warps(c);
+            c.onClient(mc -> {
+                wireOn(mc);
+                return null;
+            });
             if (act != null) {
                 st = c.onClient(mc -> SameTick.start(act, 2, HxGreenWarp1126Cases::feature,
                         4, 5));
@@ -171,6 +175,9 @@ final class HxGreenWarp1126Cases {
             if (landed < 3 && warped >= 3) {
                 c.note("dungeon.stats etherwarps read " + landed + " while " + warped + " legs landed by the server's teleport");
             }
+            if (warped < 2 || landed < 3 && warped < 3) {
+                dumpWire(c);
+            }
             c.check(landed >= 3 || warped >= 3, "only " + landed + " warp(s) landed (nothing tested)");
             c.check(warped >= 2, "only " + warped + " leg(s) ended warped");
             if (st != null) {
@@ -185,7 +192,80 @@ final class HxGreenWarp1126Cases {
                     return null;
                 });
             }
+            c.onClient(mc -> {
+                wireOff();
+                return null;
+            });
             clean(c);
+        }
+    }
+
+    /**
+     * On a failed leg count, the wire tick by tick (client game time): set_carried_item with its slot, use_item with the
+     * held item and look, the sneak input, teleport accepts, his tagged packets, and the server's position packets, so a
+     * failure says whose use went with which item (greenroom-fix2-1126).
+     */
+    private static final java.util.List<String> WIRE = new java.util.ArrayList<>();
+    private static java.util.function.Consumer<Packet<?>> wirePrevOut;
+    private static java.util.function.Consumer<Packet<?>> wirePrevIn;
+    private static int lastSel = -1;
+
+    private static void wireOn(net.minecraft.client.Minecraft mc) {
+        synchronized (WIRE) {
+            WIRE.clear();
+        }
+        wirePrevOut = dev.testkit.harness.PacketTrace.tap;
+        wirePrevIn = dev.testkit.harness.PacketTrace.inTap;
+        dev.testkit.harness.PacketTrace.tap = p -> {
+            if (wirePrevOut != null) wirePrevOut.accept(p);
+            String s = null;
+            if (p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h) {
+                s = "carried " + h.getSlot();
+            } else if (p instanceof ServerboundUseItemPacket u) {
+                var pl = mc.player;
+                s = String.format(java.util.Locale.ROOT, "use_item %s %.1f/%.1f sel %d",
+                        pl == null ? "?" : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(pl.getMainHandItem().getItem()).getPath(),
+                        dev.testkit.compat.McPackets.useItemYRot(u), dev.testkit.compat.McPackets.useItemXRot(u),
+                        pl == null ? -1 : pl.getInventory().getSelectedSlot());
+            } else if (p instanceof ServerboundPlayerInputPacket in) {
+                s = "input shift=" + in.input().shift();
+            } else if (p instanceof net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket) {
+                s = "accept_tp";
+            } else if (p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket) {
+                s = "use_item_on";
+            }
+            if (s != null) wireAdd(mc, ">" + s);
+        };
+        dev.testkit.harness.PacketTrace.inTap = p -> {
+            if (wirePrevIn != null) wirePrevIn.accept(p);
+            if (p instanceof net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket pp) {
+                String t = pp.toString();
+                wireAdd(mc, "<pos " + t.substring(0, Math.min(140, t.length())));
+            }
+        };
+    }
+
+    private static void wireAdd(net.minecraft.client.Minecraft mc, String s) {
+        synchronized (WIRE) {
+            if (WIRE.size() < 400) {
+                long t = mc.level == null ? -1 : mc.level.getGameTime();
+                WIRE.add("t" + t + " " + s + " [" + Mod.staticCall(GRS, "result") + "]");
+            }
+        }
+    }
+
+    private static void wireOff() {
+        dev.testkit.harness.PacketTrace.tap = wirePrevOut;
+        dev.testkit.harness.PacketTrace.inTap = wirePrevIn;
+    }
+
+    private static void dumpWire(Session c) {
+        java.util.List<String> w;
+        synchronized (WIRE) {
+            w = new java.util.ArrayList<>(WIRE);
+        }
+        for (int i = 0; i < Math.min(w.size(), 160); i += 6) {
+            c.note("WIRE " + String.join(" | ", w.subList(i, Math.min(w.size(), i + 6))));
         }
     }
 }
