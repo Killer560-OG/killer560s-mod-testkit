@@ -248,27 +248,40 @@ final class TermHoldCases {
                     .set(CONFIG, "MelodyLookaheadClicks", n);
             int got = c.onClient(mc -> (Integer) Mod.get(CONFIG, "getMelodyLookaheadClicks"));
             c.check(got == n, "lookahead set to " + n + " reads back " + got);
+            // A burst dropped as too late (a client stall between the live click and its lookahead, mod
+            // melody-edges-missed-1126b) is right, not a pass: play another board, up to 3, until one fires.
+            for (int attempt = 0; ; attempt++) {
             int before = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
             int droppedBefore = c.onClient(mc -> TerminalCases.lookaheadDropped());
+            int clicksBefore = clicks(c).size();
+            int solvedBefore = c.events("terminal.solved").size();
             // keepTarget: the target column stays put, so the gamble the burst makes is a winning one here. Target 1, the
             // track's FIRST slot: Skip Mode EDGES bursts only from the first or last slot (killer560, 2026-11-02; until
             // mod ownerq-1102 it meant the first or last row and this case used the middle slot, 3).
-            JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 40 + n, "interval", 6, "bandRows", 3,
+            JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 40 + n + 10 * attempt, "interval", 6, "bandRows", 3,
                     "target", 1, "keepTarget", true).getAsJsonObject();
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
-            JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 400);
+            c.waitUntil("Melody solved", mc -> c.events("terminal.solved").size() > solvedBefore, 400);
+            JsonObject solved = c.events("terminal.solved").get(solvedBefore);
             MenuKit.awaitNoScreen(c, 40);
             int fired = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired")) - before;
             int dropped = c.onClient(mc -> TerminalCases.lookaheadDropped()) - droppedBefore;
-            Map<Integer, Integer> per = clicksPerSlot(c);
-            for (JsonObject e : clicks(c)) {
+            List<JsonObject> mine = clicks(c).subList(clicksBefore, clicks(c).size());
+            Map<Integer, Integer> per = new java.util.TreeMap<>();
+            for (JsonObject e : mine) {
+                per.merge(e.get("slot").getAsInt(), 1, Integer::sum);
                 if (e.has("correct") && !e.get("correct").getAsBoolean()) {
                     c.note("wrong click (the server's view): " + e);
                 }
             }
             List<Long> ticks = new ArrayList<>();
-            for (JsonObject e : clicks(c)) {
+            for (JsonObject e : mine) {
                 ticks.add(e.get("tick").getAsLong());
+            }
+            if (n > 0 && fired == 0 && dropped == n && attempt < 2 && solved.get("wrong").getAsInt() == 0
+                    && per.equals(Map.of(16, 1, 25, 1, 34, 1))) {
+                c.note("Lookahead " + n + " board " + attempt + ": burst dropped as too late, 0 wrong; next board");
+                continue;
             }
             c.note("Lookahead " + n + ": " + fired + " lookahead click(s) after the proper one; per slot " + per + " at ticks "
                     + ticks + "; " + solved.get("wrong") + " wrong, max " + solved.get("maxClicksPerTick") + " a server tick");
@@ -277,6 +290,8 @@ final class TermHoldCases {
                     + (n + 1) + " in the burst), sent " + fired + ", dropped as too late " + dropped);
             c.check(per.equals(Map.of(16, 1, 25, 1, 34, 1)), "expected one click on each row button, got " + per);
             c.check(solved.get("wrong").getAsInt() == 0, solved.get("wrong") + " wrong click(s)");
+            break;
+            }
         } finally {
             MenuKit.reset(c);
         }
