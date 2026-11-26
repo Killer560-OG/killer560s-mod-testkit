@@ -151,7 +151,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     }
 
     /** Warp to Door Before Start (a jar without it keeps walking: nothing to set). */
-    private static void setWarp(ClientGameTestContext ctx, boolean on) {
+    static void setWarp(ClientGameTestContext ctx, boolean on) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setGreenRoomWarp", on);
@@ -162,7 +162,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     }
 
     /** Legit jar: Dungeons Autopilot (and so the green room warp) must refuse to switch on. */
-    private static void legitRow(ClientGameTestContext ctx, String name) {
+    static void legitRow(ClientGameTestContext ctx, String name) {
         boolean on = ctx.computeOnClient(mc -> {
             ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true});
             boolean v = (Boolean) ModUnderTest.staticCall(PILOT, "isOn");
@@ -224,7 +224,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         return stage(ctx, f, true);
     }
 
-    private static BlockPos stage(ClientGameTestContext ctx, List<String> f, boolean aotv) {
+    static BlockPos stage(ClientGameTestContext ctx, List<String> f, boolean aotv) {
         for (int attempt = 1; attempt <= 3; attempt++) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                     new Object[]{"gametest"}));
@@ -273,7 +273,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         return null;
     }
 
-    private static void setTicksLeft(int ticks) {
+    static void setTicksLeft(int ticks) {
         try {
             java.lang.reflect.Field fl = Class.forName(SIM_RUN).getDeclaredField("ticksLeft");
             fl.setAccessible(true);
@@ -604,7 +604,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
     }
 
-    private static void leave(ClientGameTestContext ctx) {
+    static void leave(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_RUN, "reset");
