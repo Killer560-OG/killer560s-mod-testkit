@@ -56,6 +56,18 @@ import java.util.List;
  * Hyperion use that follows a "Wither Impact (room plan)" decision. Asserts the floor cleared, {@code AutoClearFeature.preTurns}
  * went up by at least {@link #MIN_PRETURN}, at least {@link #MIN_CAST_SAME_TICK} such casts went on the death's own tick and
  * no more went a tick late than on it. Both cases give their own PASS row on a legit jar (Auto Clear refuses to start there).
+ * <p>
+ * <b>1126-sim-ac-sightleave</b> (mod acoptimal-1126b), the same floor: a room is left at its last death when every tile of it
+ * has been within sight (48 blocks of its center) at some tick of the visit, not only when every tile is in sight at the
+ * death. Origin stood "looking" in Mossy, Waterfall and Crypt (2x2 and long rooms) until the map's checkmark, 5-10 ticks a
+ * room (72 a run on 1020-sim-ac-speed). Asserts the floor cleared, {@code AutoClearFeature.sightSeenLeaves} went up by at
+ * least {@link #MIN_SIGHT}, and no room had to be gone back into (the map not clearing it after a leave).
+ * <p>
+ * <b>1126-sim-ac-prehop</b> (mod acoptimal-1126b), the same floor: the tick after a cast in place (old choice, no room plan),
+ * while its deaths come back, the body turns to the one-hop Hyperion hop toward the mob the pick takes next, so the hop goes
+ * on the deaths' own tick. Origin turned on that tick and hopped the next (about 12 hops a run). Asserts the floor cleared and
+ * {@code AutoClearFeature.preHopUses} (hops that went along such a turn with no turn of their own) went up by at least
+ * {@link #MIN_PREHOP}. Both new cases give their own PASS row on a legit jar.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAcPreSneakTests implements FabricClientGameTest {
@@ -66,6 +78,12 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     private static final String NEARPRIME = "1125-sim-ac-nearprime";
     private static final String SETTLE = "1126-sim-ac-settletrip";
     private static final String PRETURN = "1126-sim-ac-preturn";
+    private static final String SIGHT = "1126-sim-ac-sightleave";
+    private static final String PREHOP = "1126-sim-ac-prehop";
+    /** Last-death leaves only the tiles seen earlier in the visit allowed, at least (sightleave). */
+    private static final int MIN_SIGHT = 1;
+    /** Hops that went on a pre-turned look, at least (prehop). */
+    private static final int MIN_PREHOP = 1;
     /** Trips started while still coming down onto a block, at least (settletrip). */
     private static final int MIN_SETTLE = 2;
     /** Turns toward the plan's next cast while a cast in place's deaths came back, at least (preturn). */
@@ -78,6 +96,8 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
     /** Death line -> next planned Hyperion cast, by gap 0, 1, 2+ (preturn). */
     private static final int[] PLAN_GAPS = new int[3];
     private static long lineMark = -1;
+    /** "is still not cleared on the map" lines seen this floor (sightleave). */
+    private static int backInLines;
     private static long deadTick = -1;
     private static long flushes;
     private static boolean deadSettling;
@@ -123,10 +143,11 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD, NEARPRIME, SETTLE, PRETURN}) {
+        for (String name : new String[]{PRESNEAK, SEARCHTICK, WARMYIELD, NEARPRIME, SETTLE, PRETURN, SIGHT, PREHOP}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(name)) {
                 NAME = name;
-                if ((name.equals(SETTLE) || name.equals(PRETURN)) && !Ap3Crystal1109Cases.cheatBuild()) {
+                if ((name.equals(SETTLE) || name.equals(PRETURN) || name.equals(SIGHT) || name.equals(PREHOP))
+                        && !Ap3Crystal1109Cases.cheatBuild()) {
                     legitRow(ctx);
                     continue;
                 }
@@ -168,12 +189,16 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         int searchedBefore = searched(ctx);
         int settleBefore = counter(ctx, "settlingTrips");
         int preturnBefore = counter(ctx, "preTurns");
+        int sightBefore = counter(ctx, "sightSeenLeaves");
+        int prehopBefore = counter(ctx, "preHopUses");
+        int preturnHopBefore = counter(ctx, "preHopTurns");
         ctx.runOnClient(mc -> {
             java.util.Arrays.fill(GAPS, 0);
             java.util.Arrays.fill(CAST_GAPS, 0);
             java.util.Arrays.fill(SETTLE_GAPS, 0);
             java.util.Arrays.fill(PLAN_GAPS, 0);
             lineMark = LogTap.mark();
+            backInLines = 0;
             deadTick = -1;
             killTrips = 0;
             unsneakedTrips = 0;
@@ -202,6 +227,15 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         int searchedAfter = searched(ctx);
         int settleAfter = counter(ctx, "settlingTrips");
         int preturnAfter = counter(ctx, "preTurns");
+        int sightAfter = counter(ctx, "sightSeenLeaves");
+        int prehopAfter = counter(ctx, "preHopUses");
+        int preturnHopAfter = counter(ctx, "preHopTurns");
+        // Rooms the map still had not cleared after a last-death leave ("goes back in"): a leave that missed a mob.
+        int backIn = ctx.computeOnClient(mc -> backInLines);
+        int afterDeath = rooms.stream().filter(r -> r.lastDeath() >= 0).mapToInt(r -> r.ticks() - r.lastDeath()).sum();
+        println("RESULT sight leaves " + sightBefore + " -> " + sightAfter + ", ticks after the rooms' last deaths "
+                + afterDeath + ", rooms gone back into " + backIn + "; hop turns " + preturnHopBefore + " -> "
+                + preturnHopAfter + ", hops on them " + prehopBefore + " -> " + prehopAfter);
         int[] gaps = ctx.computeOnClient(mc -> {
             readQueued();
             return GAPS.clone();
@@ -242,6 +276,20 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             if (planned < MIN_CAST_SAME_TICK) {
                 problems.add(planned + " planned cast(s) after a death, want at least " + MIN_CAST_SAME_TICK);
             }
+        } else if (NAME.equals(SIGHT)) {
+            if (sightBefore < 0 || sightAfter - sightBefore < MIN_SIGHT) {
+                problems.add("rooms left at a death on tiles seen earlier " + sightBefore + " -> " + sightAfter
+                        + ", want at least " + MIN_SIGHT + " more");
+            }
+            if (backIn > 0) {
+                problems.add(backIn + " room(s) left at a death were not cleared on the map and had to be gone back into");
+            }
+        } else if (NAME.equals(PREHOP)) {
+            if (prehopBefore < 0 || prehopAfter - prehopBefore < MIN_PREHOP) {
+                problems.add("hops on a look turned while the cast in place's deaths came back " + prehopBefore + " -> "
+                        + prehopAfter + " (turns " + preturnHopBefore + " -> " + preturnHopAfter + "), want at least "
+                        + MIN_PREHOP + " more");
+            }
         } else if (NAME.equals(NEARPRIME)) {
             if (killTrips < MIN_KILL_TRIPS) {
                 problems.add(killTrips + " trip(s) after a kill, want at least " + MIN_KILL_TRIPS);
@@ -266,7 +314,8 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
             problems.add("searched trips taken in the tick " + searchedBefore + " -> " + searchedAfter + ", want at least "
                     + MIN_SEARCHED + " more");
         }
-        if (!searchTick && !NAME.equals(SETTLE) && !NAME.equals(PRETURN) && (primedBefore < 0 || primedAfter <= primedBefore)) {
+        if (!searchTick && !NAME.equals(SETTLE) && !NAME.equals(PRETURN) && !NAME.equals(SIGHT) && !NAME.equals(PREHOP)
+                && (primedBefore < 0 || primedAfter <= primedBefore)) {
             problems.add("the sneak was never primed after a cast (primed ticks " + primedBefore + " -> " + primedAfter + ")");
         }
         if (!problems.isEmpty()) {
@@ -364,6 +413,9 @@ public class SimAcPreSneakTests implements FabricClientGameTest {
         // clientTick read here put them 2 apart, and the "[digflush]" lines k1.py counts do not reach LogTap).
         flushes++;
         for (String line : LogTap.between(lineMark, m)) {
+            if (line.contains("is still not cleared on the map")) {
+                backInLines++;
+            }
             if (line.contains("room time:")) {
                 deadTick = -1;
             } else if (DEAD.matcher(line).find()) {
