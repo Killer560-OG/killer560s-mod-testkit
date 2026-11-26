@@ -132,7 +132,7 @@ final class Autopilot1126MenuCases {
                     "an old Insta Clear First OFF should read Allow Insta Clearing OFF");
             double range = c.onClient(mc -> (Double) Mod.get(AS, "keyPickupRange"));
             c.check(Math.abs(range - 6.0) < 1e-9, "a saved Key Range should be ignored (the game's 1 + 5), reads " + range);
-            c.check("LARGEST_TO_SMALLEST".equals(String.valueOf(c.onClient(mc -> Mod.get(AS, "getSecretOrder")))),
+            c.check("LARGEST_TO_SMALLEST".equals(String.valueOf((Object) c.onClient(mc -> Mod.get(AS, "getSecretOrder")))),
                     "a saved Room Order should load");
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(AS), "save"));
             String saved = Files.readString(file, StandardCharsets.UTF_8);
@@ -140,7 +140,7 @@ final class Autopilot1126MenuCases {
                     "the saved file should drop clearFirst and keyBaseRange and keep instaClear false: " + saved);
             Files.writeString(file, "{\"secretOrder\": \"NO_SUCH_ORDER\"}", StandardCharsets.UTF_8);
             c.ctx().runOnClient(mc -> Mod.staticCall(AS, "load"));
-            c.check("LEAST_ETHERWARPS".equals(String.valueOf(c.onClient(mc -> Mod.get(AS, "getSecretOrder")))),
+            c.check("LEAST_ETHERWARPS".equals(String.valueOf((Object) c.onClient(mc -> Mod.get(AS, "getSecretOrder")))),
                     "an unknown Room Order should load as Fastest Time");
             Files.deleteIfExists(file);
             c.ctx().runOnClient(mc -> Mod.staticCall(AS, "load"));
