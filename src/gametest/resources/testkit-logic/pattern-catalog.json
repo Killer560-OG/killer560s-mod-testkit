@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T12:22:14",
- "modSource": "lane-autotune-signal-1126c",
- "modGitSha": "637c14290c7063d10e844f6c17fa6b7611ed326e",
+ "generatedAt": "2026-11-26T14:12:47",
+ "modSource": "lane-score-puzzle-chatdone-1126c",
+ "modGitSha": "9e8da938e4d2a1a671636e10fa9a50875c919faa",
  "modSourceDirty": false,
- "count": 996,
+ "count": 999,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 876,
+  "field": 879,
   "local": 46
  },
  "unresolved": 161,
@@ -10908,6 +10908,42 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^Party > (?:\\\\[[^\\\\]]{1,24}] )?([A-Za-z0-9_]{1,16}): (.{1,256})$\""
+  },
+  {
+   "id": "scorecalc.ScoreCalculatorFeature#PUZZLE_SOLVED",
+   "cls": "scorecalc.ScoreCalculatorFeature",
+   "field": "PUZZLE_SOLVED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
+   "line": 158,
+   "regex": "^PUZZLE SOLVED! (?:\\[[^\\]]{1,20}\\] )?[A-Za-z0-9_]{1,16} ([^!]{1,80})! Good job!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^PUZZLE SOLVED! (?:\\\\[[^\\\\]]{1,20}\\\\] )?[A-Za-z0-9_]{1,16} ([^!]{1,80})! Good job!$\""
+  },
+  {
+   "id": "scorecalc.ScoreCalculatorFeature#TTT_WORD",
+   "cls": "scorecalc.ScoreCalculatorFeature",
+   "field": "TTT_WORD",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
+   "line": 164,
+   "regex": "\\bttt\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\bttt\\\\b\""
+  },
+  {
+   "id": "scorecalc.ScoreCalculatorFeature#BLAZE_DONE_WORD",
+   "cls": "scorecalc.ScoreCalculatorFeature",
+   "field": "BLAZE_DONE_WORD",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
+   "line": 165,
+   "regex": "solved|done|complete|finished",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"solved|done|complete|finished\""
   },
   {
    "id": "secrets.DungeonRun#SERVER",
