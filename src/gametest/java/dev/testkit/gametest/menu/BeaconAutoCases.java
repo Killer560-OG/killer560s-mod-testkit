@@ -229,6 +229,11 @@ final class BeaconAutoCases {
         return dev.testkit.gametest.LogTap.since(mark).stream().filter(l -> l.contains("[CHAT]") && l.contains(needle)).count();
     }
 
+    /** Auto Tune's log-only lines ({@code ModChat.log}: started, done, each click), never shown in chat. */
+    private static long logged(long mark, String needle) {
+        return dev.testkit.gametest.LogTap.since(mark).stream().filter(l -> !l.contains("[CHAT]") && l.contains(needle)).count();
+    }
+
     /** The server's beacon.done event (null: never done) and the button clicks on the wire as {client tick, slot}. */
     private record Result(JsonObject done, List<int[]> btn) {
     }
@@ -429,9 +434,12 @@ final class BeaconAutoCases {
             }
             c.check(done, "the tune never completed in " + maxTicks + " ticks (clicks " + served + ")");
             if (done) { // 11-25 4:54 PM: tunes completed on a Speed click said "stopped, the menu closed"
-                c.waitUntil("Auto Tune's last line", mc -> chat(logMark, "[Auto Tune] done") + chat(logMark, "[Auto Tune] stopped") > 0, 40);
-                c.check(chat(logMark, "[Auto Tune] done") == 1 && chat(logMark, "[Auto Tune] stopped") == 0,
-                        "a completed tune did not end with Auto Tune's 'done' line");
+                // killer560 11-26: "remove the auto tune start and done lines": started and done go to the log, never chat.
+                c.waitUntil("Auto Tune's last line", mc -> logged(logMark, "[Auto Tune] done") + chat(logMark, "[Auto Tune] stopped") > 0, 40);
+                c.check(logged(logMark, "[Auto Tune] done") == 1 && chat(logMark, "[Auto Tune] stopped") == 0,
+                        "a completed tune did not end with Auto Tune's 'done' log line");
+                c.check(chat(logMark, "[Auto Tune] done") == 0 && chat(logMark, "[Auto Tune] started") == 0
+                        && logged(logMark, "[Auto Tune] started") == 1, "Auto Tune said started or done in chat (log only since 11-26)");
             }
             if (budget > 0 && done) {
                 int took = c.hx().events(mark, "beacon.done").get(0).get("tick").getAsInt();
