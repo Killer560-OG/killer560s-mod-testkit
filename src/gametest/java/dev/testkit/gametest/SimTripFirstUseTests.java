@@ -38,6 +38,12 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
 
     private static boolean registered;
     private static final Map<String, Field> F = new java.util.HashMap<>();
+    private static Field acPhase;
+    private static Field acAction;
+    /** Auto Clear's phase and action at the END of the tick before (what it was doing just before a trip started). */
+    private static String prevAc = "";
+    private static String startAc = "";
+    private static final Map<String, Integer> BEFORE = new TreeMap<>();
     private static long lastPress = -1;
     private static long openStart = -1;
     private static boolean prevShift;
@@ -91,6 +97,7 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
             noHop = 0;
             deadTicks = 0;
             WHY.clear();
+            BEFORE.clear();
             SAMPLES.clear();
             openStart = -1;
             lastPress = -1;
@@ -117,6 +124,9 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
                     .append(" 4:").append(GAPS[4]).append(" 5+:").append(GAPS[5]).append(", ticks before first warps ")
                     .append(deadTicks).append("; states:");
             WHY.entrySet().stream().sorted((a, c) -> c.getValue() - a.getValue()).limit(25)
+                    .forEach(e -> b.append(" [").append(e.getValue()).append("] ").append(e.getKey()).append(";"));
+            b.append(" by what Auto Clear did the tick before:");
+            BEFORE.entrySet().stream().sorted((a, c) -> c.getValue() - a.getValue()).limit(30)
                     .forEach(e -> b.append(" [").append(e.getValue()).append("] ").append(e.getKey()).append(";"));
             return b.toString();
         });
@@ -160,6 +170,11 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
                     // an older or newer jar without this one
                 }
             }
+            Class<?> a = Class.forName(AUTO);
+            acPhase = a.getDeclaredField("phase");
+            acPhase.setAccessible(true);
+            acAction = a.getDeclaredField("action");
+            acAction.setAccessible(true);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError(NAME + ": " + e);
         }
@@ -199,12 +214,22 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
         }
         boolean shiftHeard = prevShift;
         prevShift = mc.player.getLastSentInput().shift();
+        String ac;
+        try {
+            String act = String.valueOf(acAction.get(null));
+            ac = acPhase.get(null) + ":" + act.replaceAll("[0-9.,-]+", "#").replaceAll(" \\(.*", "");
+        } catch (IllegalAccessException e) {
+            ac = "?";
+        }
+        String before = prevAc;
+        prevAc = ac;
         if (press != lastPress) {
             if (openStart >= 0) {
                 noHop++;   // replaced by a new queue before its first warp
             }
             openStart = press;
             lastPress = press;
+            startAc = "before=" + before + " heardAtStart=" + shiftHeard;
         }
         if (openStart < 0) {
             return;
@@ -216,6 +241,7 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
         if (first >= 0) {
             int gap = (int) (first - openStart);
             GAPS[Math.min(5, gap)]++;
+            BEFORE.merge("gap " + Math.min(5, gap) + " " + startAc, 1, Integer::sum);
             trips++;
             deadTicks += gap;
             openStart = -1;
