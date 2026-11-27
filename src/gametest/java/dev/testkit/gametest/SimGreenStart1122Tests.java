@@ -732,6 +732,21 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
         String trap = names[0];
         String other = names[1];
+        // goback-partial-1127: a go-back runs only the nodes of the room's route that missed, so a room with no route has
+        // nothing to go back for. Each room gets a one-node route that never ran this run (its one node is the missed one).
+        com.google.gson.JsonObject node = new com.google.gson.JsonObject();
+        node.addProperty("type", "ROTATE");
+        node.addProperty("x", 0.5);
+        node.addProperty("y", 70.0);
+        node.addProperty("z", 0.5);
+        node.addProperty("yaw", 0f);
+        node.addProperty("pitch", 0f);
+        node.addProperty("start", true);
+        com.google.gson.JsonArray nodes = new com.google.gson.JsonArray();
+        nodes.add(node);
+        com.google.gson.JsonObject route = new com.google.gson.JsonObject();
+        route.add("nodes", nodes);
+        SimAutoSecretTests.writeRoutes(ctx, java.util.Map.of(other, route, trap, route.deepCopy()));
         if (taking) {
             // acrun-1126-pm (Deathmite, Staircase, Melon): the route ended one secret short while that secret was still
             // being taken where he stood (the last-node wait, leaveWaitRoom), and the endgame of the same tick ran the
