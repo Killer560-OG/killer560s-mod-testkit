@@ -34,7 +34,11 @@ import java.util.Set;
 public class SimApFix1123Tests implements FabricClientGameTest {
     private static final String WALK = "1123-sim-ap-walkgap";
     private static final String HOLD = "1123-sim-ap-nopath-hold";
-    private static final List<String> ALL = List.of(WALK, HOLD);
+    /** diagonal-short-1127: nodes numbered BELOW the start node (his Diagonal: start #12 of 14, #1-#11 never ran). */
+    private static final String BELOW = "1127-sim-ap-start-below";
+    /** diagonal-short-1127: one node below the start and two above it with a walk gap between each. */
+    private static final String ABOVE = "1127-sim-ap-start-gap-above";
+    private static final List<String> ALL = List.of(WALK, HOLD, BELOW, ABOVE);
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AP = "com.killer560.hub.autosecret.Autopilot";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
@@ -149,6 +153,155 @@ public class SimApFix1123Tests implements FabricClientGameTest {
         }
         if (Scenario.named(WALK)) {
             walkCase(ctx);
+        }
+        Set<String> used = new HashSet<>();
+        if (Scenario.named(BELOW)) {
+            wrapCase(ctx, BELOW, 3, 2, used);
+        }
+        if (Scenario.named(ABOVE)) {
+            wrapCase(ctx, ABOVE, 4, 1, used);
+        }
+    }
+
+    /**
+     * diagonal-short-1127 (killer560 11-27: "it keeps struggling to secret diagonal", then "the number for the node does
+     * not matter"): a path-less route of {@code count} ROTATE nodes on separate blocks of one room, its start flag on node
+     * {@code startIdx} (0-based), the rest a walk apart. Auto Secret enters at the start node; every other node, numbered
+     * below or above it, must fire too (the warp across each walk gap), the start node exactly once, the route finish,
+     * and the run memory must then hold every node as fired (the go-back guard). On origin the run ended at the last
+     * number and the nodes before the start never fired.
+     */
+    private static void wrapCase(ClientGameTestContext ctx, String name, int count, int startIdx, Set<String> used) {
+        String preBlood = ctx.computeOnClient(SimAutoSecretTests::preBloodName);
+        int here = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
+                "currentRoom", new Class<?>[]{}, new Object[]{}));
+        String room = null;
+        JsonObject route = null;
+        List<SimAutoSecretTests.Room> rooms = ctx.computeOnClient(SimAutoSecretTests::readRooms);
+        rooms.sort((a, b) -> Integer.compare(b.unfound(), a.unfound()));
+        for (SimAutoSecretTests.Room r : rooms) {
+            if (!r.reachable() || r.id() == here || r.unfound() <= 0 || r.name().equals("Unknown") || r.name().equals(preBlood)
+                    || used.contains(r.name()) || !SimAutoSecretTests.pathsOut(r)
+                    || List.of("PUZZLE", "TRAP", "BLOOD", "ENTRANCE").contains(r.type())) {
+                continue;
+            }
+            route = ctx.computeOnClient(mc -> spreadRoute(r, name, count, startIdx));
+            if (route != null) {
+                room = r.name();
+                break;
+            }
+        }
+        if (room == null) {
+            row(name, "FAIL|no reachable room on this floor has " + count + " standable blocks 6+ apart in its main tile");
+            return;
+        }
+        used.add(room);
+        SimAutoSecretTests.writeRoutes(ctx, Map.of(room, route));
+        long mark = LogTap.mark();
+        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+        String target = room;
+        boolean finished = false;
+        boolean gaveUp = false;
+        for (int t = 0; t < 20 * 120 && !finished && !gaveUp && Boolean.TRUE.equals(started); t += 5) {
+            ctx.waitTicks(5);
+            for (String l : LogTap.since(mark)) {
+                finished |= l.contains("[AutoSecret] route " + target + " finished");
+                gaveUp |= l.contains("[AutoSecret] route " + target + " waits for a walk")
+                        || l.contains("[AutoSecret] route " + target + ": the warp onto its next node failed")
+                        || l.contains("[AutoSecret] route " + target + " stalled");
+            }
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
+                new Object[]{"test over", true}));
+        int[] fired = new int[count];
+        for (String l : LogTap.since(mark)) {
+            for (int k = 0; k < count; k++) {
+                if (l.contains("[AutoRoutes] Node #" + (k + 1) + " ROTATE finished")) {
+                    fired[k]++;
+                }
+            }
+        }
+        boolean all = true;
+        for (int k = 0; k < count; k++) {
+            all &= k == startIdx ? fired[k] == 1 : fired[k] >= 1;
+        }
+        Boolean memory = ctx.computeOnClient(mc -> {
+            try {
+                Object store = ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteStore", "getInstance");
+                Object r = ModUnderTest.call(store, "forRoom", new Class<?>[]{String.class}, new Object[]{target});
+                return (Boolean) Class.forName("com.killer560.hub.autoroutes.RouteRunMemory")
+                        .getMethod("everyNodeFired", Class.forName("com.killer560.hub.autoroutes.Route")).invoke(null, r);
+            } catch (Throwable e) {
+                return false;   // origin has no such memory
+            }
+        });
+        boolean pass = Boolean.TRUE.equals(started) && finished && !gaveUp && all && Boolean.TRUE.equals(memory);
+        row(name, (pass ? "PASS" : "FAIL") + "|route in " + room + " (" + count + " nodes, start #" + (startIdx + 1)
+                + "): started " + started + ", fired per node " + java.util.Arrays.toString(fired) + " (start once, every"
+                + " other at least once), route finished " + finished + ", given up " + gaveUp
+                + ", run memory has every node fired " + memory);
+    }
+
+    /** {@code count} ROTATE nodes on standable blocks 6+ apart in the room's main tile, start flag on {@code startIdx}. */
+    private static JsonObject spreadRoute(SimAutoSecretTests.Room r, String name, int count, int startIdx) {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+        int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r.id()});
+        if (cr == null) {
+            return null;
+        }
+        BlockPos centre = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                new Object[]{r.mainTile()});
+        BlockPos a = inTile(centre, Vec3.atCenterOf(centre));
+        if (a == null) {
+            return null;
+        }
+        double eye = (Double) ModUnderTest.staticCall(TELEPORT_UTILS, "eyeHeight", new Class<?>[]{boolean.class},
+                new Object[]{true});
+        List<BlockPos> others = new ArrayList<>();
+        for (int[] d : new int[][]{{10, 10}, {-10, -10}, {10, -10}, {-10, 10}, {8, 0}, {-8, 0}, {0, 8}, {0, -8}}) {
+            BlockPos c = inTile(centre, Vec3.atCenterOf(centre).add(d[0], 0, d[1]));
+            boolean apart = c != null && c.distSqr(a) >= 36;
+            for (BlockPos o : others) {
+                apart &= c != null && c.distSqr(o) >= 36;
+            }
+            if (apart && others.size() < count - 1 && ModUnderTest.staticCall(TELEPORT_UTILS, "getEtherwarpDirection",
+                    new Class<?>[]{Vec3.class, BlockPos.class, double.class},
+                    new Object[]{new Vec3(a.getX() + 0.5, a.getY() + 1 + eye, a.getZ() + 0.5), c, 61.0}) != null) {
+                others.add(c);
+            }
+        }
+        if (others.size() < count - 1) {
+            return null;
+        }
+        try {
+            Object frame = Class.forName(FRAME).getConstructor(String.class, int.class, int.class, int.class)
+                    .newInstance(r.name(), cr[0], cr[1], cr[2]);
+            JsonArray nodes = new JsonArray();
+            StringBuilder where = new StringBuilder();
+            int o = 0;
+            for (int i = 0; i < count; i++) {
+                BlockPos p = i == startIdx ? a : others.get(o++);
+                Vec3 rel = (Vec3) ModUnderTest.staticCall(COORDS, "toRelative", new Class<?>[]{frame.getClass(), Vec3.class},
+                        new Object[]{frame, new Vec3(p.getX() + 0.5, p.getY() + 1, p.getZ() + 0.5)});
+                JsonObject node = new JsonObject();
+                node.addProperty("type", "ROTATE");
+                node.addProperty("x", rel.x);
+                node.addProperty("y", rel.y);
+                node.addProperty("z", rel.z);
+                node.addProperty("yaw", 0f);
+                node.addProperty("pitch", 0f);
+                if (i == startIdx) {
+                    node.addProperty("start", true);
+                }
+                nodes.add(node);
+                where.append(" #").append(i + 1).append(i == startIdx ? "(start)" : "").append(' ').append(p.toShortString());
+            }
+            JsonObject route = new JsonObject();
+            route.add("nodes", nodes);
+            System.out.println("[" + name + "] route for " + r.name() + ":" + where);
+            return route;
+        } catch (ReflectiveOperationException e) {
+            return null;
         }
     }
 
