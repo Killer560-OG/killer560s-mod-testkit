@@ -31,6 +31,8 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
     private static final String EXEC = "com.killer560.hub.livemap.autoclear.ClearExecutor";
     /** Trips with a first warp the floor must run, at least. */
     private static final int MIN_TRIPS = 25;
+    /** Searched trips handed back between ticks that went from the next START, at least (origin: no counter). */
+    private static final int MIN_LATE = 2;
     /** Ticks from a trip's start to its first warp, averaged over the floor's trips, at most (set from the origin run). */
     private static final double MAX_DEAD_PER_TRIP = Double.parseDouble(System.getProperty("testkit.tripFirstUseMax", "0.6"));
     private static final String[] FIELDS = {"waitReason", "syncDelay", "globalDelay", "compDelay", "sendNow", "gateHold",
@@ -102,6 +104,7 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
             openStart = -1;
             lastPress = -1;
         });
+        int lateBefore = lateStarts(ctx);
         List<SimAutoClearSpeedTests.RoomTime> rooms = new ArrayList<>();
         List<String> problems = new ArrayList<>();
         try {
@@ -130,7 +133,8 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
                     .forEach(e -> b.append(" [").append(e.getValue()).append("] ").append(e.getKey()).append(";"));
             return b.toString();
         });
-        println("RESULT " + report);
+        int lateAfter = lateStarts(ctx);
+        println("RESULT " + report + " late search starts " + lateBefore + " -> " + lateAfter);
         for (String s : ctx.computeOnClient(mc -> new ArrayList<>(SAMPLES))) {
             println("SAMPLE " + s);
         }
@@ -148,6 +152,10 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
             problems.add(dead + " tick(s) from trip start to first warp over " + t + " trips ("
                     + String.format(java.util.Locale.ROOT, "%.2f", (double) dead / t) + " a trip), want at most "
                     + MAX_DEAD_PER_TRIP + " a trip");
+        }
+        if (lateBefore < 0 || lateAfter - lateBefore < MIN_LATE) {
+            problems.add("searched trips taken between ticks that went from the next START " + lateBefore + " -> " + lateAfter
+                    + ", want at least " + MIN_LATE + " more");
         }
         if (!problems.isEmpty()) {
             throw new AssertionError(problems.size() + " problem(s): " + String.join("; ", problems));
@@ -264,6 +272,17 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
 
     private static long asLong(Object o) {
         return o instanceof Long l ? l : Long.MIN_VALUE / 2;
+    }
+
+    /** ClearExecutor.lateSearchStarts, or -1 when this jar has none (origin). */
+    private static int lateStarts(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return (Integer) ModUnderTest.staticCall(EXEC, "lateSearchStarts");
+            } catch (RuntimeException | Error e) {
+                return -1;
+            }
+        });
     }
 
     private static void legitRow(ClientGameTestContext ctx) {
