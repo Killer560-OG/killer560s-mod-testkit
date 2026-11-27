@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T10:58:35",
- "modSource": "lane-gatehold-aotv-click-1127",
- "modGitSha": "76d00091b4da5fe4b9e9a5f05eb829f786987b4b",
+ "generatedAt": "2026-11-27T11:35:57",
+ "modSource": "lane-imap-nopath-1127b",
+ "modGitSha": "043feb060f20a5b1bf5d3b422c6357a5feabd98d",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
