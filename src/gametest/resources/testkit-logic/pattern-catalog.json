@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T19:24:58",
- "modSource": "lane-bat-crypt-reroute-1126",
- "modGitSha": "70deb9a8966abc6dd298cccbb17cfecbca7bc270",
+ "generatedAt": "2026-11-26T19:51:23",
+ "modSource": "lane-acplan-insta-warptile-fix-1126",
+ "modGitSha": "e42b8f077d3aebae2ee4493adcc7d58d2d4b9b63",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
