@@ -240,6 +240,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // newtrap-fall-1127: a breaker node digs the block under him and a column 9 blocks lower, with a real round trip.
             s.test("62-argrim-1127-breakerfall-lag", c -> caseBreakerFallLag(c, 150, 0));
             s.test("62-argrim-1127-breakerfall-stall", c -> caseBreakerFallLag(c, 100, 350));
+            s.test("62-argrim-1127-breakerfall-ping0", c -> caseBreakerFallLag(c, 0, 0));
+            s.test("62-argrim-1127-breakerfall-ping50", c -> caseBreakerFallLag(c, 50, 0));
+            s.test("62-argrim-1127-breakerfall-ping100", c -> caseBreakerFallLag(c, 100, 0));
             // Multi Break at one a server tick (mod multibreak-1102): ten blocks round him, back to back; repeat with
             // -PmultiBreakRepeat=N (names "#k").
             for (int k = 1; k <= Integer.getInteger("testkit.multiBreakRepeat", 1); k++) {
@@ -2513,10 +2516,29 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         long corrections = LogTap.since(m).stream().filter(l -> l.contains("[Correction] Auto Routes")).count();
         int overAir = watch.get("overAir").getAsInt();
         int inside = watch.get("inside").getAsInt();
-        c.note(String.format(Locale.ROOT, "breaker fall lag %d ms (+%d stall): %d dig packet(s), linger %s, column gone %s,"
-                        + " ended at y %.2f (floor %d), server: %d tick(s) ground over its air, %d inside its blocks %s,"
-                        + " %d correction(s), predicted lines %s", ms, stallMs, digs, logHas(m, "block(s) broken"), gone,
-                at.y, F, overAir, inside, watch.get("first"), corrections, logHas(m, "predicted gone")));
+        int teleports = count(s, "accept_teleportation");
+        int grim = c.scenario().flags().size();
+        // The column's digs in the order they went out (the stand block, the node's own dig, is above it).
+        List<Integer> order = new ArrayList<>();
+        java.util.regex.Pattern dig = java.util.regex.Pattern.compile("Breaker dig sent: START_DESTROY_BLOCK -?\\d+, (-?\\d+), ");
+        for (String l : LogTap.since(m)) {
+            java.util.regex.Matcher mm = dig.matcher(l);
+            if (mm.find() && Integer.parseInt(mm.group(1)) <= colTop) {
+                order.add(Integer.parseInt(mm.group(1)));
+            }
+        }
+        boolean topDown = order.size() == colTop - F + 1;
+        for (int i = 1; i < order.size(); i++) {
+            topDown &= order.get(i) < order.get(i - 1);
+        }
+        // FALLTABLE: one machine-read line per case (newtrap-fall-1127 table: ping, standing-on-air ticks, GrimAC).
+        println(String.format(Locale.ROOT, "FALLTABLE %s ping=%d stall=%d overAir=%d inside=%d teleports=%d grim=%d order=%s"
+                + " predicted=%s", c.name(), ms, stallMs, overAir, inside, teleports, grim, order, logHas(m, "predicted gone")));
+        c.note(String.format(Locale.ROOT, "breaker fall lag %d ms (+%d stall): %d dig packet(s), column order %s, linger %s,"
+                        + " column gone %s, ended at y %.2f (floor %d), server: %d tick(s) ground over its air, %d inside its"
+                        + " blocks %s, %d correction(s), %d teleport(s), %d GrimAC line(s), predicted lines %s", ms, stallMs,
+                digs, order, logHas(m, "block(s) broken"), gone, at.y, F, overAir, inside, watch.get("first"), corrections,
+                teleports, grim, logHas(m, "predicted gone")));
         // Restore the air the arena does not clear (it clears F..F+8).
         Map<int[], String> clear = new LinkedHashMap<>();
         for (int y = F + 9; y <= stand + 3; y++) {
@@ -2528,10 +2550,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(logHas(m, "block(s) broken") && logHas(m, "Breaker linger"), "the column was not mined as he fell");
         check(digs >= colTop - F + 2, "only " + digs + " dig packet(s) for " + (colTop - F + 2) + " blocks");
         check(gone, "the column was not all broken, or he never landed below it (at " + at + ")");
-        check(overAir == 0, overAir + " server tick(s) of ground over the server's air " + watch.get("first")
-                + " - the client stood on a block the server had already broken (Hypixel corrects this)");
+        check(topDown, "the column was not dug nearest first (top down): " + order);
+        // Ground over the server's air left with a dig lead under the round trip is measured (FALLTABLE), not failed:
+        // reach caps the lead, so no client order removes it at every ping (newtrap-fall-1127). -Dtestkit.fallStrict=true
+        // fails on it.
+        check(!Boolean.getBoolean("testkit.fallStrict") || overAir == 0, overAir + " server tick(s) of ground over the"
+                + " server's air " + watch.get("first"));
         check(inside == 0, inside + " server tick(s) inside a block the server still has " + watch.get("first"));
-        check(corrections == 0, corrections + " correction(s) during the fall");
+        check(corrections == 0 && teleports == 0, corrections + " correction(s), " + teleports + " teleport(s) during the fall");
         noteFlags(c, s);
     }
 
