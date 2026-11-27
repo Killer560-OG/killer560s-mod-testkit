@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T11:32:40",
- "modSource": "lane-acflakes-1127",
- "modGitSha": "8b45f604f1e15e86ee36cd7f930f71a526400225",
+ "generatedAt": "2026-11-27T11:53:44",
+ "modSource": "lane-autoroutes-breaker-fall-1127",
+ "modGitSha": "9ef2072fccc52876ce56ec7f07fe36c727366251",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
