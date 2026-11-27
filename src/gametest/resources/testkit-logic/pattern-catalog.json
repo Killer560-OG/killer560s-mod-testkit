@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T21:46:06",
- "modSource": "lane-acplan-insta-warptile-fix-1126",
- "modGitSha": "47460f127e9fc7f393ae561242a16ed6f75e67c2",
+ "generatedAt": "2026-11-26T22:11:43",
+ "modSource": "lane-autopilot-instaclear-roomcost-1126",
+ "modGitSha": "ba1d2b4982298f38852bf5b1dbdb089b4058d60f",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
