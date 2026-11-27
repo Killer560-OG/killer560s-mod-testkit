@@ -413,7 +413,7 @@ public final class SimChestStallTests {
                 try {
                     clicks = (Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest");
                     clear = "0,0,0,0,0".equals(SimPuzzleSolveTests.waterLayers(mc));
-                } catch (RuntimeException e) {
+                } catch (RuntimeException | AssertionError e) {
                     return; // the room is not placed yet (PuzzleCoords has no clay): nothing to read this tick
                 }
                 if (!clear) {

@@ -425,6 +425,15 @@ final class PuzzleTimingExtra extends SolveExtra {
         if (line.length() > 0) {
             SimPuzzleRoundTests.say(name, "timeline " + line);
         }
+        if (gate != null) {
+            StringBuilder gl = new StringBuilder();
+            for (Ev e : ev) {
+                if (e.kind() == Kind.GATE) {
+                    gl.append(e.tick()).append(' ');
+                }
+            }
+            SimPuzzleRoundTests.say(name, "gate (walkway clear) at tick(s): " + (gl.length() == 0 ? "none" : gl.toString().trim()));
+        }
         Stats clickUse = new Stats("click -> use");
         Stats sneakUse = new Stats("sneak -> warp use");
         Stats landAct = new Stats("landing -> next action");
