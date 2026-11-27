@@ -77,6 +77,8 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     private static final List<String> SUMMARY = new ArrayList<>();
     private static final long LAG_MS = System.getenv("TESTKIT_TRAP_LAG_MS") == null ? 0
             : Long.parseLong(System.getenv("TESTKIT_TRAP_LAG_MS").trim());
+    /** acflakes-1126: TESTKIT_TRAP_PUSH=1 (with TESTKIT_TRAP_ONLY="Old Trap:90") forces the block-held #2 -> #3 align. */
+    private static final boolean PUSH = "1".equals(System.getenv("TESTKIT_TRAP_PUSH"));
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -417,6 +419,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         int awaitNode = newTrap ? 6 : 4;   // oldtrap-default-1123: Old Trap's #4 (PATH, await 1 secret) holds the same way
         String waitVerdict = null;
         boolean lagged = false;
+        boolean pushed = false;
         for (int t = 0; t < 1400 && !done; t++) {
             ctx.waitTicks(1);
             minY = Math.min(minY, ctx.computeOnClient(mc -> mc.player.getY()));
@@ -434,6 +437,22 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                     lagged = true;
                     ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.start(LAG_MS));
                     println(tag + ": lag spike of " + LAG_MS + " ms started at node #2");
+                }
+                if (!pushed && PUSH && l.contains("Path #2 -> #3 in Old Trap: walk plan done")) {
+                    // acflakes-1126: put him where a loaded PC left him (Old Trap r90, its 11-26 log): pressed on the block
+                    // face 0.8 off node #3, so the straight align cannot reach it
+                    pushed = true;
+                    ctx.runOnClient(mc -> {
+                        var server = mc.getSingleplayerServer();
+                        var uuid = mc.player.getUUID();
+                        server.execute(() -> {
+                            var sp = server.getPlayerList().getPlayer(uuid);
+                            if (sp != null) {
+                                sp.teleportTo(-113.30, -40.0, -110.76);
+                            }
+                        });
+                    });
+                    println(tag + ": pushed onto the block face at -113.30,-40.00,-110.76 as the #2 -> #3 align starts");
                 }
             }
             // trapawait-1122: node #6 carries "await 1 secret" and the sim's trap room places none, so the route must WAIT
