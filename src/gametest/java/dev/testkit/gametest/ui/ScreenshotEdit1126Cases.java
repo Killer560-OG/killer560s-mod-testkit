@@ -157,7 +157,7 @@ final class ScreenshotEdit1126Cases {
             // ---- part 1: a real vanilla screenshot -------------------------------------------------------------------
             int before = c.onClient(mc -> all(mc).size());
             c.onClient(mc -> {
-                Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(), comp -> mc.execute(() -> McCompat.chat(mc).addMessage(comp)));
+                Screenshot.grab(mc, false); // what F2 runs: saves and prints vanilla's line
                 return null;
             });
             waitUntil(c, () -> {
