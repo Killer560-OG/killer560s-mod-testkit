@@ -24,7 +24,7 @@ final class HxScoreChatDone1126Cases {
     private static final String ALL_BLAZE = "§7[VIP] HxEvil§f: Blaze puzzle solved!";
     private static final String FAIL_BLAZE = "PUZZLE FAIL! HxMateA killed a Blaze in the wrong order! Yikes!";
     private static final String RESET_BLAZE = "You used the Architect's First Draft to reset Higher Or Lower!";
-    private static final String WEIRDOS_LINE = "PUZZLE SOLVED! HxMateB completed Three Weirdos! Good job!";
+    private static final String WEIRDOS_LINE = "PUZZLE SOLVED! HxMateB wasn't fooled by Marshall! Good job!";
     private static final String OPEN = "§r§e✦";
     private static final String DONE = "§r§a✔";
     private static final String FAIL = "§r§c✖";
@@ -104,8 +104,12 @@ final class HxScoreChatDone1126Cases {
             c.hx().chat(ALL_BLAZE);
             c.ctx().waitTicks(25);
             c.check(c.onClient(mc -> done()) == d0 + 1, "a sim-style solved line or an All-chat Blaze line counted: " + c.onClient(mc -> done()));
+            // Hypixel sends no Blaze line and the party Blaze message branch is gone: only the Blaze Solver's last kill counts.
             c.hx().chat(PARTY_BLAZE);
-            c.waitUntil("completed " + (d0 + 2) + " after the party Blaze line", mc -> done() == d0 + 2, 10);
+            c.ctx().waitTicks(25);
+            c.check(c.onClient(mc -> done()) == d0 + 1, "a party Blaze line counted: " + c.onClient(mc -> done()));
+            c.ctx().runOnClient(mc -> Mod.staticCall(SCF, "onBlazeCleared"));
+            c.waitUntil("completed " + (d0 + 2) + " after the last blaze kill", mc -> done() == d0 + 2, 10);
             char st = c.onClient(mc -> (Character) Mod.staticCall(SCF, "puzzleState", "Higher Blaze"));
             c.check(st == '✔', "puzzleState(Higher Blaze) is '" + st + "' after the line, want done");
 
@@ -128,8 +132,6 @@ final class HxScoreChatDone1126Cases {
                             + c.onClient(mc -> failed()) + " (want 1)");
 
             // A new run forgets a counted line.
-            c.hx().chat(PARTY_BLAZE);
-            c.waitUntil("blaze counted", mc -> done() == e0 + 1, 10);
             newRun(c);
             tab(c, OPEN, OPEN);
             c.ctx().waitTicks(30);
@@ -153,8 +155,8 @@ final class HxScoreChatDone1126Cases {
             tab(c, OPEN, OPEN);
             newRun(c);
             int f0 = c.onClient(mc -> done());
-            c.hx().chat(PARTY_BLAZE);
-            c.waitUntil("completed " + (f0 + 1) + " (party Blaze line)", mc -> done() == f0 + 1, 10);
+            c.ctx().runOnClient(mc -> Mod.staticCall(SCF, "onBlazeCleared"));
+            c.waitUntil("completed " + (f0 + 1) + " (last blaze kill)", mc -> done() == f0 + 1, 10);
             c.hx().chat(FAIL_BLAZE);
             c.waitUntil("completed back to " + f0 + " after PUZZLE FAIL Blaze", mc -> done() == f0, 10);
             c.hx().chat(PARTY_BLAZE);
