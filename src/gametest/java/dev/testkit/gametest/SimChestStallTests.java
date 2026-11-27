@@ -385,8 +385,8 @@ public final class SimChestStallTests {
     }
 
     /**
-     * Recorded at END of every client tick while {@link #gateRec} is on: the first tick the walkway reads clear after a
-     * layer was up, the chest clicks counted at END of the tick before it, and the ticks the click count rose. The auto
+     * Recorded at END of every client tick while {@link #gateRec} is on: the first tick the server's board reads complete
+     * (the chest unlocked) after it was not, the chest clicks counted at END of the tick before it, and the ticks the click count rose. The auto
      * clicks at START, after the tick's block packets, so a click on the gate's own tick reads a gap of 0. The test
      * thread's own loop samples far coarser than a tick and read the click and the gate as one moment.
      */
@@ -412,7 +412,10 @@ public final class SimChestStallTests {
                 boolean clear;
                 try {
                     clicks = (Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest");
-                    clear = "0,0,0,0,0".equals(SimPuzzleSolveTests.waterLayers(mc));
+                    // The server's own unlock (the sim's board complete, set in the server tick its last layer goes
+                    // down), not the client's walkway: the five-cell read lags the middle cell by 2-3 ticks, and the
+                    // middle cell is what Hypixel unlocks on (his logger sessions) and what the server judges a click by.
+                    clear = Boolean.TRUE.equals(dev.testkit.gametest.mod.Mod.staticCall(SIM_WATER, "isComplete"));
                 } catch (RuntimeException | AssertionError e) {
                     return; // the room is not placed yet (PuzzleCoords has no clay): nothing to read this tick
                 }
@@ -539,7 +542,7 @@ public final class SimChestStallTests {
                         c2 = g[k];
                     }
                 }
-                SimPuzzleRoundTests.say(name, String.format("client ticks: walkway clear at %d, %d click(s) before it;"
+                SimPuzzleRoundTests.say(name, String.format("client ticks: the server unlocked the chest at %d, %d click(s) before it;"
                         + " clicks at %s", g[0], g[1], java.util.Arrays.toString(java.util.Arrays.copyOfRange(g, 3,
                         3 + Math.min(3, g[2])))));
                 if (g[0] >= 0) {
@@ -559,9 +562,9 @@ public final class SimChestStallTests {
                     bad.add(clicksAtGate + " click(s) while a gate was still up (want 0)");
                 }
                 if (firstT < 0) {
-                    bad.add("no click after the walkway read clear");
+                    bad.add("no click after the server unlocked the chest");
                 } else if (firstT - gateT > 1) {
-                    bad.add("the first click went " + (firstT - gateT) + " tick(s) after the walkway read clear (want <= 1)");
+                    bad.add("the first click went " + (firstT - gateT) + " tick(s) after the server unlocked the chest (want <= 1)");
                 }
                 if (openT < 0) {
                     bad.add("the chest never opened");

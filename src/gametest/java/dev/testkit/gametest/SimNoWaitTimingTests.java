@@ -242,7 +242,8 @@ public final class SimNoWaitTimingTests {
             return new PuzzleTimingExtra(List.of(Pair.CLICK_USE, Pair.SNEAK_USE, Pair.LAND_ACT, Pair.READY_CLICK), null,
                     SimPuzzleRoundTests.claim("SimWaterPuzzle"), null)
                     .judgeOnly(e -> e.info().endsWith(" chest")) // the levers' own timing is 93-solve-waterboard-timing's
-                    .gate(mc -> "0,0,0,0,0".equals(SimPuzzleSolveTests.waterLayers(mc))); // the chest unlocks then
+                    .gate(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.puzzles.SimWaterPuzzle",
+                            "isComplete", new Class<?>[]{}, new Object[]{})); // the server unlocks the chest then
         }
     }
 }
