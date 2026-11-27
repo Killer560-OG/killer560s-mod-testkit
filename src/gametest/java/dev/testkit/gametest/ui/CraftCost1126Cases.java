@@ -167,6 +167,97 @@ final class CraftCost1126Cases {
         close(c);
     }
 
+    private static ItemStack supercraft(String name, String... lore) {
+        ItemStack s = new ItemStack(Items.PLAYER_HEAD);
+        s.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+        s.set(DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(
+                java.util.Arrays.stream(lore).<Component>map(Component::literal).toList()));
+        return s;
+    }
+
+    /** Puts the cursor over container slot 53 (the Supercraft item) or far off every slot, then lets a frame draw. */
+    private static void pointer(UiCase c, boolean over) {
+        double[] g = c.onClient(mc -> {
+            ContainerScreen sc = (ContainerScreen) McCompat.screen(mc);
+            net.minecraft.world.inventory.Slot sl = sc.getMenu().slots.get(53);
+            double x = over ? (sc.width - 176) / 2 + sl.x + 8 : 2, y = over ? (sc.height - 222) / 2 + sl.y + 8 : 2;
+            return new double[]{x * mc.getWindow().getScreenWidth() / (double) mc.getWindow().getGuiScaledWidth(),
+                    y * mc.getWindow().getScreenHeight() / (double) mc.getWindow().getGuiScaledHeight()};
+        });
+        c.ctx().getInput().setCursorPos(g[0], g[1]);
+        c.ticks(6);
+    }
+
+    private static void setSuper(UiCase c, ItemStack s) {
+        c.onClient(mc -> {
+            ((ContainerScreen) McCompat.screen(mc)).getMenu().getSlot(53).set(s);
+            return null;
+        });
+        c.ticks(4);
+    }
+
+    private static String fmt(UiCase c, long v) {
+        return (String) c.onClient(mc -> Mod.staticCall("croesus.DungeonChestValuer", "formatCoins", v));
+    }
+
+    /** Hover the Supercraft item: parenthesized N-craft amounts in rows, title and Instant Buy; none unhovered or malformed. */
+    private static void supercraftCases(UiCase c, Class<?> price) throws Exception {
+        R.setStatic(price, "bazaarSell", Map.of("TEP", 3999.9, "BGF", 999.9));
+        R.setStatic(price, "bazaarBuy", Map.of("TEP", 4100.0, "BGF", 1100.0));
+        c.onClient(mc -> {
+            SimpleContainer box = new SimpleContainer(54);
+            box.setItem(10, item("TEP", "Tessellated Ender Pearl", 4));
+            box.setItem(11, item("BGF", "Braided Griffin Feather", 1));
+            box.setItem(25, item("TERMINATOR", "Terminator", 1));
+            box.setItem(23, new ItemStack(Items.CRAFTING_TABLE));
+            for (int i : new int[]{14, 15, 16, 22, 24}) {
+                box.setItem(i, new ItemStack(Items.STICK));
+            }
+            box.setItem(53, supercraft("Supercraft (8x crafts)", "§0/32 §fTessellated Ender Pearl", "0/8 Braided Griffin Feather",
+                    "Right-Click to set amount!"));
+            McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
+                    mc.player.getInventory(), Component.literal("Terminator")));
+            return null;
+        });
+        c.ticks(8);
+        pointer(c, false);
+        List<String> plain = lines(c);
+        c.note("unhovered: " + plain);
+        c.check(plain.size() == 4 && plain.stream().noneMatch(l -> l.contains("(")), "parentheses with nothing hovered: " + plain);
+        pointer(c, true);
+        List<String> got = lines(c);
+        c.note("hovered: " + got);
+        String qa = "4x (32x) Tessellated Ender Pearl  " + fmt(c, 16000) + " (" + fmt(c, 128000) + ")";
+        c.check(got.size() == 4 && got.get(1).equals(qa), "hovered row: " + got);
+        c.check(got.get(2).equals("1x (8x) Braided Griffin Feather  " + fmt(c, 1000) + " (" + fmt(c, 8000) + ")"), "second row: " + got);
+        c.check(got.get(0).equals("Craft Cost  " + fmt(c, 17000) + " (" + fmt(c, 136000) + ")"), "title total: " + got);
+        c.check(got.get(3).equals("Instant Buy  " + fmt(c, 4 * 4100 + 1100) + " (" + fmt(c, 8 * (4 * 4100 + 1100)) + ")"), "instant buy: " + got);
+        try {
+            java.nio.file.Path shot = c.ctx().takeScreenshot("craftcost-supercraft-1126");
+            java.nio.file.Files.copy(shot, java.nio.file.Path.of("C:/Users/Hunter/killer560s-mod-logs/craftcost-supercraft-1126.png"),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception e) {
+            c.note("no screenshot: " + e);
+        }
+        // Right click changes N: read live. Name without the amount, amount and comma total in the lore.
+        setSuper(c, supercraft("Supercraft", "§7(2x crafts)", "0/1,024 Tessellated Ender Pearl"));
+        got = lines(c);
+        c.check(got.get(1).equals("4x (1024x) Tessellated Ender Pearl  " + fmt(c, 16000) + " (" + fmt(c, 4096000) + ")")
+                && got.get(2).equals("1x (2x) Braided Griffin Feather  " + fmt(c, 1000) + " (" + fmt(c, 2000) + ")"), "live N change: " + got);
+        // Malformed: no amount, then no ingredient lines.
+        setSuper(c, supercraft("Supercraft", "0/32 Tessellated Ender Pearl"));
+        got = lines(c);
+        c.check(got.size() == 4 && got.stream().noneMatch(l -> l.contains("(")), "no-amount lore still showed parentheses: " + got);
+        setSuper(c, supercraft("Supercraft (8x crafts)", "Missing ingredients!"));
+        got = lines(c);
+        c.check(got.size() == 4 && got.stream().noneMatch(l -> l.contains("(")), "no-ingredient lore still showed parentheses: " + got);
+        setSuper(c, supercraft("Supercraft (8x crafts)", "0/32 Tessellated Ender Pearl"));
+        c.check(lines(c).get(1).contains("(32x)"), "a good lore after a bad one did not show: " + lines(c));
+        pointer(c, false);
+        c.check(lines(c).stream().noneMatch(l -> l.contains("(")), "parentheses stayed after the cursor left: " + lines(c));
+        close(c);
+    }
+
     static void craftCost(UiCase c) throws Exception {
         Object cfg = Mod.cfg(CFG);
         boolean wasOn = (Boolean) Mod.call(cfg, "isEnabled");
@@ -229,6 +320,7 @@ final class CraftCost1126Cases {
             close(c);
 
             layout(c, price);
+            supercraftCases(c, price);
         } finally {
             Mod.set(CFG, "setEnabled", wasOn);
             Mod.staticCall("pricetooltip.PriceData", "clearForTest");

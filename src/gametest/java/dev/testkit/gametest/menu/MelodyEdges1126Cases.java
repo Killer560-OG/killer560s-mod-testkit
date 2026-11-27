@@ -98,6 +98,64 @@ final class MelodyEdges1126Cases {
         }
     }
 
+    /** A client tick gap or a server pane step this long or longer during a board is a stall of the test JVMs. */
+    private static final long CLIENT_STALL_MS = 200;
+    private static final long SERVER_STALL_MS = 700;
+
+    record Board(List<String> problems, long ticks, long clientGapMs, long serverGapMs) {
+        boolean stalled() {
+            return clientGapMs >= CLIENT_STALL_MS || serverGapMs >= SERVER_STALL_MS;
+        }
+    }
+
+    /** Plays one board and judges it by the server (see the class doc); also measures the longest client tick gap. */
+    private static Board board(Session c, int[] targets, String model, int seed, String name, int cap) throws Exception {
+        List<String> problems = new ArrayList<>();
+        int clickHead = c.events("terminal.click").size();
+        int solvedHead = c.events("terminal.solved").size();
+        int late0 = lateSkips(c);
+        JsonObject t = open(c, targets, model, seed);
+        MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+        long[] gap = {0, 0}; // last client tick (ns), longest gap (ns)
+        c.waitUntil("Melody " + name + " solved", mc -> {
+            long now = System.nanoTime();
+            if (gap[0] != 0) gap[1] = Math.max(gap[1], now - gap[0]);
+            gap[0] = now;
+            return c.events("terminal.solved").size() > solvedHead;
+        }, 2400);
+        MenuKit.awaitNoScreen(c, 40);
+        JsonObject solved = c.events("terminal.solved").get(solvedHead);
+        int late = lateSkips(c) - late0;
+        int missed = solved.get("missedPasses").getAsInt();
+        long ticks = solved.get("solvedTick").getAsLong() - solved.get("openedTick").getAsLong();
+        long serverGap = solved.has("maxStepGapMs") ? solved.get("maxStepGapMs").getAsLong() : -1;
+        List<Long> lags = new ArrayList<>();
+        for (var e : solved.getAsJsonArray("onTargetLags")) {
+            lags.add(e.getAsLong());
+        }
+        List<JsonObject> all = c.events("terminal.click");
+        int good = 0, wrong = 0;
+        for (JsonObject e : all.subList(clickHead, all.size())) {
+            if (e.get("correct").getAsBoolean()) good++;
+            else {
+                wrong++;
+                c.note(name + ": click not taken, the server's view: " + e);
+            }
+        }
+        long clientGap = gap[1] / 1_000_000L;
+        c.note(name + ": " + ticks + " ticks, rows taken " + lags + " ticks after the pane arrived (cap " + cap + "), " + wrong
+                + " click(s) not taken, " + missed + " pass(es) unclicked, " + late + " let go as too late; longest client tick gap "
+                + clientGap + " ms, server step gap " + serverGap + " ms");
+        if (good != 4) problems.add(name + ": " + good + " rows taken of 4");
+        if (wrong > 0) problems.add(name + ": " + wrong + " click(s) the server did not take");
+        if (missed > late) problems.add(name + ": " + missed + " pass(es) over a target unclicked, " + late
+                + " of them let go as too late");
+        if (lags.size() != 4 || lags.stream().anyMatch(l -> l > cap)) {
+            problems.add(name + ": rows taken " + lags + " ticks after the pane arrived (cap " + cap + ")");
+        }
+        return new Board(problems, ticks, clientGap, serverGap);
+    }
+
     static void edges(Session c, int ms) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
@@ -121,41 +179,19 @@ final class MelodyEdges1126Cases {
                             return null;
                         });
                         for (int b = 0; b < BOARDS.length; b++) {
-                            int[] targets = BOARDS[b];
-                            String name = model + (ss ? " ss " : " ") + Arrays.toString(targets);
-                            int clickHead = c.events("terminal.click").size();
-                            int solvedHead = c.events("terminal.solved").size();
-                            int late0 = lateSkips(c);
-                            JsonObject t = open(c, targets, model, 1126 + b);
-                            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
-                            c.waitUntil("Melody " + name + " solved", mc -> c.events("terminal.solved").size() > solvedHead, 2400);
-                            MenuKit.awaitNoScreen(c, 40);
-                            JsonObject solved = c.events("terminal.solved").get(solvedHead);
-                            int late = lateSkips(c) - late0;
-                            int missed = solved.get("missedPasses").getAsInt();
-                            long ticks = solved.get("solvedTick").getAsLong() - solved.get("openedTick").getAsLong();
-                            total += ticks;
-                            List<Long> lags = new ArrayList<>();
-                            for (var e : solved.getAsJsonArray("onTargetLags")) {
-                                lags.add(e.getAsLong());
+                            String name = model + (ss ? " ss " : " ") + Arrays.toString(BOARDS[b]);
+                            Board one = board(c, BOARDS[b], model, 1126 + b, name, lagCap + (ss ? 4 : 0));
+                            total += one.ticks();
+                            if (!one.problems().isEmpty() && one.stalled()) {
+                                // A starved test JVM (the client sent no movement for 9 s while the server ticked on, lane
+                                // mel1126c c263c p137; a click queued behind a 1 s client stall reached the server after
+                                // the step, c262c p0) is not the mod's: such a board is played once more and judged again.
+                                c.note(name + ": played again, the first try stalled (client tick gap " + one.clientGapMs()
+                                        + " ms, server step gap " + one.serverGapMs() + " ms): " + one.problems());
+                                one = board(c, BOARDS[b], model, 1126 + b, name + " (again)", lagCap + (ss ? 4 : 0));
+                                total += one.ticks();
                             }
-                            List<JsonObject> all = c.events("terminal.click");
-                            int good = 0, wrong = 0;
-                            for (JsonObject e : all.subList(clickHead, all.size())) {
-                                if (e.get("correct").getAsBoolean()) good++;
-                                else wrong++;
-                            }
-                            int cap = lagCap + (ss ? 4 : 0);
-                            c.note(name + ": " + ticks + " ticks, rows taken " + lags + " ticks after the pane arrived (cap "
-                                    + cap + "), " + wrong + " click(s) not taken, " + missed + " pass(es) unclicked, " + late
-                                    + " let go as too late");
-                            if (good != 4) problems.add(name + ": " + good + " rows taken of 4");
-                            if (wrong > 0) problems.add(name + ": " + wrong + " click(s) the server did not take");
-                            if (missed > late) problems.add(name + ": " + missed + " pass(es) over a target unclicked, " + late
-                                    + " of them let go as too late");
-                            if (lags.size() != 4 || lags.stream().anyMatch(l -> l > cap)) {
-                                problems.add(name + ": rows taken " + lags + " ticks after the pane arrived (cap " + cap + ")");
-                            }
+                            problems.addAll(one.problems());
                         }
                     }
                 }

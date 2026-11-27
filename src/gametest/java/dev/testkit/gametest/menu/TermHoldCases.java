@@ -30,7 +30,6 @@ import java.util.TreeMap;
  */
 final class TermHoldCases {
     /** True once this client has played a Melody board in lookahead(): the first one of a fresh client can stall a frame. */
-    private static boolean melodyWarm;
 
     static final String FEATURE = TerminalCases.FEATURE;
     static final String CONFIG = TerminalCases.CONFIG;
@@ -49,6 +48,7 @@ final class TermHoldCases {
         MenuSuite.test(s, "275-menu-term-lookahead0", c -> lookahead(c, 0));
         MenuSuite.test(s, "276-menu-term-lookahead1", c -> lookahead(c, 1));
         MenuSuite.test(s, "277-menu-term-lookahead2", c -> lookahead(c, 2));
+        MenuSuite.test(s, "1126-menu-term-melody-opening", TermHoldCases::openingStay);
         MenuSuite.test(s, "278-menu-term-fakecursor-custom", c -> fakeCursor(c, true));
         MenuSuite.test(s, "279-menu-term-fakecursor-vanilla", c -> fakeCursor(c, false));
     }
@@ -250,24 +250,32 @@ final class TermHoldCases {
                     .set(CONFIG, "MelodyLookaheadClicks", n);
             int got = c.onClient(mc -> (Integer) Mod.get(CONFIG, "getMelodyLookaheadClicks"));
             c.check(got == n, "lookahead set to " + n + " reads back " + got);
-            // A burst dropped as too late (a client stall between the live click and its lookahead, mod
-            // melody-edges-missed-1126b) is right, not a pass: play another board, up to 3, until one fires.
+            // A burst dropped as too late (its pane would step before the click lands) is right, not a pass: play another
+            // board, up to 3, until one fires.
             for (int attempt = 0; ; attempt++) {
             int before = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
             int droppedBefore = c.onClient(mc -> TerminalCases.lookaheadDropped());
+            int queuedBefore = c.onClient(mc -> TerminalCases.lookaheadQueued());
             int clicksBefore = clicks(c).size();
             int solvedBefore = c.events("terminal.solved").size();
-            // keepTarget: the target column stays put, so the gamble the burst makes is a winning one here. Target 1, the
-            // track's FIRST slot: Skip Mode EDGES bursts only from the first or last slot (killer560, 2026-11-02; until
-            // mod ownerq-1102 it meant the first or last row and this case used the middle slot, 3).
+            // keepTarget: the target column stays put, so the gamble the burst makes is a winning one here. Target 5, the
+            // track's LAST slot: Skip Mode EDGES bursts only from the first or last slot (killer560, 2026-11-02). Until
+            // melody-edges-missed-1126c this was target 1, where the pane STARTS: every burst then rode the opening stay,
+            // whose age the client cannot see (it only scans after the board settles and the First Click Delay), and on a
+            // loaded PC the third click landed after the board's first step. Target 5 is reached after four seen steps;
+            // the opening stay has its own case (1126-menu-term-melody-opening).
             JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 40 + n + 10 * attempt, "interval", 6, "bandRows", 3,
-                    "target", 1, "keepTarget", true).getAsJsonObject();
+                    "target", 5, "keepTarget", true).getAsJsonObject();
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
             c.waitUntil("Melody solved", mc -> c.events("terminal.solved").size() > solvedBefore, 400);
             JsonObject solved = c.events("terminal.solved").get(solvedBefore);
             MenuKit.awaitNoScreen(c, 40);
             int fired = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired")) - before;
             int dropped = c.onClient(mc -> TerminalCases.lookaheadDropped()) - droppedBefore;
+            int queuedNow = c.onClient(mc -> TerminalCases.lookaheadQueued());
+            // A row whose burst was dropped is played live, and a live match on the edge bursts again: count what was queued
+            // (a jar without the counter: one burst of n).
+            int queued = queuedNow < 0 ? n : queuedNow - queuedBefore;
             List<JsonObject> mine = clicks(c).subList(clicksBefore, clicks(c).size());
             Map<Integer, Integer> per = new java.util.TreeMap<>();
             for (JsonObject e : mine) {
@@ -280,28 +288,99 @@ final class TermHoldCases {
             for (JsonObject e : mine) {
                 ticks.add(e.get("tick").getAsLong());
             }
-            boolean firstBoard = !melodyWarm;
-            melodyWarm = true;
-            // The first Melody board of a fresh client (this case first in a session) can render a frame late, so a live
-            // click lands after the pane stepped (seen 11-26: "pane there 0 ms of a 0 ms step", server lime one past target).
-            if (firstBoard && attempt == 0) {
-                c.note("Lookahead " + n + ": first Melody board of this client (" + per + ", " + solved.get("wrong") + " wrong) is a warm-up; next board");
-                continue;
-            }
-            if (n > 0 && fired == 0 && dropped == n && attempt < 2 && solved.get("wrong").getAsInt() == 0
+            if (n > 0 && fired == 0 && attempt < 2 && solved.get("wrong").getAsInt() == 0
                     && per.equals(Map.of(16, 1, 25, 1, 34, 1))) {
-                c.note("Lookahead " + n + " board " + attempt + ": burst dropped as too late, 0 wrong; next board");
+                c.note("Lookahead " + n + " board " + attempt + ": " + dropped + " of " + queued + " dropped as too late, 0 wrong; next board");
                 continue;
             }
-            c.note("Lookahead " + n + ": " + fired + " lookahead click(s) after the proper one; per slot " + per + " at ticks "
-                    + ticks + "; " + solved.get("wrong") + " wrong, max " + solved.get("maxClicksPerTick") + " a server tick");
+            c.note("Lookahead " + n + ": " + fired + " lookahead click(s) after the proper one (" + queued + " queued, " + dropped
+                    + " dropped); per slot " + per + " at ticks " + ticks + "; " + solved.get("wrong") + " wrong, max "
+                    + solved.get("maxClicksPerTick") + " a server tick");
             // A lookahead click that would land after the pane stepped is dropped (mod ownerq-1102), never sent wrong.
-            c.check(fired + dropped == n && (n == 0 || fired > 0), "lookahead " + n + " should send " + n + " extra click(s) ("
-                    + (n + 1) + " in the burst), sent " + fired + ", dropped as too late " + dropped);
+            c.check(queued >= n && fired + dropped == queued && (n == 0 || fired > 0), "lookahead " + n + " should queue " + n
+                    + " extra click(s) per edge burst and send or drop each: queued " + queued + ", sent " + fired
+                    + ", dropped as too late " + dropped);
             c.check(per.equals(Map.of(16, 1, 25, 1, 34, 1)), "expected one click on each row button, got " + per);
             c.check(solved.get("wrong").getAsInt() == 0, solved.get("wrong") + " wrong click(s)");
             break;
             }
+        } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    /**
+     * melody-edges-missed-1126c: a board that OPENS with the pane on its target (target 1, where the sim's pane starts) with
+     * Lookahead 2. The mod looks at a board only after it settles and the First Click Delay runs, and until 1126c it dated
+     * the opening position from that first look ("pane there 29 ms of a 301 ms step" when it had stood ~250 ms), so the live
+     * click, the burst and the next row went into a stay that was nearly over and, on a loaded PC, the third landed after the
+     * board's first step (lanes 1126-0122 and 1126-0314, 275-277, all six wrong clicks just after a first step). Here the
+     * step is 1 s and the First Click Delay 300 ms (its maximum), so the first look comes inside the opening stay on any PC: every click
+     * the SERVER takes before the board's first step (msSinceStep -1) must have been judged by the mod with the pane at
+     * least 300 ms old (its own "pane there N ms" line), none may be wrong, and every row is clicked once. Board 0 only
+     * teaches the mod this server's 1 s step. Legit jar: Auto Melody is cheat-only.
+     */
+    static void openingStay(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Melody is cheat-only");
+            return;
+        }
+        final int delayMs = 300;
+        java.util.regex.Pattern line = java.util.regex.Pattern.compile("\\[Melody\\] (?:live|lookahead) click row (\\d+).*pane there (-?\\d+) ms");
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, "AutoMelodyEnabled", true)
+                    .set(CONFIG, "HoverTerminalsEnabled", false).set(CONFIG, "AutoStreamSafe", false)
+                    .set(CONFIG, "NoFirstClickDelayMelody", false).set(CONFIG, "FirstClickDelayMs", delayMs)
+                    .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "EDGES"))
+                    .set(CONFIG, "MelodyLookaheadClicks", 2);
+            int delay = c.onClient(mc -> (Integer) Mod.get(CONFIG, "getFirstClickDelayMs"));
+            c.check(delay == delayMs, "First Click Delay set to " + delayMs + " reads back " + delay);
+            List<String> bad = new ArrayList<>();
+            int judged = 0;
+            for (int board = 0; board < 5 && judged < 2; board++) {
+                int clicksBefore = clicks(c).size();
+                int solvedBefore = c.events("terminal.solved").size();
+                long mark = dev.testkit.gametest.LogTap.mark();
+                JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 1126 + board, "interval", 20, "bandRows", 3,
+                        "target", 1, "keepTarget", true).getAsJsonObject();
+                MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+                c.waitUntil("Melody board " + board + " solved", mc -> c.events("terminal.solved").size() > solvedBefore, 1200);
+                JsonObject solved = c.events("terminal.solved").get(solvedBefore);
+                MenuKit.awaitNoScreen(c, 40);
+                List<Long> ages = new ArrayList<>();
+                for (String l : dev.testkit.gametest.LogTap.since(mark)) {
+                    java.util.regex.Matcher m = line.matcher(l);
+                    if (m.find()) {
+                        ages.add(Long.parseLong(m.group(2)));
+                    }
+                }
+                List<JsonObject> mine = clicks(c).subList(clicksBefore, clicks(c).size());
+                Map<Integer, Integer> per = new java.util.TreeMap<>();
+                List<String> seen = new ArrayList<>();
+                int opening = 0;
+                for (int i = 0; i < mine.size(); i++) {
+                    JsonObject e = mine.get(i);
+                    per.merge(e.get("slot").getAsInt(), 1, Integer::sum);
+                    boolean open = e.has("msSinceStep") && e.get("msSinceStep").getAsLong() < 0;
+                    long age = i < ages.size() ? ages.get(i) : -1;
+                    seen.add(e.get("slot").getAsInt() + "@" + e.get("tick").getAsLong() + " age " + age + (open ? " (opening)" : "")
+                            + (e.get("correct").getAsBoolean() ? "" : " WRONG"));
+                    if (open) {
+                        opening++;
+                        if (board > 0 && age < delayMs) bad.add("board " + board + ": a click in the opening stay judged with the pane "
+                                + age + " ms old (it had stood over " + delayMs + " ms)");
+                    }
+                }
+                c.note("board " + board + ": clicks " + seen + "; " + solved.get("wrong") + " wrong");
+                if (board == 0) continue;
+                if (opening > 0) judged++;
+                if (solved.get("wrong").getAsInt() != 0) bad.add("board " + board + ": " + solved.get("wrong") + " wrong " + seen);
+                if (!per.equals(Map.of(16, 1, 25, 1, 34, 1))) bad.add("board " + board + ": per slot " + per);
+                if (ages.size() != mine.size()) bad.add("board " + board + ": " + ages.size() + " click lines for " + mine.size() + " clicks");
+            }
+            c.check(judged > 0, "no board had a click in its opening stay: the case proved nothing");
+            c.check(bad.isEmpty(), "the opening stay was judged as if fresh: " + bad);
         } finally {
             MenuKit.reset(c);
         }
