@@ -460,7 +460,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         if (cleared1.get(roomO2.name())) {
             failures.add("party: O2 (teammate inside) was cleared");
         }
-        if (party.log.stream().anyMatch(l -> l.contains("right-clicked the blood door"))) {
+        if (party.log.stream().anyMatch(l -> l.contains("-clicked the blood door"))) {
             failures.add("party: it clicked the blood door");
         }
         if (party.stopReason == null || !party.stopReason.contains("nothing left")) {
@@ -484,7 +484,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         if (!cleared2.get(roomR.name()) || !cleared2.get(roomO2.name())) {
             failures.add("solo: R/O2 not cleared on the map (" + cleared2 + ")");
         }
-        boolean clicked = solo.log.stream().anyMatch(l -> l.contains("right-clicked the blood door"));
+        boolean clicked = solo.log.stream().anyMatch(l -> l.contains("-clicked the blood door"));
         boolean bloodOpen = ctx.computeOnClient(mc -> mc.level.getBlockState(bloodLock).isAir());
         int lastPick = -1;
         int bloodLine = -1;
