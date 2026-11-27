@@ -194,7 +194,7 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
             press = (Long) ModUnderTest.staticCall(EXEC, "lastPressTick");
             hops = (List<Long>) ModUnderTest.staticCall(EXEC, "hopSendTicks");
             busy = (Boolean) ModUnderTest.staticCall(EXEC, "isBusy");
-        } catch (ReflectiveOperationException | RuntimeException e) {
+        } catch (RuntimeException e) {
             return;
         }
         boolean shiftHeard = prevShift;
