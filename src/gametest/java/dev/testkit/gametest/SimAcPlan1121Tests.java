@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,8 +42,7 @@ import java.util.regex.Pattern;
  *   cleared (no key, off the blood rush path) armed and Allow Insta Clearing ON: at least {@code testkit.instacostMin}
  *   (default 5; the base branch did 4) are really insta cleared (the sim's own "insta cleared" line, fired at the room's first entry, before any
  *   mob in it can die); ticks and the count printed for the base-vs-branch comparison.</li>
- *   <li>1127-sim-instapick-big (instaclear-pick-1127): the same run, judged by the room the first tour credits most (the
- *   most tiles): it is really insta cleared and then counted cleared.</li>
+ *   <li>1127-sim-instapick-big (instaclear-pick-1127): the same run; no "insta clear X first" swap gives up a bigger armed room.</li>
  *   <li>1126-sim-instacost-quiz / -icefill / -bloodfirst (killer560 2026-11-26: "it should insta-clear that room before it
  *   and then go into quiz"): with Quiz First, Ice Fill First or Blood First, the mob rooms the trip there would show (on
  *   its door path or next to it; Blood First: next to the rush path, never a rush room) are armed. Run OFF then ON: ON
@@ -404,7 +404,6 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         clearedAt.clear();
         instaAt.clear();
         onTheWay.clear();
-        firstTour = null;
         if (name.equals(INSTA_AP) || allArm(name) || COST_TRIPS.contains(name)) {
             String why = ctx.computeOnClient(mc -> name.equals(INSTA_AP) ? armInsta() : armCost(name));
             if (why != null) {
@@ -448,9 +447,6 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 }
                 if (l.contains("insta clear") || l.contains("Sim insta room")) {
                     instaLines.add(l);
-                }
-                if (firstTour == null && l.contains("[Autopilot] tour:") && l.contains("insta clear")) {
-                    firstTour = l;
                 }
                 Matcher rc = SIM_CLEARED.matcher(l);
                 if (rc.find()) {
@@ -772,35 +768,34 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         return name.equals(COST_ALL) || name.equals(COST_BIG);
     }
 
-    /** The first tour line that credits insta clears (both "insta clear X (-N s)" and "no insta clear for X"). */
-    private String firstTour;
     /** Armed room -> its map tiles: the sim credits a room's insta clear by its tiles (Autopilot.clearEstimate). */
     private final Map<String, Integer> armTiles = new HashMap<>();
-    private static final Pattern CREDITED = Pattern.compile("(?:, insta clear ([^,(|]+?) \\(-[\\d.]+ s\\)|no insta clear for ([^,(|]+?) \\()");
+    private static final Pattern SWAP = Pattern.compile("insta clear (.+?) first: the way to (.+?) would show it");
 
     /**
      * 1127-sim-instapick-big (instaclear-pick-1127, killer560 2026-11-27: "it isnt choosing good rooms yet to insta
-     * clear"): of the rooms the first tour credits, the one worth the most (most tiles, the sim's clear cost) is really
-     * insta cleared (the sim's "insta cleared" line, fired at its first entry with every mob in it alive) and then counted
-     * cleared (the sim's "room cleared" line).
+     * clear"): an "insta clear X first: the way to Y would show it" swap never gives up a bigger armed room Y (more tiles,
+     * the sim's clear cost) for a smaller X; the origin jar traded Hallway (4 tiles) for Multicolored and Three Floors (1).
+     * The feature must act: at least two armed rooms really insta cleared (the sim's "insta cleared" line).
      */
     private void instaBig(String name, String seq) {
-        Set<String> credited = new HashSet<>();
-        Matcher m = CREDITED.matcher(firstTour == null ? "" : firstTour);
-        while (m.find()) {
-            String r = m.group(1) != null ? m.group(1) : m.group(2);
-            if (armTiles.containsKey(r)) {
-                credited.add(r);
+        Set<String> bad = new TreeSet<>();
+        Set<String> swaps = new TreeSet<>();
+        for (String l : instaLines) {
+            Matcher m = SWAP.matcher(l);
+            if (m.find() && armTiles.containsKey(m.group(1)) && armTiles.containsKey(m.group(2))) {
+                String s = m.group(1) + "(" + armTiles.get(m.group(1)) + ") before " + m.group(2) + "(" + armTiles.get(m.group(2)) + ")";
+                swaps.add(s);
+                if (armTiles.get(m.group(2)) > armTiles.get(m.group(1))) {
+                    bad.add(s);
+                }
             }
         }
-        int most = credited.stream().mapToInt(armTiles::get).max().orElse(-1);
-        List<String> biggest = credited.stream().filter(r -> armTiles.get(r) == most).sorted().toList();
-        List<String> done = biggest.stream().filter(r -> instaAt.containsKey(r) && clearedAt.containsKey(r)).toList();
-        System.out.println("[" + name + "] credited " + credited + " (tiles " + armTiles + "); biggest " + biggest
-                + "; insta cleared " + instaAt.keySet() + "; picks " + seq);
-        row(name, credited.size() >= 2 && !done.isEmpty(), "credited " + credited.size() + " " + credited + ", biggest "
-                + biggest + " (" + most + " tiles), insta cleared and counted cleared " + done + ", all insta "
-                + instaAt.keySet() + ", " + lastTick + " ticks");
+        long done = instaAt.keySet().stream().filter(armTiles::containsKey).count();
+        System.out.println("[" + name + "] tiles " + armTiles + "; swaps " + swaps + "; insta cleared " + instaAt.keySet()
+                + "; picks " + seq);
+        row(name, bad.isEmpty() && done >= 2, "swaps " + swaps + ", bigger room given up " + bad + ", armed insta cleared "
+                + done + " " + instaAt.keySet() + ", " + lastTick + " ticks");
     }
 
     /** Client thread: arms the rooms a 1126-sim-instacost case is about (see the class doc). @return null, else why not. */
