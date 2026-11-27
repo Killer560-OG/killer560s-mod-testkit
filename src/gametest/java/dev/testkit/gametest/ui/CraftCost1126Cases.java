@@ -302,7 +302,7 @@ final class CraftCost1126Cases {
         c.onClient(mc -> {
             SimpleContainer box = new SimpleContainer(54);
             box.setItem(10, item("ELB", "Enchanted Lapis Lazuli Block", 32));
-            box.setItem(11, item("AEP", "Absolute Ender Pearl", 80));
+            box.setItem(11, item("AEP", "Absolute Ender Pearl", 40));
             box.setItem(25, item("TEP", "Tessellated Ender Pearl", yield));
             box.setItem(23, new ItemStack(Items.CRAFTING_TABLE));
             for (int i : new int[]{14, 15, 16, 22, 24}) {
@@ -338,10 +338,10 @@ final class CraftCost1126Cases {
         openChild(c, 1);
         List<String> got = lines(c);
         c.note("child after a click (8 needed): " + got);
-        c.check(got.size() == 5 && got.get(0).equals("Craft Cost (8 crafts)  " + fmt(c, 32256000))
+        c.check(got.size() == 5 && got.get(0).equals("Craft Cost (8 crafts)  " + fmt(c, 28416000))
                 && got.get(1).equals("256x Enchanted Lapis Lazuli Block  " + fmt(c, 24576000))
-                && got.get(2).equals("640x Absolute Ender Pearl  " + fmt(c, 7680000))
-                && got.get(3).equals("Instant Buy  " + fmt(c, 33600000)) && got.get(4).equals("Reset to This Recipe"),
+                && got.get(2).equals("320x Absolute Ender Pearl  " + fmt(c, 3840000))
+                && got.get(3).equals("Instant Buy  " + fmt(c, 29600000)) && got.get(4).equals("Reset to This Recipe"),
                 "the carried amount: " + got);
         List<String> sent = new CopyOnWriteArrayList<>();
         java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> before = dev.testkit.harness.PacketTrace.tap;
@@ -359,13 +359,13 @@ final class CraftCost1126Cases {
             dev.testkit.harness.PacketTrace.tap = before;
         }
         got = lines(c);
-        c.check(got.size() == 4 && got.get(0).equals("Craft Cost  " + fmt(c, 4032000)) && got.get(1).equals("32x Enchanted Lapis Lazuli Block  " + fmt(c, 3072000)),
+        c.check(got.size() == 4 && got.get(0).equals("Craft Cost  " + fmt(c, 3552000)) && got.get(1).equals("32x Enchanted Lapis Lazuli Block  " + fmt(c, 3072000)),
                 "after Reset the recipe is not one craft: " + got);
         close(c);
         // The same recipe opened with no ingredient click: one craft.
         openChild(c, 1);
         got = lines(c);
-        c.check(got.size() == 4 && got.get(0).equals("Craft Cost  " + fmt(c, 4032000)), "a directly opened recipe is not one craft: " + got);
+        c.check(got.size() == 4 && got.get(0).equals("Craft Cost  " + fmt(c, 3552000)), "a directly opened recipe is not one craft: " + got);
         close(c);
         // A sub-recipe that yields 3 per craft: ceil(8 / 3) = 3 crafts.
         c.onClient(mc -> {
