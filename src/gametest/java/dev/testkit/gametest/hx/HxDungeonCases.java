@@ -353,6 +353,7 @@ final class HxDungeonCases {
             try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", false);
                  dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
                 run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                run(c, () -> Mod.staticCall(SHARE, "boardsAnyHostForTest", true));
                 dungeon(c);
                 c.waitUntil("no delete waiting", mc -> !dev.testkit.gametest.logic.ShareSiteCases.pendingDelete(), 100);
                 run(c, () -> Mod.staticCall(SHARE, "setNoticeForTest", false));
@@ -367,6 +368,7 @@ final class HxDungeonCases {
                         + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
                 c.note("after the notice: " + stub.bodies.get(0));
             } finally {
+                run(c, () -> Mod.staticCall(SHARE, "boardsAnyHostForTest", false));
                 run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
                 run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
                 run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
