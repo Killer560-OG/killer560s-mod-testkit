@@ -64,6 +64,10 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
     private static int deferred;
     private static int travels;
     private static final Map<String, int[]> BY = new TreeMap<>();
+    /** Each waiting tick of a trip before its first warp, by what it came after and the executor's own wait state. */
+    private static final Map<String, Integer> WHY = new TreeMap<>();
+    private static Field waitReason;
+    private static Field swappedOnTick;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -244,6 +248,7 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
 
     private static void reset() {
         BY.clear();
+        WHY.clear();
         trips = 0;
         deadTicks = 0;
         deferred = 0;
@@ -260,6 +265,9 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
         BY.entrySet().stream().sorted((x, y) -> y.getValue()[1] - x.getValue()[1]).limit(25).forEach(e -> b.append(" ")
                 .append(e.getKey()).append(" [").append(e.getValue()[0]).append(", ").append(e.getValue()[1]).append(", ")
                 .append(e.getValue()[2]).append("];"));
+        b.append(" waiting ticks:");
+        WHY.entrySet().stream().sorted((x, y) -> y.getValue() - x.getValue()).limit(20)
+                .forEach(e -> b.append(" [").append(e.getValue()).append("] ").append(e.getKey()).append(";"));
         return b.toString();
     }
 
@@ -275,6 +283,10 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
             acAction.setAccessible(true);
             asPhase = Class.forName(AS).getDeclaredField("phase");
             asPhase.setAccessible(true);
+            waitReason = Class.forName(EXEC).getDeclaredField("waitReason");
+            waitReason.setAccessible(true);
+            swappedOnTick = Class.forName(EXEC).getDeclaredField("swappedOnTick");
+            swappedOnTick.setAccessible(true);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("probe: " + e);
         }
@@ -296,7 +308,8 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
         if (!asp.equals("IDLE") && !asp.equals("AUTO_CLEAR") && !asp.equals("TRAVEL")) {
             return "AS " + asp;
         }
-        return acp + (asp.equals("IDLE") ? "" : " in AS " + asp);
+        String what = act.replaceAll(" -> .*| \\(.*|[0-9.,-]+", "").trim();
+        return acp + (what.isEmpty() ? "" : ":" + what) + (asp.equals("IDLE") ? "" : " in AS " + asp);
     }
 
     @SuppressWarnings("unchecked")
@@ -360,6 +373,14 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
             openStart = -1;
         } else if (!busy || tick - openStart > 40) {
             openStart = -1;
+        } else {
+            String why;
+            try {
+                why = waitReason.get(null) + " swapT=" + (tick - (Long) swappedOnTick.get(null));
+            } catch (IllegalAccessException | RuntimeException e) {
+                why = "?";
+            }
+            WHY.merge(startKey + " t+" + Math.min(3, tick - openStart) + " heardNow=" + heard + " why=" + why, 1, Integer::sum);
         }
     }
 
