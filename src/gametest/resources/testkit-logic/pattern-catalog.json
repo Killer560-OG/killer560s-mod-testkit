@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T19:24:58",
- "modSource": "lane-bat-crypt-reroute-1126",
- "modGitSha": "70deb9a8966abc6dd298cccbb17cfecbca7bc270",
+ "generatedAt": "2026-11-26T20:18:48",
+ "modSource": "lane-autoroutes-node-number-skip-1126",
+ "modGitSha": "dec340250050899e161661ff5659d35e65ada04e",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
