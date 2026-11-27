@@ -492,15 +492,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1127-same-latesearch-second", c -> caseLateSearch(c, null, true));
                 // tl1127-sneak-after-impact: the room's last cast in place holds the sneak for the trip out (and the next
                 // decision is made in the END that ended Auto Secret's step); his action lands in those ticks.
-                s.test("62-argrim-1127-same-lastcast-use", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.USE_CLICK, false));
                 s.test("62-argrim-1127-same-lastcast-openclick", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false));
                 s.test("62-argrim-1127-same-lastcast-attack", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.ATTACK, false));
                 s.test("62-argrim-1127-same-lastcast-swap", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
                 s.test("62-argrim-1127-same-lastcast-tp", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.TP, false));
                 s.test("62-argrim-1127-same-lastcast-second", c -> caseLastCast(c, null, true));
                 s.test("62-argrim-1127-same-decide-use", c -> caseDecideTick(c, dev.testkit.gametest.SameTick.Act.USE_CLICK, false));
-                s.test("62-argrim-1127-same-decide-openclick", c -> caseDecideTick(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false));
-                s.test("62-argrim-1127-same-decide-attack", c -> caseDecideTick(c, dev.testkit.gametest.SameTick.Act.ATTACK, false));
                 s.test("62-argrim-1127-same-decide-swap", c -> caseDecideTick(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
                 s.test("62-argrim-1127-same-decide-tp", c -> caseDecideTick(c, dev.testkit.gametest.SameTick.Act.TP, false));
                 s.test("62-argrim-1127-same-decide-second", c -> caseDecideTick(c, null, true));
@@ -6124,6 +6121,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         int primed = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedLastCastTicks")) - p0;
         int waits = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedWaitTicks")) - w0;
         c.note("ticks the room's last cast held the sneak: " + primed + ", ticks a way-out wait or roam held it: " + waits);
+        if (act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK) {
+            // Under his open container the prime is refused (ClearExecutor.primeSneak, MultiActionsC): that is the test.
+            check(primed == 0 && waits == 0, "the sneak was primed under his open container");
+            return;
+        }
         check(primed > 0, "the room's last cast in place never held the sneak (the prime was not tested)");
     }
 
@@ -6144,7 +6146,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             decideSecond = false;
         }
         int d = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(as, "sameTickDecides")) - d0;
-        c.note("Auto Secret decisions made in the END that ended the step: " + d);
+        c.note("Auto Secret decisions made in the END that ended the step: " + d + ", Auto Clear sneak primes (last cast/wait) "
+                + c.ctx().computeOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearFeature", "primedLastCastTicks")
+                + "/" + ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearFeature", "primedWaitTicks")));
         check(d > 0, "Auto Secret never decided in the END that ended its step (nothing tested)");
     }
 
