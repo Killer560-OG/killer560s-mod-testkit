@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T08:25:47",
- "modSource": "lane-gatehold-aotv-click-1127",
- "modGitSha": "a2d2890342989f1e8cff039c70b78b62d52b0c1e",
+ "generatedAt": "2026-11-27T10:26:05",
+ "modSource": "lane-autopilot-prerun-late-1127",
+ "modGitSha": "424d7966a0fa4bafcccdbb1cd68162fff8f69b78",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
@@ -10958,9 +10958,9 @@
    "expr": "\"\\\\bttt\\\\b\""
   },
   {
-   "id": "scorecalc.ScoreCalculatorFeature#BLAZE_DONE_WORD",
+   "id": "scorecalc.ScoreCalculatorFeature#DONE_WORD",
    "cls": "scorecalc.ScoreCalculatorFeature",
-   "field": "BLAZE_DONE_WORD",
+   "field": "DONE_WORD",
    "index": null,
    "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
    "line": 165,
