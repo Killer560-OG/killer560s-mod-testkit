@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T21:46:06",
- "modSource": "lane-acplan-insta-warptile-fix-1126",
- "modGitSha": "47460f127e9fc7f393ae561242a16ed6f75e67c2",
+ "generatedAt": "2026-11-26T22:29:07",
+ "modSource": "lane-waterboard-chest-timed-click-1126",
+ "modGitSha": "314e1d54e8766112c30b8b4422d2ca27f6902e49",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
