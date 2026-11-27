@@ -178,11 +178,12 @@ final class CraftCost1126Cases {
         return s;
     }
 
-    /** Puts the cursor over container slot 53 (the Supercraft item) or far off every slot, then lets a frame draw. */
-    private static void pointer(UiCase c, boolean over) {
+    /** Puts the cursor over container slot {@code slot} (34 is the Supercraft item) or, below 0, far off every slot, then lets a frame draw. */
+    private static void pointer(UiCase c, int slot) {
+        boolean over = slot >= 0;
         double[] g = c.onClient(mc -> {
             ContainerScreen sc = (ContainerScreen) McCompat.screen(mc);
-            net.minecraft.world.inventory.Slot sl = sc.getMenu().slots.get(53);
+            net.minecraft.world.inventory.Slot sl = sc.getMenu().slots.get(Math.max(slot, 0));
             double x = over ? (sc.width - 176) / 2 + sl.x + 8 : 2, y = over ? (sc.height - 222) / 2 + sl.y + 8 : 2;
             return new double[]{x * mc.getWindow().getScreenWidth() / (double) mc.getWindow().getGuiScaledWidth(),
                     y * mc.getWindow().getScreenHeight() / (double) mc.getWindow().getGuiScaledHeight()};
@@ -193,7 +194,7 @@ final class CraftCost1126Cases {
 
     private static void setSuper(UiCase c, ItemStack s) {
         c.onClient(mc -> {
-            ((ContainerScreen) McCompat.screen(mc)).getMenu().getSlot(53).set(s);
+            ((ContainerScreen) McCompat.screen(mc)).getMenu().getSlot(34).set(s);
             return null;
         });
         c.ticks(4);
@@ -201,6 +202,11 @@ final class CraftCost1126Cases {
 
     private static String fmt(UiCase c, long v) {
         return (String) c.onClient(mc -> Mod.staticCall("croesus.DungeonChestValuer", "formatCoins", v));
+    }
+
+    /** A parenthesized Supercraft amount such as "(256x)" or "(24.8M)"; the title's "(8 crafts)" is not one. */
+    private static boolean amountParens(String l) {
+        return l.matches(".*\\([0-9.,]+[kMBT]?x?\\).*");
     }
 
     /** Hover the Supercraft item: parenthesized N-craft amounts in rows, title and Instant Buy; none unhovered or malformed. */
@@ -216,7 +222,7 @@ final class CraftCost1126Cases {
             for (int i : new int[]{14, 15, 16, 22, 24}) {
                 box.setItem(i, new ItemStack(Items.STICK));
             }
-            box.setItem(53, supercraft("Supercraft (8x crafts)", "✖ 0/300 Tessellated Ender Pearl", "✖ 0/8 Braided Griffin Feather", "",
+            box.setItem(34, supercraft("Supercraft (8x crafts)", "✖ 0/300 Tessellated Ender Pearl", "✖ 0/8 Braided Griffin Feather", "",
                     "Ingredients are taken from your", "inventory, sacks, ender chests and", "backpacks.", "", "Right-Click to set amount!",
                     "Missing ingredients!"));
             McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
@@ -224,11 +230,11 @@ final class CraftCost1126Cases {
             return null;
         });
         c.ticks(8);
-        pointer(c, false);
+        pointer(c, -1);
         List<String> plain = lines(c);
         c.note("unhovered: " + plain);
-        c.check(plain.size() == 4 && plain.stream().noneMatch(l -> l.contains("(")), "parentheses with nothing hovered: " + plain);
-        pointer(c, true);
+        c.check(plain.size() == 4 && plain.stream().noneMatch(CraftCost1126Cases::amountParens), "parentheses with nothing hovered: " + plain);
+        pointer(c, 34);
         List<String> got = lines(c);
         c.note("hovered: " + got);
         String qa = "4x (300x) Tessellated Ender Pearl  " + fmt(c, 16000) + " (" + fmt(c, 1200000) + ")";
@@ -243,22 +249,144 @@ final class CraftCost1126Cases {
         } catch (Exception e) {
             c.note("no screenshot: " + e);
         }
-        // Right click changes N: read live. Name without the amount, amount and comma total in the lore.
-        setSuper(c, supercraft("Supercraft", "§7(2x crafts)", "0/1,024 Tessellated Ender Pearl"));
+        // He sets his own amount (right click): a Supercraft N that differs from the last one is the panel's amount, hovered or not.
+        setSuper(c, supercraft("Supercraft", "\u00a77(2x crafts)", "0/1,024 Tessellated Ender Pearl"));
         got = lines(c);
-        c.check(got.get(1).equals("4x (1024x) Tessellated Ender Pearl  " + fmt(c, 16000) + " (" + fmt(c, 4096000) + ")")
-                && got.get(2).equals("1x (2x) Braided Griffin Feather  " + fmt(c, 1000) + " (" + fmt(c, 2000) + ")"), "live N change: " + got);
+        c.note("custom amount 2: " + got);
+        c.check(got.size() == 5 && got.get(0).equals("Craft Cost (2 crafts)  " + fmt(c, 34000) + " (" + fmt(c, 4098000) + ")")
+                && got.get(1).equals("8x (1024x) Tessellated Ender Pearl  " + fmt(c, 32000) + " (" + fmt(c, 4096000) + ")")
+                && got.get(2).equals("2x (2x) Braided Griffin Feather  " + fmt(c, 2000) + " (" + fmt(c, 2000) + ")")
+                && got.get(4).equals("Reset to This Recipe"), "live custom amount: " + got);
+        pointer(c, -1);
+        got = lines(c);
+        c.check(got.get(0).startsWith("Craft Cost (2 crafts)") && got.get(1).equals("8x Tessellated Ender Pearl  " + fmt(c, 32000)),
+                "the custom amount did not hold when not hovered: " + got);
+        // The Reset line: taken by the panel, no packet of any kind.
+        List<String> sent = new CopyOnWriteArrayList<>();
+        java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> before = dev.testkit.harness.PacketTrace.tap;
+        dev.testkit.harness.PacketTrace.tap = p -> {
+            if (p instanceof ServerboundChatCommandPacket || p instanceof net.minecraft.network.protocol.game.ServerboundContainerClickPacket) {
+                sent.add(p.getClass().getSimpleName());
+            }
+        };
+        try {
+            List<int[]> rs = rows(c);
+            c.check(click(c, rs.get(4)[2] + 2, rs.get(4)[1]), "a click on the Reset line was not taken");
+            c.ticks(4);
+            c.check(sent.isEmpty(), "the Reset click sent " + sent);
+        } finally {
+            dev.testkit.harness.PacketTrace.tap = before;
+        }
+        got = lines(c);
+        c.check(got.size() == 4 && got.get(0).equals("Craft Cost  " + fmt(c, 17000)) && got.get(1).equals("4x Tessellated Ender Pearl  " + fmt(c, 16000)),
+                "after Reset: " + got);
         // Malformed: no amount, then no ingredient lines.
         setSuper(c, supercraft("Supercraft", "0/32 Tessellated Ender Pearl"));
         got = lines(c);
-        c.check(got.size() == 4 && got.stream().noneMatch(l -> l.contains("(")), "no-amount lore still showed parentheses: " + got);
+        c.check(got.size() == 4 && got.stream().noneMatch(CraftCost1126Cases::amountParens), "no-amount lore still showed parentheses: " + got);
         setSuper(c, supercraft("Supercraft (8x crafts)", "Missing ingredients!"));
         got = lines(c);
-        c.check(got.size() == 4 && got.stream().noneMatch(l -> l.contains("(")), "no-ingredient lore still showed parentheses: " + got);
+        c.check(got.size() == 4 && got.stream().noneMatch(CraftCost1126Cases::amountParens), "no-ingredient lore still showed parentheses: " + got);
+        pointer(c, 34);
         setSuper(c, supercraft("Supercraft (8x crafts)", "0/32 Tessellated Ender Pearl"));
         c.check(lines(c).get(1).contains("(32x)"), "a good lore after a bad one did not show: " + lines(c));
-        pointer(c, false);
-        c.check(lines(c).stream().noneMatch(l -> l.contains("(")), "parentheses stayed after the cursor left: " + lines(c));
+        pointer(c, -1);
+        got = lines(c);
+        c.check(got.stream().noneMatch(CraftCost1126Cases::amountParens) && got.get(0).startsWith("Craft Cost (8 crafts)"),
+                "unhovered after a changed N: " + got);
+        close(c);
+    }
+
+    /** The Tessellated Ender Pearl recipe menu: 32 Lapis Block and 80 Absolute Pearl, the result {@code yield} pearls. */
+    private static void openChild(UiCase c, int yield) {
+        c.onClient(mc -> {
+            SimpleContainer box = new SimpleContainer(54);
+            box.setItem(10, item("ELB", "Enchanted Lapis Lazuli Block", 32));
+            box.setItem(11, item("AEP", "Absolute Ender Pearl", 80));
+            box.setItem(25, item("TEP", "Tessellated Ender Pearl", yield));
+            box.setItem(23, new ItemStack(Items.CRAFTING_TABLE));
+            for (int i : new int[]{14, 15, 16, 22, 24}) {
+                box.setItem(i, new ItemStack(Items.STICK));
+            }
+            McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
+                    mc.player.getInventory(), Component.literal("Tessellated Ender Pearl")));
+            return null;
+        });
+        c.ticks(8);
+    }
+
+    /** Click an ingredient of the Terminator recipe, land in its own recipe menu: the panel counts the crafts the parent needed. */
+    private static void carryCases(UiCase c, Class<?> price) throws Exception {
+        R.setStatic(price, "bazaarSell", Map.of("TEP", 3999.9, "BGF", 999.9, "ELB", 95999.9, "AEP", 11999.9));
+        R.setStatic(price, "bazaarBuy", Map.of("TEP", 4100.0, "BGF", 1100.0, "ELB", 100000.0, "AEP", 12500.0));
+        c.onClient(mc -> {
+            SimpleContainer box = new SimpleContainer(54);
+            box.setItem(10, item("TEP", "Tessellated Ender Pearl", 8));
+            box.setItem(11, item("BGF", "Braided Griffin Feather", 1));
+            box.setItem(25, item("TERMINATOR", "Terminator", 1));
+            box.setItem(23, new ItemStack(Items.CRAFTING_TABLE));
+            for (int i : new int[]{14, 15, 16, 22, 24}) {
+                box.setItem(i, new ItemStack(Items.STICK));
+            }
+            McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
+                    mc.player.getInventory(), Component.literal("Terminator")));
+            return null;
+        });
+        c.ticks(8);
+        pointer(c, 10);
+        c.onClient(mc -> Mod.staticCall(CC, "noteClickForTest"));
+        openChild(c, 1);
+        List<String> got = lines(c);
+        c.note("child after a click (8 needed): " + got);
+        c.check(got.size() == 5 && got.get(0).equals("Craft Cost (8 crafts)  " + fmt(c, 32256000))
+                && got.get(1).equals("256x Enchanted Lapis Lazuli Block  " + fmt(c, 24576000))
+                && got.get(2).equals("640x Absolute Ender Pearl  " + fmt(c, 7680000))
+                && got.get(3).equals("Instant Buy  " + fmt(c, 33600000)) && got.get(4).equals("Reset to This Recipe"),
+                "the carried amount: " + got);
+        List<String> sent = new CopyOnWriteArrayList<>();
+        java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> before = dev.testkit.harness.PacketTrace.tap;
+        dev.testkit.harness.PacketTrace.tap = p -> {
+            if (p instanceof ServerboundChatCommandPacket || p instanceof net.minecraft.network.protocol.game.ServerboundContainerClickPacket) {
+                sent.add(p.getClass().getSimpleName());
+            }
+        };
+        try {
+            List<int[]> rs = rows(c);
+            c.check(click(c, rs.get(4)[2] + 2, rs.get(4)[1]), "a click on the Reset line was not taken");
+            c.ticks(4);
+            c.check(sent.isEmpty(), "the Reset click sent " + sent);
+        } finally {
+            dev.testkit.harness.PacketTrace.tap = before;
+        }
+        got = lines(c);
+        c.check(got.size() == 4 && got.get(0).equals("Craft Cost  " + fmt(c, 4032000)) && got.get(1).equals("32x Enchanted Lapis Lazuli Block  " + fmt(c, 3072000)),
+                "after Reset the recipe is not one craft: " + got);
+        close(c);
+        // The same recipe opened with no ingredient click: one craft.
+        openChild(c, 1);
+        got = lines(c);
+        c.check(got.size() == 4 && got.get(0).equals("Craft Cost  " + fmt(c, 4032000)), "a directly opened recipe is not one craft: " + got);
+        close(c);
+        // A sub-recipe that yields 3 per craft: ceil(8 / 3) = 3 crafts.
+        c.onClient(mc -> {
+            SimpleContainer box = new SimpleContainer(54);
+            box.setItem(10, item("TEP", "Tessellated Ender Pearl", 8));
+            box.setItem(25, item("TERMINATOR", "Terminator", 1));
+            box.setItem(23, new ItemStack(Items.CRAFTING_TABLE));
+            for (int i : new int[]{14, 15, 16, 22, 24}) {
+                box.setItem(i, new ItemStack(Items.STICK));
+            }
+            McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
+                    mc.player.getInventory(), Component.literal("Terminator")));
+            return null;
+        });
+        c.ticks(8);
+        pointer(c, 10);
+        c.onClient(mc -> Mod.staticCall(CC, "noteClickForTest"));
+        openChild(c, 3);
+        got = lines(c);
+        c.check(got.get(0).startsWith("Craft Cost (3 crafts)") && got.get(1).startsWith("96x Enchanted Lapis Lazuli Block"),
+                "a yield of 3 needs 3 crafts for 8: " + got);
         close(c);
     }
 
@@ -325,6 +453,7 @@ final class CraftCost1126Cases {
 
             layout(c, price);
             supercraftCases(c, price);
+            carryCases(c, price);
         } finally {
             Mod.set(CFG, "setEnabled", wasOn);
             Mod.staticCall("pricetooltip.PriceData", "clearForTest");
