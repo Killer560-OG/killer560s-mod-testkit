@@ -198,6 +198,7 @@ public class SimApFix1123Tests implements FabricClientGameTest {
         used.add(room);
         SimAutoSecretTests.writeRoutes(ctx, Map.of(room, route));
         long mark = LogTap.mark();
+        freshRun(ctx);
         Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
         String target = room;
         boolean finished = false;
@@ -240,6 +241,12 @@ public class SimApFix1123Tests implements FabricClientGameTest {
                 + "): started " + started + ", fired per node " + java.util.Arrays.toString(fired) + " (start once, every"
                 + " other at least once), route finished " + finished + ", given up " + gaveUp
                 + ", run memory has every node fired " + memory);
+    }
+
+    /** A new dungeon run for the route memory: an earlier case on this floor may have run the same room (Mines). */
+    private static void freshRun(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset",
+                new Class<?>[]{}, new Object[]{}));
     }
 
     /** {@code count} ROTATE nodes on standable blocks 6+ apart in the room's main tile, start flag on {@code startIdx}. */
