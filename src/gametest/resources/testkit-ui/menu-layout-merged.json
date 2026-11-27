@@ -1094,9 +1094,7 @@
     {
       "owner": "Auto Clear",
       "key": "key base range",
-      "renamed": "key range",
-      "text": "Pickup range for dungeon keys, in blocks. The range used (shown after the arrow) adds 5 to this. 1 by default.",
-      "why": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot"
+      "gone": "autopilot-menu-1126 (killer560 2026-11-26): Key Range removed, the game's own key pickup range is used"
     },
     {
       "owner": "Auto Clear",
@@ -1129,6 +1127,27 @@
       "renamed": "status hud",
       "text": "One small HUD showing what Dungeons Autopilot is doing, hidden while nothing runs; move it in the HUD editor.",
       "why": "412's fixture row: bce20273 (2026-10-15) Autopilot HUD became the one Status HUD; apmenu-1121 one card"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "insta clear first",
+      "renamed": "allow insta clearing",
+      "text": "Lets the planner count that warping into a room the map has not shown yet clears it outright (an insta clear) and plan the run around it: slow rooms with many mobs save the most. Never a blood rush room or a room whose key is needed.",
+      "why": "autopilot-menu-1126 (killer560 2026-11-26): Dungeons Autopilot rows renamed, reordered or removed"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "puzzle wait",
+      "renamed": "puzzle stall timeout",
+      "text": "At the end, how long to stand in an unfinished puzzle for it to be done before moving on.",
+      "why": "autopilot-menu-1126 (killer560 2026-11-26): Dungeons Autopilot rows renamed, reordered or removed"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "route stall",
+      "renamed": "route stall timeout",
+      "text": "A route with no node fired for this long is waiting for a walk nobody will make: stopped, and the next room taken.",
+      "why": "autopilot-menu-1126 (killer560 2026-11-26): Dungeons Autopilot rows renamed, reordered or removed"
     }
   ]
 }

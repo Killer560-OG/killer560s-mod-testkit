@@ -41,6 +41,8 @@ public final class SimChestStallTests {
     static final int QUIET_TICKS = 2;
     static final int COMPLETE_TICKS = 2;
     static final int TAB_TICKS = 40;
+    /** The step closes its own chest window the tick after it opens: a few ticks cover the server's stall. */
+    static final int OWN_WINDOW_TICKS = 6;
 
     private SimChestStallTests() {
     }
@@ -72,7 +74,26 @@ public final class SimChestStallTests {
 
     /** One reward-chest step under Auto Close Chest, judged against the server's chest clicks. */
     static SolveExtra autoCloseClaim(String tag, int chests) {
+        return claim(tag, chests, true);
+    }
+
+    /**
+     * Auto Close Chest OFF (rewardchest-screen-stall-1126): the window of the chest the step opened stays up unless the step
+     * closes it, and the harness is told not to close it for the player. The step must close it itself, claim every chest and
+     * end, with no window left and the activity quiet - the old step waited on its own window for good ("a screen is open").
+     */
+    static SolveExtra claim(String tag, int chests, boolean closeOn) {
         return new SolveExtra() {
+            int openRun = 0;
+            int openMax = 0;
+            int closedLines = 0;
+            boolean openAtEnd = false;
+
+            @Override
+            boolean keepsWindows() {
+                return !closeOn;
+            }
+
             int serverClicks0 = -1;
             int lastServerClickT = -1;
             int seenServerClicks = 0;
@@ -88,8 +109,8 @@ public final class SimChestStallTests {
             void configure(Object auto, Object cheat) {
                 hook();
                 ModUnderTest.set(cheat, "setSecretAuraEnabled", false);
-                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setEnabled", true);
-                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setAuto", true);   // the cheat Auto (was the default mode)
+                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setEnabled", closeOn);
+                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setAuto", closeOn);   // the cheat Auto (was the default mode)
             }
 
             @Override
@@ -103,6 +124,9 @@ public final class SimChestStallTests {
                     return;
                 }
                 screenSeen |= container;
+                openRun = container ? openRun + 1 : 0;
+                openMax = Math.max(openMax, openRun);
+                openAtEnd = container;
                 int n = SERVER_CHEST_CLICK_COUNT.get() - serverClicks0;
                 if (n > seenServerClicks) {
                     seenServerClicks = n;
@@ -111,7 +135,11 @@ public final class SimChestStallTests {
                             t / 20.0, n, SERVER_CHEST_CLICKS.size()));
                 }
                 int clicks = 0;
+                closedLines = 0;
                 for (String l : LogTap.since(mark)) {
+                    if (l.contains("] " + tag + ": closed the chest window it opened")) {
+                        closedLines++;
+                    }
                     if (l.contains("] " + tag + ": clicked the reward chest")) {
                         clicks++;
                     }
@@ -147,8 +175,11 @@ public final class SimChestStallTests {
                 if (seenServerClicks == 0) {
                     return "UNTESTED - the server took no click on a chest after the solve";
                 }
-                if (screenSeen) {
+                if (closeOn && screenSeen) {
                     return "UNTESTED - a chest screen showed, so Auto Close Chest did not hide the window";
+                }
+                if (!closeOn && !screenSeen) {
+                    return "UNTESTED - no chest window ever showed, so the step had nothing of its own to close";
                 }
                 int claimed = SERVER_CHEST_CLICKS.size();
                 if (claimed < chests) {
@@ -166,7 +197,16 @@ public final class SimChestStallTests {
                     if (!stepWhy.startsWith("done (")) {
                         bad.add("the step ended \"" + stepWhy + "\", not \"done\"");
                     }
-                    if (stepAt - lastServerClickT > STEP_TICKS) {
+                    if (!closeOn && closedLines < chests) {
+                        bad.add("the step closed " + closedLines + " of " + chests + " chest window(s) it opened");
+                    }
+                    if (!closeOn && openMax > OWN_WINDOW_TICKS) {
+                        bad.add("a chest window stayed open " + openMax + " tick(s) (allowed " + OWN_WINDOW_TICKS + ")");
+                    }
+                    if (!closeOn && openAtEnd) {
+                        bad.add("a chest window was still open when the step ended");
+                    }
+                    if (stepAt - lastServerClickT > (closeOn ? STEP_TICKS : STEP_TICKS + OWN_WINDOW_TICKS)) {
                         bad.add(String.format("the step ended %d tick(s) after the last claim (allowed %d)",
                                 stepAt - lastServerClickT, STEP_TICKS));
                     }
@@ -296,6 +336,20 @@ public final class SimChestStallTests {
         }
     }
 
+    /** {@code 93-solve-icefill-chest-noclose} (rewardchest-screen-stall-1126): Auto Close Chest OFF, see {@link #claim}. */
+    public static final class IceFillChestNoClose extends SimPuzzleSolveTests.Base {
+        public IceFillChestNoClose() {
+            super(new SimPuzzleSolveTests.Spec("icefill-chest-noclose", "Ice Fill", "setAutoIceFillEnabled",
+                    "isAutoIceFillEnabled", "IceFillSolverConfig", "SimIceFillPuzzle", 0, false, 60,
+                    SimPuzzleSolveTests.Approach.NONE, "IceFillSolverFeature.getCurrentPath"));
+        }
+
+        @Override
+        SolveExtra extra() {
+            return claim("Ice Fill", 2, false);
+        }
+    }
+
     public static final class WaterBoardChestAutoClose extends SimPuzzleSolveTests.Base {
         public WaterBoardChestAutoClose() {
             super(new SimPuzzleSolveTests.Spec("waterboard-chest-autoclose", "Water Board", "setAutoWaterEnabled",
@@ -329,6 +383,279 @@ public final class SimChestStallTests {
         }
     }
 
+    /**
+     * {@code 93-solve-waterboard-chest-gate} (waterboard-chest-timed-click-1126, killer560 2026-11-26: "click the second
+     * that the bars in the middle move out of the way"): the sim's chest stands locked from the start, as Hypixel's does,
+     * and opens only once the last gate layer on the walkway is down, {@code SimWaterPuzzle.WATER_TRAVEL_TICKS} after the
+     * last lever. With the mod's REAL signal (no forced unlock) no click may go while a layer is up, the first click must
+     * go within one tick of the tick the client reads the walkway clear, and that one click opens it. The old step probed
+     * the locked chest and clicked 1 to 16 ticks after the gate (his sessions 11-18..11-26).
+     */
+    public static final class WaterBoardChestGate extends SimPuzzleSolveTests.Base {
+        public WaterBoardChestGate() {
+            super(new SimPuzzleSolveTests.Spec("waterboard-chest-gate", "Water Board", "setAutoWaterEnabled",
+                    "isAutoWaterEnabled", "WaterSolverConfig", "SimWaterPuzzle", 0, false, 60,
+                    SimPuzzleSolveTests.Approach.NONE, "WaterSolverFeature.nextClick", "WaterSolverFeature.getCountedClicks"));
+        }
+
+        @Override
+        SolveExtra extra() {
+            return waterGate(0);
+        }
+
+        @Override
+        boolean legitPass() {
+            return true;
+        }
+    }
+
+    /**
+     * {@code 93-solve-waterboard-chest-retry}: as -gate, but the sim answers the first click after the gate with
+     * Hypixel's "That chest is locked!" (a server a tick behind the gate). The mod must click again on that answer,
+     * within {@value #RETRY_TICKS} ticks of the refused click, and the second click opens it.
+     */
+    public static final class WaterBoardChestRetry extends SimPuzzleSolveTests.Base {
+        public WaterBoardChestRetry() {
+            super(new SimPuzzleSolveTests.Spec("waterboard-chest-retry", "Water Board", "setAutoWaterEnabled",
+                    "isAutoWaterEnabled", "WaterSolverConfig", "SimWaterPuzzle", 0, false, 60,
+                    SimPuzzleSolveTests.Approach.NONE, "WaterSolverFeature.nextClick", "WaterSolverFeature.getCountedClicks"));
+        }
+
+        @Override
+        SolveExtra extra() {
+            return waterGate(1);
+        }
+
+        @Override
+        boolean legitPass() {
+            return true;
+        }
+    }
+
+    static final int RETRY_TICKS = 6;
+
+    private static void simRefuse(int n) {
+        ModUnderTest.staticCall(SIM_WATER, "refuseUsesForTest", new Class<?>[]{int.class}, new Object[]{n});
+    }
+
+    /**
+     * Recorded at END of every client tick while {@link #gateRec} is on: the first tick the server's board reads complete
+     * (the chest unlocked) after it was not, the chest clicks counted at END of the tick before it, and the ticks the click count rose. The auto
+     * clicks at START, after the tick's block packets, so a click on the gate's own tick reads a gap of 0. The test
+     * thread's own loop samples far coarser than a tick and read the click and the gate as one moment.
+     */
+    private static volatile boolean gateRec;
+    private static boolean gateHooked;
+    private static int gTick;
+    private static boolean gClosed;
+    private static int gGate = -1;
+    private static int gClicksBefore = -1;
+    private static int gLastClicks;
+    private static final int[] G_CLICK_T = new int[8];
+    private static int gClickN;
+
+    private static void gateStart() {
+        if (!gateHooked) {
+            gateHooked = true;
+            net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+                if (!gateRec || mc.level == null || mc.player == null) {
+                    return;
+                }
+                int t = ++gTick;
+                int clicks;
+                boolean clear;
+                try {
+                    clicks = (Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest");
+                    // The server's own unlock (the sim's board complete, set in the server tick its last layer goes
+                    // down), not the client's walkway: the five-cell read lags the middle cell by 2-3 ticks, and the
+                    // middle cell is what Hypixel unlocks on (his logger sessions) and what the server judges a click by.
+                    clear = Boolean.TRUE.equals(dev.testkit.gametest.mod.Mod.staticCall(SIM_WATER, "isComplete"));
+                } catch (RuntimeException | AssertionError e) {
+                    return; // the room is not placed yet (PuzzleCoords has no clay): nothing to read this tick
+                }
+                if (!clear) {
+                    gClosed = true;
+                } else if (gClosed && gGate < 0) {
+                    gGate = t;
+                    gClicksBefore = gLastClicks;
+                }
+                if (clicks > gLastClicks && gClickN < G_CLICK_T.length) {
+                    G_CLICK_T[gClickN++] = t;
+                }
+                gLastClicks = clicks;
+            });
+        }
+        gTick = 0;
+        gClosed = false;
+        gGate = -1;
+        gClicksBefore = -1;
+        gLastClicks = (Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest");
+        gClickN = 0;
+        gateRec = true;
+    }
+
+    static SolveExtra waterGate(int refuse) {
+        return new SolveExtra() {
+            int uses0 = -1;
+            boolean sawClosed;
+            int gateT = -1;
+            int clicksAtGate = -1;
+            int usesAtGate = -1;
+            int firstT = -1;
+            int secondT = -1;
+            int openT = -1;
+            int stepAt = -1;
+            int clicks;
+            int uses;
+            String stepWhy;
+            boolean lockedNote;
+            boolean retryLine;
+            boolean released;
+
+            @Override
+            void configure(Object auto, Object cheat) {
+                ModUnderTest.set(cheat, "setSecretAuraEnabled", false);
+                if (!released) {
+                    simRefuse(refuse);
+                    gateStart();
+                }
+            }
+
+            @Override
+            void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
+                Object[] r;
+                try {
+                    r = ctx.computeOnClient(mc -> new Object[]{
+                            dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest"),
+                            dev.testkit.gametest.mod.Mod.staticCall(SIM_WATER, "rewardUsesForTest"),
+                            SimPuzzleSolveTests.waterLayers(mc),
+                            dev.testkit.gametest.mod.Mod.staticCall(SIM_WATER, "isRewardChestOpened")});
+                } catch (RuntimeException | Error e) {
+                    ctx.runOnClient(mc -> simRefuse(0));
+                    throw e;
+                }
+                if (uses0 < 0) {
+                    uses0 = (Integer) r[1];
+                }
+                clicks = (Integer) r[0];
+                uses = (Integer) r[1] - uses0;
+                if (!"0,0,0,0,0".equals(r[2])) {
+                    sawClosed = true;
+                } else if (sawClosed && gateT < 0) {
+                    gateT = t;
+                    clicksAtGate = clicks;
+                    usesAtGate = uses;
+                    SimPuzzleRoundTests.say(name, String.format("t=%.1fs the walkway reads clear: %d click(s) before it,"
+                            + " the server took %d", t / 20.0, clicks, uses));
+                }
+                if (gateT >= 0) {
+                    if (firstT < 0 && clicks > clicksAtGate) {
+                        firstT = t;
+                    } else if (firstT >= 0 && secondT < 0 && clicks > clicksAtGate + 1) {
+                        secondT = t;
+                    }
+                }
+                if (openT < 0 && Boolean.TRUE.equals(r[3])) {
+                    openT = t;
+                }
+                for (String l : LogTap.since(mark)) {
+                    if (l.contains("] Water Board: the reward chest is still locked - clicking the tick it unlocks")) {
+                        lockedNote = true;
+                    }
+                    if (l.contains("] Water Board: click ") && l.contains(" answered locked")) {
+                        retryLine = true;
+                    }
+                    if (stepAt < 0 && l.contains("] Water Board: reward chest step over - ")) {
+                        stepAt = t;
+                        stepWhy = l.substring(l.indexOf("step over - ") + 12);
+                    }
+                }
+            }
+
+            @Override
+            boolean satisfied() {
+                return stepAt >= 0;
+            }
+
+            @Override
+            String verdict(ClientGameTestContext ctx, int solvedAt) {
+                released = true;
+                int[] g = ctx.computeOnClient(mc -> {
+                    simRefuse(0);
+                    gateRec = false;
+                    return new int[]{gGate, gClicksBefore, gClickN, gClickN > 0 ? G_CLICK_T[0] : -1,
+                            gClickN > 1 ? G_CLICK_T[1] : -1, gClickN > 2 ? G_CLICK_T[2] : -1};
+                });
+                // Client-tick truth: the gate tick, the clicks before it, and the first two clicks at or after it.
+                int c1 = -1;
+                int c2 = -1;
+                for (int k = 3; k < 3 + Math.min(3, g[2]); k++) {
+                    if (g[k] >= g[0] && c1 < 0) {
+                        c1 = g[k];
+                    } else if (g[k] >= g[0] && c2 < 0) {
+                        c2 = g[k];
+                    }
+                }
+                SimPuzzleRoundTests.say(name, String.format("client ticks: the server unlocked the chest at %d, %d click(s) before it;"
+                        + " clicks at %s", g[0], g[1], java.util.Arrays.toString(java.util.Arrays.copyOfRange(g, 3,
+                        3 + Math.min(3, g[2])))));
+                if (g[0] >= 0) {
+                    gateT = g[0];
+                    clicksAtGate = g[1];
+                    firstT = c1;
+                    secondT = c2;
+                }
+                if (gateT < 0) {
+                    return "UNTESTED - the walkway never read clear after a gate was up";
+                }
+                List<String> bad = new java.util.ArrayList<>();
+                if (!lockedNote) {
+                    bad.add("the chest step never waited on the locked chest - nothing tested");
+                }
+                if (clicksAtGate != 0) {
+                    bad.add(clicksAtGate + " click(s) while a gate was still up (want 0)");
+                }
+                if (firstT < 0) {
+                    bad.add("no click after the server unlocked the chest");
+                } else if (firstT - gateT > 1) {
+                    bad.add("the first click went " + (firstT - gateT) + " tick(s) after the server unlocked the chest (want <= 1)");
+                }
+                if (openT < 0) {
+                    bad.add("the chest never opened");
+                }
+                int after = uses - Math.max(0, clicksAtGate); // one server use per click here
+                if (refuse == 0 && after != 1) {
+                    bad.add("the server took " + after + " click(s) after the gate (want 1: the first opens it)");
+                }
+                if (refuse > 0) {
+                    if (!retryLine) {
+                        bad.add("no \"answered locked\" line: the refusal did not bring the second click");
+                    }
+                    if (after != 2) {
+                        bad.add("the server took " + after + " click(s) after the gate (want 2: refused, then opened)");
+                    }
+                    if (firstT >= 0 && (secondT < 0 || secondT - firstT > RETRY_TICKS)) {
+                        bad.add("the second click went " + (secondT < 0 ? "never" : (secondT - firstT) + " tick(s)")
+                                + " after the refused one (want <= " + RETRY_TICKS + ")");
+                    }
+                }
+                if (stepAt >= 0 && !stepWhy.startsWith("done (")) {
+                    bad.add("the step ended \"" + stepWhy + "\", not \"done\"");
+                }
+                return bad.isEmpty() ? null : String.join("; ", bad);
+            }
+
+            @Override
+            String summary() {
+                return String.format("walkway clear at t=%d with %d click(s) before; first click +%s, second +%s; the"
+                        + " server took %d after the gate; opened %s", gateT, clicksAtGate,
+                        firstT < 0 ? "never" : String.valueOf(firstT - gateT),
+                        secondT < 0 ? "-" : String.valueOf(secondT - gateT), uses - usesAtGate,
+                        openT < 0 ? "never" : "+" + (openT - gateT));
+            }
+        };
+    }
+
     static final int LOCK_TICKS = 200;
     private static final String WATER = "com.killer560.hub.autopuzzles.AutoWater";
     private static final String SIM_WATER = "com.killer560.hub.roomsim.puzzles.SimWaterPuzzle";
@@ -353,6 +680,7 @@ public final class SimChestStallTests {
             int stepAt = -1;
             String stepWhy;
             boolean signalLine;
+            boolean lockedNote;
             /** Set by the verdict: the suite calls configure() again after it, and the locks must not leak on. */
             boolean released;
 
@@ -398,8 +726,11 @@ public final class SimChestStallTests {
                             + " - lock lifted, the real unlock signal decides now", t / 20.0, LOCK_TICKS, lockedClicks, lockedUses));
                 }
                 for (String l : LogTap.since(mark)) {
-                    if (l.contains("] Water Board: the puzzle reads solved - the chest is unlocked")) {
+                    if (l.contains("] Water Board: the chest reads unlocked - clicking now")) {
                         signalLine = true;
+                    }
+                    if (l.contains("] Water Board: the reward chest is still locked - clicking the tick it unlocks")) {
+                        lockedNote = true;
                     }
                     if (openAt < 0 && l.contains("] Water Board: reward chest at") && l.contains(" opened (")) {
                         openAt = t;
@@ -430,11 +761,12 @@ public final class SimChestStallTests {
                     return "UNTESTED - the case never reached the end of the lock";
                 }
                 List<String> bad = new java.util.ArrayList<>();
-                if (lockedClicks < 1 || lockedUses < 1) {
-                    bad.add("no click reached the locked chest (" + lockedClicks + " sent, " + lockedUses + " taken) - nothing tested");
+                if (!lockedNote) {
+                    bad.add("the chest step never waited on the locked chest - nothing tested");
                 }
-                if (lockedClicks > 5) {
-                    bad.add(lockedClicks + " click(s) on the locked chest in " + LOCK_TICKS + " ticks (want at most 5; the old"
+                if (lockedClicks != 0) {
+                    // waterboard-chest-timed-click-1126: no click while it reads locked (the old step sent 1-5 probes)
+                    bad.add(lockedClicks + " click(s) on the locked chest in " + LOCK_TICKS + " ticks (want 0; the old"
                             + " 4-tick rate sent " + LOCK_TICKS / 4 + ")");
                 }
                 if (!signalLine) {
