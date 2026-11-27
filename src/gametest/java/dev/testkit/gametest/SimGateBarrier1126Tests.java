@@ -156,6 +156,20 @@ public class SimGateBarrier1126Tests implements FabricClientGameTest {
                     usesHeld = ctx.computeOnClient(mc -> PacketTrace.sent("use_item"));
                     movedHeld = Math.max(movedHeld, ctx.computeOnClient(mc -> mc.player.position().distanceTo(from)));
                 }
+                // This case tests the hold on the gate, not how fast a trip is searched: on an unseeded floor a hard leg
+                // can take its exact search 1.1-1.8 s (26.2 flake, flake262-2 11-26: "Found path in 1839ms"), past
+                // Hypixel's 15 ticks. Then the barriers stand until the plan is held (at most 200 more ticks).
+                int extra = 0;
+                for (; extra < 200 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "waitingForGate"));
+                     extra++) {
+                    ctx.waitTick();
+                    usesHeld = ctx.computeOnClient(mc -> PacketTrace.sent("use_item"));
+                    movedHeld = Math.max(movedHeld, ctx.computeOnClient(mc -> mc.player.position().distanceTo(from)));
+                }
+                waitingSeen |= extra < 200;
+                if (extra > 0) {
+                    println("the plan took " + extra + " tick(s) past the barrier window - barriers held until it was in");
+                }
                 setGate(ctx, gate, false);
                 int gateAirTick = -1;
                 int firstUseTick = -1;
@@ -174,8 +188,38 @@ public class SimGateBarrier1126Tests implements FabricClientGameTest {
                 }
                 ctx.waitTicks(5);
                 ctx.runOnClient(mc -> PacketTrace.stop());
-                int here = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
-                        "currentRoom", new Class<?>[]{}, new Object[]{}));
+                // The map's current room trails a fast chain: on 26.2 (g-o1-2, 11-26) he stood in the pressed room 78
+                // blocks out while the layout still read the room he had flown through. Give it 60 ticks to catch up.
+                int here = -1;
+                for (int t = 0; t < 60 && here != target[1]; t++) {
+                    here = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
+                            "currentRoom", new Class<?>[]{}, new Object[]{}));
+                    if (here != target[1]) {
+                        ctx.waitTick();
+                    }
+                }
+                // The clear's goal in a room can be its route's start in the doorway (flake262-3, 11-26: New Trap's start
+                // -105,253,-185 is the door column between it and Museum, and the layout read the room he came through).
+                // Standing within 1.5 blocks of the pressed room is in it.
+                if (here != target[1]) {
+                    boolean near = ctx.computeOnClient(mc -> {
+                        Object lay = ModUnderTest.staticCall(LAYOUT, "capture");
+                        for (double dx = -1.5; dx <= 1.5; dx += 1.5) {
+                            for (double dz = -1.5; dz <= 1.5; dz += 1.5) {
+                                Object r = ModUnderTest.call(lay, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                                        new Object[]{mc.player.getX() + dx, mc.player.getZ() + dz});
+                                if (Integer.valueOf(target[1]).equals(r)) {
+                                    return true;
+                                }
+                            }
+                        }
+                        return false;
+                    });
+                    if (near) {
+                        println("ended in the pressed room's doorway (layout reads room " + here + ")");
+                        here = target[1];
+                    }
+                }
                 double moved = ctx.computeOnClient(mc -> mc.player.position().distanceTo(from));
                 int lag = firstUseTick < 0 || gateAirTick < 0 ? -99 : firstUseTick - gateAirTick;
                 pass = Boolean.TRUE.equals(ok) && waitingSeen && "true".equals(shutSeen) && usesHeld == 0 && movedHeld < 0.5

@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T22:30:11",
- "modSource": "lane-home-website-button-1126",
- "modGitSha": "8ba0ce02037e96e14c54d475182a08285cb698db",
+ "generatedAt": "2026-11-27T08:26:49",
+ "modSource": "lane-rewardchest-screen-stall-1127",
+ "modGitSha": "89417460d6fd71bd97dfa955fbd1aae62fa9bd80",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {

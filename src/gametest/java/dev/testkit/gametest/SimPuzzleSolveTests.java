@@ -499,6 +499,30 @@ public final class SimPuzzleSolveTests {
             this.spec = spec;
         }
 
+        /** A cheat-only case that still reports a PASS row on a legit jar: the auto reads off and clicks nothing there. */
+        boolean legitPass() {
+            return false;
+        }
+
+        private void legitAbsent(ClientGameTestContext ctx, String name) {
+            Object[] r = ctx.computeOnClient(mc -> {
+                Object cfg = ModUnderTest.config(AUTO_CONFIG);
+                ModUnderTest.call(cfg, spec.autoSetter(), new Class<?>[]{boolean.class}, new Object[]{true});
+                Object on = ModUnderTest.call(cfg, spec.autoGetter(), new Class<?>[]{}, new Object[]{});
+                ModUnderTest.call(cfg, spec.autoSetter(), new Class<?>[]{boolean.class}, new Object[]{false});
+                return new Object[]{on, ModUnderTest.staticCall("com.killer560.hub.autopuzzles.AutoWater",
+                        "chestClicksForTest", new Class<?>[]{}, new Object[]{})};
+            });
+            String verdict = String.format("legit jar: %s() reads %s with the switch on, %s chest click(s)",
+                    spec.autoGetter(), r[0], r[1]);
+            println(name, verdict);
+            if (!Boolean.FALSE.equals(r[0]) || !Integer.valueOf(0).equals(r[1])) {
+                throw new AssertionError("the auto runs on a legit jar - " + verdict);
+            }
+            VERDICTS.put(name, "PASS - " + verdict);
+            Report.caseFinished(name, "PASS", "n/a (singleplayer)", verdict, List.of(), List.of());
+        }
+
         /** Boulder only: whether Secret Aura is switched on for the run (Auto Boulder picks its mode from it). */
         boolean secretAura() {
             return false;
@@ -592,6 +616,10 @@ public final class SimPuzzleSolveTests {
                 return;
             }
             if (spec.autoGetter() != null && !dev.testkit.gametest.mod.Mod.isCheat()) { // auto puzzle owners are cheat build only
+                if (legitPass()) {
+                    legitAbsent(ctx, base);
+                    return;
+                }
                 Scenario.skipped(base, "auto puzzles are cheat build only");
                 return;
             }
@@ -816,7 +844,8 @@ public final class SimPuzzleSolveTests {
                 iceBreaks = new IceBreaks(name);
             }
 
-            // ---- Water Board: the bottom path starts with three WHOLE layers out, and no reward chest -----------
+            // ---- Water Board: the bottom path starts with three WHOLE layers out, the reward chest already there --
+            // (locked: Hypixel's stands from the start and answers "That chest is locked!", waterboard-chest-timed-click-1126)
             boolean water = "SimWaterPuzzle".equals(spec.puzzle());
             if (water) {
                 String layers = ctx.computeOnClient(SimPuzzleSolveTests::waterLayers);
@@ -829,9 +858,9 @@ public final class SimPuzzleSolveTests {
                         "rewardChestPos", new Class<?>[]{}, new Object[]{}));
                 boolean chestThere = ctx.computeOnClient(mc -> mc.level.getBlockState(rel(mc, 15, 56, 22))
                         .is(net.minecraft.world.level.block.Blocks.CHEST));
-                if (pos != null || chestThere) {
-                    throw new AssertionError("a reward chest is there before the board is solved (" + pos + ", "
-                            + chestThere + ")");
+                if (pos == null || !chestThere) {
+                    throw new AssertionError("no locked reward chest at relative (15,56,22) before the solve (the sim's "
+                            + pos + ", client chest " + chestThere + ")");
                 }
             }
 
@@ -1084,7 +1113,9 @@ public final class SimPuzzleSolveTests {
                                 + (McCompat.screen(mc) == null ? "" : " / " + McCompat.screen(mc).getTitle().getString());
                         // Closed for him, as he would: a container left open stops every auto
                         // (they all refuse to act with a screen up).
-                        mc.player.closeContainer();
+                        if (caseExtra == null || !caseExtra.keepsWindows()) {
+                            mc.player.closeContainer();
+                        }
                     }
                     return new Object[]{open, mc.player == null ? null
                             : new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()}};
@@ -1665,7 +1696,7 @@ public final class SimPuzzleSolveTests {
     private static final int[][] LAYER_CELLS = {{14, 56}, {15, 56}, {16, 56}, {14, 57}, {16, 57}};
 
     /** Per color layer z 15..19, how many of its five walkway cells hold wool, e.g. "0,5,5,0,5". */
-    private static String waterLayers(Minecraft mc) {
+    static String waterLayers(Minecraft mc) {
         StringBuilder sb = new StringBuilder();
         for (int z = 15; z <= 19; z++) {
             int n = 0;
@@ -1727,7 +1758,12 @@ public final class SimPuzzleSolveTests {
         if (!expect.equals(sim)) {
             return "FAIL - water reward: the sim's chest " + sim + " is not relative (15,56,22) " + expect;
         }
+        // The last layer goes down SimWaterPuzzle.WATER_TRAVEL_TICKS (30) after the last lever: wait up to 5 s for it.
         String layers = ctx.computeOnClient(SimPuzzleSolveTests::waterLayers);
+        for (int k = 0; k < 100 && !layers.equals("0,0,0,0,0"); k++) {
+            ctx.waitTicks(1);
+            layers = ctx.computeOnClient(SimPuzzleSolveTests::waterLayers);
+        }
         println(name, "bottom path after the solve: " + layers);
         if (!layers.equals("0,0,0,0,0")) {
             return "FAIL - water reward: the bottom path is not clear after the solve (" + layers + ")";
@@ -1790,7 +1826,7 @@ public final class SimPuzzleSolveTests {
                 + " (container %s), secrets unchanged", expect.toShortString(), opened / 20.0, screen);
     }
 
-    /** A puzzle reset takes the chest away and puts the three layers back. */
+    /** A puzzle reset puts the three layers back and the chest stays, locked again (as Hypixel's stands all along). */
     private static String waterReset(ClientGameTestContext ctx, String name) {
         net.minecraft.core.BlockPos expect = ctx.computeOnClient(mc -> rel(mc, 15, 56, 22));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(WATER, "reset", new Class<?>[]{}, new Object[]{}));
@@ -1800,10 +1836,13 @@ public final class SimPuzzleSolveTests {
         Object sim = ctx.computeOnClient(mc -> ModUnderTest.staticCall(WATER, "rewardChestPos", new Class<?>[]{},
                 new Object[]{}));
         String layers = ctx.computeOnClient(SimPuzzleSolveTests::waterLayers);
-        println(name, "after a puzzle reset: chest still there " + chest + ", the sim's " + sim + ", bottom path "
-                + layers);
-        String bad = chest || sim != null ? "the chest survived the reset" : waterLayersStart(layers);
-        return bad == null ? "reset took the chest away and put 3 layers back (" + layers + ")"
+        boolean opened = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(WATER, "isRewardChestOpened",
+                new Class<?>[]{}, new Object[]{}));
+        println(name, "after a puzzle reset: chest still there " + chest + ", the sim's " + sim + ", opened " + opened
+                + ", bottom path " + layers);
+        String bad = !chest || sim == null ? "the chest is gone after the reset"
+                : opened ? "the chest still reads opened after the reset" : waterLayersStart(layers);
+        return bad == null ? "reset put 3 layers back, the chest stands locked again (" + layers + ")"
                 : "FAIL - water reset: " + bad + " (" + layers + ")";
     }
 
