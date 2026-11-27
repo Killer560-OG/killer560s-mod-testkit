@@ -19,9 +19,16 @@ import java.util.TreeMap;
  * first warp of Auto Clear's etherwarp trips, 1-13 ticks a trip. The same fixed sim F7 and Hyperion loadout as
  * 1124-sim-ac-presneak; a probe reads, at the END of every tick, when a queue started ({@code ClearExecutor.lastPressTick})
  * and the tick its first hop went out ({@code hopSendTicks}), and for every tick between them the executor's own wait state
- * (its wait reason, the sneak the server heard, the delays). Asserts the floor cleared, at least {@link #MIN_TRIPS} trips
- * sent a first warp, and the ticks from trip start to first warp summed over them are at most {@link #MAX_DEAD_PER_TRIP}
- * per trip. Gives its own PASS row on a legit jar (Auto Clear refuses to start there).
+ * (its wait reason, the sneak the server heard, the delays).
+ * <p>
+ * The dead ticks were searches whose result missed the START's 4 ms wait and came in between ticks: the sneak went down only
+ * then and the hop waited for the START after, 3 ticks a trip (origin 45 ticks over 56 trips on two runs, 7 such trips each;
+ * the fix 30, 0.54 a trip). How many searches come in late depends on the PC's load, so the case makes every search late
+ * ({@code ClearExecutor.testLateSearch}: 60 ms on the planner) and judges each late start: its first warp goes the tick the
+ * late result is taken (counted by {@code lateSearchStarts}) or the next (Hypixel's standing eye right after the sneak). Asserts
+ * the floor cleared, at least {@link #MIN_TRIPS} trips sent a first warp, at least {@link #MIN_LATE} late starts and none
+ * of them 2 or more ticks before its warp. The start-to-first-warp gaps are printed for reading. An origin jar has neither the
+ * hook nor the counter and fails. Gives its own PASS row on a legit jar (Auto Clear refuses to start there).
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimTripFirstUseTests implements FabricClientGameTest {
@@ -32,9 +39,11 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
     /** Trips with a first warp the floor must run, at least. */
     private static final int MIN_TRIPS = 25;
     /** Searched trips handed back between ticks that went from the next START, at least (origin: no counter). */
-    private static final int MIN_LATE = 2;
-    /** Ticks from a trip's start to its first warp, averaged over the floor's trips, at most (origin 0.80 on two runs, the fix 0.54). */
-    private static final double MAX_DEAD_PER_TRIP = Double.parseDouble(System.getProperty("testkit.tripFirstUseMax", "0.65"));
+    private static final int MIN_LATE = 5;
+    /** Late starts by ticks to their first warp: 0, 1, 2+. */
+    private static final int[] LATE_GAPS = new int[3];
+    private static int lastLate = -1;
+    private static long lateOpen = -1;
     private static final String[] FIELDS = {"waitReason", "syncDelay", "globalDelay", "compDelay", "sendNow", "gateHold",
             "hold", "pendingInteract", "swappedOnTick", "pathPending", "tripQueued"};
 
@@ -105,11 +114,18 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
             lastPress = -1;
         });
         int lateBefore = lateStarts(ctx);
+        ctx.runOnClient(mc -> {
+            java.util.Arrays.fill(LATE_GAPS, 0);
+            lastLate = -1;
+            lateOpen = -1;
+            lateHook(true);
+        });
         List<SimAutoClearSpeedTests.RoomTime> rooms = new ArrayList<>();
         List<String> problems = new ArrayList<>();
         try {
             println("SUMMARY " + SimAutoClearSpeedTests.oneFloor(ctx, 1, SimAcPreSneakTests.CODE, rooms, problems));
         } finally {
+            ctx.runOnClient(mc -> lateHook(false));
             SimAutoClearSpeedTests.leave(ctx);
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
             for (int i = 0; i < props.length; i++) {
@@ -134,7 +150,9 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
             return b.toString();
         });
         int lateAfter = lateStarts(ctx);
-        println("RESULT " + report + " late search starts " + lateBefore + " -> " + lateAfter);
+        int[] lg = ctx.computeOnClient(mc -> LATE_GAPS.clone());
+        println("RESULT " + report + " late search starts " + lateBefore + " -> " + lateAfter + ", late start to first warp 0:"
+                + lg[0] + " 1:" + lg[1] + " 2+:" + lg[2]);
         for (String s : ctx.computeOnClient(mc -> new ArrayList<>(SAMPLES))) {
             println("SAMPLE " + s);
         }
@@ -145,17 +163,16 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
             problems.add(rooms.size() + " room line(s), " + notCleared + " not cleared - the floor was not cleared");
         }
         int t = ctx.computeOnClient(mc -> trips);
-        long dead = ctx.computeOnClient(mc -> deadTicks);
         if (t < MIN_TRIPS) {
             problems.add(t + " trip(s) sent a first warp, want at least " + MIN_TRIPS);
-        } else if ((double) dead / t > MAX_DEAD_PER_TRIP) {
-            problems.add(dead + " tick(s) from trip start to first warp over " + t + " trips ("
-                    + String.format(java.util.Locale.ROOT, "%.2f", (double) dead / t) + " a trip), want at most "
-                    + MAX_DEAD_PER_TRIP + " a trip");
         }
         if (lateBefore < 0 || lateAfter - lateBefore < MIN_LATE) {
             problems.add("searched trips taken between ticks that went from the next START " + lateBefore + " -> " + lateAfter
                     + ", want at least " + MIN_LATE + " more");
+        }
+        if (lg[2] > 0) {
+            problems.add(lg[2] + " late-searched trip(s) waited 2 or more ticks after the result was taken before the first warp"
+                    + " (0:" + lg[0] + " 1:" + lg[1] + ")");
         }
         if (!problems.isEmpty()) {
             throw new AssertionError(problems.size() + " problem(s): " + String.join("; ", problems));
@@ -220,6 +237,24 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
         } catch (RuntimeException e) {
             return;
         }
+        int late = lateCount();
+        if (lastLate >= 0 && late > lastLate) {
+            lateOpen = tick;   // a late result was taken in this tick's START
+        }
+        lastLate = late;
+        if (lateOpen >= 0) {
+            long h = -1;
+            for (int i = hops.size() - 1; i >= 0 && hops.get(i) >= lateOpen; i--) {
+                h = hops.get(i);
+            }
+            if (h >= 0) {
+                LATE_GAPS[(int) Math.min(2, h - lateOpen)]++;
+                lateOpen = -1;
+            } else if (tick - lateOpen >= 2 || !busy) {
+                LATE_GAPS[2]++;
+                lateOpen = -1;
+            }
+        }
         boolean shiftHeard = prevShift;
         prevShift = mc.player.getLastSentInput().shift();
         String ac;
@@ -272,6 +307,23 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
 
     private static long asLong(Object o) {
         return o instanceof Long l ? l : Long.MIN_VALUE / 2;
+    }
+
+    private static int lateCount() {
+        try {
+            return (Integer) ModUnderTest.staticCall(EXEC, "lateSearchStarts");
+        } catch (RuntimeException | Error e) {
+            return -1;
+        }
+    }
+
+    /** ClearExecutor.testLateSearch where the jar has it (origin has not: its searches go as they come). */
+    private static void lateHook(boolean on) {
+        try {
+            ModUnderTest.staticCall(EXEC, "testLateSearch", new Class<?>[]{boolean.class}, new Object[]{on});
+        } catch (RuntimeException | Error e) {
+            // origin
+        }
     }
 
     /** ClearExecutor.lateSearchStarts, or -1 when this jar has none (origin). */
