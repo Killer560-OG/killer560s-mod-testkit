@@ -178,7 +178,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     }
 
     /** Warp to Door Before Start (a jar without it keeps walking: nothing to set). */
-    private static void setWarp(ClientGameTestContext ctx, boolean on) {
+    static void setWarp(ClientGameTestContext ctx, boolean on) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setGreenRoomWarp", on);
@@ -189,7 +189,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     }
 
     /** Legit jar: Dungeons Autopilot (and so the green room warp) must refuse to switch on. */
-    private static void legitRow(ClientGameTestContext ctx, String name) {
+    static void legitRow(ClientGameTestContext ctx, String name) {
         boolean on = ctx.computeOnClient(mc -> {
             ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true});
             boolean v = (Boolean) ModUnderTest.staticCall(PILOT, "isOn");
@@ -254,7 +254,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         return stage(ctx, f, true);
     }
 
-    private static BlockPos stage(ClientGameTestContext ctx, List<String> f, boolean aotv) {
+    static BlockPos stage(ClientGameTestContext ctx, List<String> f, boolean aotv) {
         for (int attempt = 1; attempt <= 3; attempt++) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                     new Object[]{"gametest"}));
@@ -303,7 +303,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         return null;
     }
 
-    private static void setTicksLeft(int ticks) {
+    static void setTicksLeft(int ticks) {
         try {
             java.lang.reflect.Field fl = Class.forName(SIM_RUN).getDeclaredField("ticksLeft");
             fl.setAccessible(true);
@@ -732,6 +732,21 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
         String trap = names[0];
         String other = names[1];
+        // goback-partial-1127: a go-back runs only the nodes of the room's route that missed, so a room with no route has
+        // nothing to go back for. Each room gets a one-node route that never ran this run (its one node is the missed one).
+        com.google.gson.JsonObject node = new com.google.gson.JsonObject();
+        node.addProperty("type", "ROTATE");
+        node.addProperty("x", 0.5);
+        node.addProperty("y", 70.0);
+        node.addProperty("z", 0.5);
+        node.addProperty("yaw", 0f);
+        node.addProperty("pitch", 0f);
+        node.addProperty("start", true);
+        com.google.gson.JsonArray nodes = new com.google.gson.JsonArray();
+        nodes.add(node);
+        com.google.gson.JsonObject route = new com.google.gson.JsonObject();
+        route.add("nodes", nodes);
+        SimAutoSecretTests.writeRoutes(ctx, java.util.Map.of(other, route, trap, route.deepCopy()));
         if (taking) {
             // acrun-1126-pm (Deathmite, Staircase, Melon): the route ended one secret short while that secret was still
             // being taken where he stood (the last-node wait, leaveWaitRoom), and the endgame of the same tick ran the
@@ -844,7 +859,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
     }
 
-    private static void leave(ClientGameTestContext ctx) {
+    static void leave(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_RUN, "reset");

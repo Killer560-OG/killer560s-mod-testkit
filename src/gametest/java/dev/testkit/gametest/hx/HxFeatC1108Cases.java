@@ -32,6 +32,7 @@ final class HxFeatC1108Cases {
         s.test("1108-puzzlehud-rows", HxFeatC1108Cases::puzzleRows);
         s.test("1109-puzzlehud-funnymap", HxFeatC1108Cases::puzzleFunnyMap);
         s.test("1118-puzzlehud-stale", HxFeatC1108Cases::puzzleStale);
+        s.test("1127-puzzlehud-blaze-alias", HxFeatC1108Cases::puzzleBlazeAlias);
         s.test("1108-reparty-run", HxFeatC1108Cases::repartyRun);
         s.test("1108-reparty-notleader", HxFeatC1108Cases::repartyNotLeader);
         s.test("1109-reparty-delay", HxFeatC1108Cases::repartyDelay);
@@ -106,6 +107,32 @@ final class HxFeatC1108Cases {
                 c.check(now.stream().anyMatch(r -> r.contains(own)), own + " missing: " + now);
             }
             c.check(header(c).equals("Puzzles 0/3"), "header " + header(c));
+        } finally {
+            hub(c);
+        }
+    }
+
+    /**
+     * puzzlehud-blaze-dup-1127: the tab list names the blaze puzzle "Higher Or Lower", the map names its room "Lower Blaze" or
+     * "Higher Blaze": one row (the room's name, the tab list's state), and every other puzzle is still one row each.
+     */
+    private static void puzzleBlazeAlias(Session c) {
+        try (Settings set = new Settings(c).with(PUZZLE_CFG, "Enabled", true)) {
+            dungeon(c, "puzzles", List.of(Map.of("name", "Higher Or Lower", "state", "§r§e" + OPEN),
+                    Map.of("name", "Water Board", "state", "§r§e" + OPEN)));
+            c.waitUntil("two rows", mc -> ((List<?>) Mod.staticCall(PUZZLE, "rowsForTest")).size() == 2, 80);
+            for (String room : List.of("Lower Blaze", "Higher Blaze")) {
+                run(c, () -> Mod.staticCall(PUZZLE, "seedFromMap", List.of(room, "Water Board", "Quiz"), System.currentTimeMillis()));
+                List<String> now = rows(c);
+                c.check(now.size() == 3, room + " made " + now.size() + " rows, expected Blaze + Water Board + Quiz: " + now);
+                c.check(now.stream().filter(r -> r.contains("Blaze") || r.contains("Higher Or Lower")).count() == 1,
+                        "the blaze puzzle is not exactly one row: " + now);
+                c.check(rowOf(c, room).contains(OPEN), "the blaze row lost its tab list state: " + now);
+            }
+            dungeon(c, "puzzles", List.of(Map.of("name", "Higher Or Lower", "state", "§r§a" + DONE),
+                    Map.of("name", "Water Board", "state", "§r§e" + OPEN)));
+            c.waitUntil("blaze done", mc -> rowOf(c, "Higher Blaze").contains(DONE), 80);
+            c.check(rows(c).size() == 3 && header(c).equals("Puzzles 1/3"), "after solve: " + rows(c) + " " + header(c));
         } finally {
             hub(c);
         }
