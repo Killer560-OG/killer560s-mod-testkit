@@ -384,6 +384,53 @@ public final class SimChestStallTests {
         ModUnderTest.staticCall(SIM_WATER, "refuseUsesForTest", new Class<?>[]{int.class}, new Object[]{n});
     }
 
+    /**
+     * Recorded at END of every client tick while {@link #gateRec} is on: the first tick the walkway reads clear after a
+     * layer was up, the chest clicks counted at END of the tick before it, and the ticks the click count rose. The auto
+     * clicks at START, after the tick's block packets, so a click on the gate's own tick reads a gap of 0. The test
+     * thread's own loop samples far coarser than a tick and read the click and the gate as one moment.
+     */
+    private static volatile boolean gateRec;
+    private static boolean gateHooked;
+    private static int gTick;
+    private static boolean gClosed;
+    private static int gGate = -1;
+    private static int gClicksBefore = -1;
+    private static int gLastClicks;
+    private static final int[] G_CLICK_T = new int[8];
+    private static int gClickN;
+
+    private static void gateStart() {
+        if (!gateHooked) {
+            gateHooked = true;
+            net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+                if (!gateRec || mc.level == null || mc.player == null) {
+                    return;
+                }
+                int t = ++gTick;
+                int clicks = (Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest");
+                boolean clear = "0,0,0,0,0".equals(SimPuzzleSolveTests.waterLayers(mc));
+                if (!clear) {
+                    gClosed = true;
+                } else if (gClosed && gGate < 0) {
+                    gGate = t;
+                    gClicksBefore = gLastClicks;
+                }
+                if (clicks > gLastClicks && gClickN < G_CLICK_T.length) {
+                    G_CLICK_T[gClickN++] = t;
+                }
+                gLastClicks = clicks;
+            });
+        }
+        gTick = 0;
+        gClosed = false;
+        gGate = -1;
+        gClicksBefore = -1;
+        gLastClicks = (Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest");
+        gClickN = 0;
+        gateRec = true;
+    }
+
     static SolveExtra waterGate(int refuse) {
         return new SolveExtra() {
             int uses0 = -1;
@@ -407,6 +454,7 @@ public final class SimChestStallTests {
                 ModUnderTest.set(cheat, "setSecretAuraEnabled", false);
                 if (!released) {
                     simRefuse(refuse);
+                    gateStart();
                 }
             }
 
@@ -469,7 +517,31 @@ public final class SimChestStallTests {
             @Override
             String verdict(ClientGameTestContext ctx, int solvedAt) {
                 released = true;
-                ctx.runOnClient(mc -> simRefuse(0));
+                int[] g = ctx.computeOnClient(mc -> {
+                    simRefuse(0);
+                    gateRec = false;
+                    return new int[]{gGate, gClicksBefore, gClickN, gClickN > 0 ? G_CLICK_T[0] : -1,
+                            gClickN > 1 ? G_CLICK_T[1] : -1, gClickN > 2 ? G_CLICK_T[2] : -1};
+                });
+                // Client-tick truth: the gate tick, the clicks before it, and the first two clicks at or after it.
+                int c1 = -1;
+                int c2 = -1;
+                for (int k = 3; k < 3 + Math.min(3, g[2]); k++) {
+                    if (g[k] >= g[0] && c1 < 0) {
+                        c1 = g[k];
+                    } else if (g[k] >= g[0] && c2 < 0) {
+                        c2 = g[k];
+                    }
+                }
+                SimPuzzleRoundTests.say(name, String.format("client ticks: walkway clear at %d, %d click(s) before it;"
+                        + " clicks at %s", g[0], g[1], java.util.Arrays.toString(java.util.Arrays.copyOfRange(g, 3,
+                        3 + Math.min(3, g[2])))));
+                if (g[0] >= 0) {
+                    gateT = g[0];
+                    clicksAtGate = g[1];
+                    firstT = c1;
+                    secondT = c2;
+                }
                 if (gateT < 0) {
                     return "UNTESTED - the walkway never read clear after a gate was up";
                 }
@@ -478,8 +550,7 @@ public final class SimChestStallTests {
                     bad.add("the chest step never waited on the locked chest - nothing tested");
                 }
                 if (clicksAtGate != 0) {
-                    bad.add(clicksAtGate + " click(s) while a gate was still up (want 0; the server refused "
-                            + usesAtGate + ")");
+                    bad.add(clicksAtGate + " click(s) while a gate was still up (want 0)");
                 }
                 if (firstT < 0) {
                     bad.add("no click after the walkway read clear");
@@ -489,7 +560,7 @@ public final class SimChestStallTests {
                 if (openT < 0) {
                     bad.add("the chest never opened");
                 }
-                int after = uses - usesAtGate;
+                int after = uses - Math.max(0, clicksAtGate); // one server use per click here
                 if (refuse == 0 && after != 1) {
                     bad.add("the server took " + after + " click(s) after the gate (want 1: the first opens it)");
                 }
