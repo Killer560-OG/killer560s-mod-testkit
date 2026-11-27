@@ -408,8 +408,14 @@ public final class SimChestStallTests {
                     return;
                 }
                 int t = ++gTick;
-                int clicks = (Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest");
-                boolean clear = "0,0,0,0,0".equals(SimPuzzleSolveTests.waterLayers(mc));
+                int clicks;
+                boolean clear;
+                try {
+                    clicks = (Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest");
+                    clear = "0,0,0,0,0".equals(SimPuzzleSolveTests.waterLayers(mc));
+                } catch (RuntimeException e) {
+                    return; // the room is not placed yet (PuzzleCoords has no clay): nothing to read this tick
+                }
                 if (!clear) {
                     gClosed = true;
                 } else if (gClosed && gGate < 0) {
