@@ -119,6 +119,7 @@
 			"dev.testkit.gametest.SimAcDoorOnly1115Tests",
 			"dev.testkit.gametest.SimAcTripRetry1126Tests",
 			"dev.testkit.gametest.SimAcSceptrePace1127Tests",
+			"dev.testkit.gametest.SimAcSceptreSeenBat1127Tests",
 			"dev.testkit.gametest.SimAcStart1122Tests",
 			"dev.testkit.gametest.SimWitherDoorAnyItem1121Tests",
 			"dev.testkit.gametest.SimWitherDoorNoBreak1121Tests",

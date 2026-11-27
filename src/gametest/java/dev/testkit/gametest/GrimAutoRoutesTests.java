@@ -409,6 +409,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             s.test("62-argrim-1020-autoclearaura", GrimAutoRoutesTests::caseAutoClearAura); // mod ac-aura-memory-1020
             s.test("62-argrim-1020-acbat", GrimAutoRoutesTests::caseAutoClearBat); // ac-1020
+            // sceptre-onetap-seen-bat-1127: the Spirit Sceptre cast with his own action (or a second clearRoom) in the same ticks
+            s.test("62-argrim-1127-same-acbat-use", c -> caseAutoClearBat(c, dev.testkit.gametest.SameTick.Act.USE, false));
+            s.test("62-argrim-1127-same-acbat-openclick", c -> caseAutoClearBat(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false));
+            s.test("62-argrim-1127-same-acbat-attack", c -> caseAutoClearBat(c, dev.testkit.gametest.SameTick.Act.ATTACK, false));
+            s.test("62-argrim-1127-same-acbat-swap", c -> caseAutoClearBat(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
+            s.test("62-argrim-1127-same-acbat-tp", c -> caseAutoClearBat(c, dev.testkit.gametest.SameTick.Act.TP, false));
+            s.test("62-argrim-1127-same-acbat-second", c -> caseAutoClearBat(c, null, true));
             // achype-1117: Wither Impact across (one cast for two mobs) and the cast chain, alone and with his own action
             // in the same server ticks; "second" starts clearRoom again mid-run. Cheat only (Auto Clear).
             if (dev.testkit.gametest.mod.Mod.isCheat()) {
@@ -6163,6 +6170,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * the client's traffic under that - fast turns between mobs, a use per turn - and GrimAC for the whole stretch.
      */
     private static void caseAutoClearBat(Session c) {
+        caseAutoClearBat(c, null, false);
+    }
+
+    /** With {@code act} (or {@code second}: clearRoom called again) his action goes into the ticks from the first sceptre use on. */
+    private static void caseAutoClearBat(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
@@ -6203,9 +6215,23 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(20);
         long m = LogTap.mark();
         startSampling(ctx);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
-                java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> { }, (java.util.function.Consumer<String>)
-                why -> { }}));
+        String useLine = "] use tick ";
+        dev.testkit.gametest.SameTick st = act == null ? null : ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(
+                act, act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.SWAP ? 3 : 1,
+                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                        || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
+                .armedBy(() -> logHas(m, useLine)));
+        Runnable go = () -> ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
+                Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> { },
+                (java.util.function.Consumer<String>) why -> { }}));
+        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
+        if (hits) {
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"acbathit\"]}");
+            ctx.waitTicks(2);
+        }
+        go.run();
+        boolean restarted = false;
         // The middle mob walks along the arena's z axis, 0.25 a tick, 4 blocks each way.
         Vec3 base = at.get(1);
         double off = 0;
@@ -6231,12 +6257,29 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             Vec3 to = base.add(step.scale(off));
             c.hx().call("dungeon.move", "id", mobs.get(1).get("mob").getAsString(), "stand",
                     mobs.get(1).get("stand").getAsString(), "x", to.x, "y", to.y, "z", to.z);
+            if (hits) {
+                c.server().command("execute as @e[tag=acbathit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            boolean cast = logHas(m, useLine);
+            if (act == dev.testkit.gametest.SameTick.Act.TP && cast) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            }
+            if (second && !restarted && cast) {
+                restarted = true;
+                go.run();
+            }
             if (!ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"))) {
                 break;
             }
         }
+        if (hits) {
+            c.server().command("kill @e[tag=acbathit]");
+        }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
         ctx.waitTicks(5);
+        if (st != null) {
+            dev.testkit.gametest.SameTick.judge(c, st, "acbat " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
         List<Sample> s = stopSampling(ctx);
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
         int trusted = 0;
