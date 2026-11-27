@@ -186,6 +186,7 @@
 			"dev.testkit.gametest.SimKeyRoomTests",
 			"dev.testkit.gametest.SimWitherKeyUnseenTests",
 			"dev.testkit.gametest.SimPlannerGapsTests",
+			"dev.testkit.gametest.SimStrandCagesTests",
 			"dev.testkit.gametest.SimImapGapTests",
 			"dev.testkit.gametest.SimPathOptimalTests",
 			"dev.testkit.gametest.SimMapGroupTests",
