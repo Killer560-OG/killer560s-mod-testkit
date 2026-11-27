@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T16:12:34",
- "modSource": "lane-autopilot-icefill-solver-off-1127",
- "modGitSha": "54553779b4c5474dc828c90bd3508ca188ecda9a",
+ "generatedAt": "2026-11-27T16:31:59",
+ "modSource": "lane-painting-breaker-nodig-1127",
+ "modGitSha": "42da6e0ef9bc9b84aee8cf088e8b68f1efb850a8",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
