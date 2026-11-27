@@ -995,7 +995,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             double[] mid = VideoRecorder.menuToWindow(c, s, s.width * 0.55, s.height * 0.75);
             r.cursorAt(mid[0], mid[1]);
             r.hold(1500);
-            for (String b : new String[]{"Check Updates", "Discord", "Features Doc"}) {
+            for (String b : new String[]{"Check Updates", "Discord", "GitHub"}) {
                 int[] box = c.onClient(mc -> (int[]) Mod.call(s, "homeButtonBounds", b));
                 if (box != null) {
                     glideTo(r, box, 0.45, 0.5, 650);
