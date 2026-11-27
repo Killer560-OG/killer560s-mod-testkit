@@ -28,8 +28,29 @@ import java.util.regex.Pattern;
  *   route) and takes only the secrets the need asks for; Party goes for its secrets in the least-travel order with no
  *   clears, or with Clear Room Before Secreting each secret room's clear right before its route; the two fixed orders.</li>
  *   <li>1121-sim-acplan-solo: a whole Solo run on 1118-sim-acbloodfirst's fixed F7 with a one-node route in every secret
- *   room (each route's secrets credited when it is picked): no room is visited twice (its clear and route in one visit).
- *   The run's ticks to the finish are printed for the base-vs-branch comparison.</li>
+ *   room (each route's secrets credited when it is picked): no room is visited twice (its clear and route in one visit),
+ *   and (autopilot-menu-1126, killer560 2026-11-26: "its far better to clear a room then secret it and do it that way")
+ *   a room's secrets are taken before the next room's clear begins, with at least 6 rooms really cleared (the sim's
+ *   "room cleared" line) and 3 routes really run. The run's ticks to the finish are printed for the base-vs-branch
+ *   comparison.</li>
+ *   <li>1126-sim-autopilot-instaclear (autopilot-menu-1126): the same floor twice with 4 or 5 mob rooms (no key, off the
+ *   blood rush path) and one blood rush room armed as insta rooms the map has not shown: with Allow Insta Clearing ON at
+ *   least 3 armed rooms are really insta cleared (the sim's "insta cleared" line; 3 since autopilot-instaclear-oldcase-1126:
+ *   a room the map shows after he stood next door 8-10 ticks, e.g. while taking the neighbor's insta clear, is not an insta
+ *   clear, and the 5 biggest rooms on this floor touch each other) and no fewer than OFF, the rush room is left out ("a
+ *   blood rush room") and never credited, and the ON run is really faster than OFF (ticks of both printed).</li>
+ *   <li>1126-sim-instacost-all (autopilot-instaclear-roomcost-1126): the fixed floor with every mob room that can be insta
+ *   cleared (no key, off the blood rush path) armed and Allow Insta Clearing ON: at least {@code testkit.instacostMin}
+ *   (default 5; the base branch did 4) are really insta cleared (the sim's own "insta cleared" line, fired at the room's first entry, before any
+ *   mob in it can die); ticks and the count printed for the base-vs-branch comparison.</li>
+ *   <li>1126-sim-instacost-quiz / -icefill / -bloodfirst (killer560 2026-11-26: "it should insta-clear that room before it
+ *   and then go into quiz"): with Quiz First, Ice Fill First or Blood First, the mob rooms the trip there would show (on
+ *   its door path or next to it; Blood First: next to the rush path, never a rush room) are armed. Run OFF then ON: ON
+ *   insta clears at least one of them, picked by that trip's own decide ("insta clear X first: the way to ..."), before
+ *   the trip's goal (the Quiz started, the Ice Fill trip decided, the blood door
+ *   open), and ON reaches that goal no later than OFF plus one measured kill clear (the room's own clear it saved).</li>
+ *   <li>1121-sim-acplan-clearfirst: skipped since autopilot-menu-1126 (Clear First was removed; Clear Then Secret is the
+ *   clear-everything-first order, 1121-sim-acplan-clearthensecret).</li>
  *   <li>1121-sim-acplan-party-clearfirst: the same floor in Party with Clear Room Before Secreting on: every secret pick in
  *   a mob room comes right after that room's clear, at least two such visits, none secreted before its clear.</li>
  *   <li>1121-sim-acplan-party-secrets: Party with it off: no clear is picked before the last secret route.</li>
@@ -47,6 +68,18 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
      *  no door between them (his 11-21 log: every known entry read "none matched", the from-room filter wanted a door
      *  path of 1-2 rooms). Plain Auto Secret with Insta Clear on must take that entry before anything else. */
     private static final String INSTA = "1121-sim-acplan-insta-warptile";
+    private static final String INSTA_AP = "1126-sim-autopilot-instaclear";
+    private static final String COST_ALL = "1126-sim-instacost-all";
+    private static final String COST_QUIZ = "1126-sim-instacost-quiz";
+    private static final String COST_ICE = "1126-sim-instacost-icefill";
+    private static final String COST_BLOOD = "1126-sim-instacost-bloodfirst";
+    private static final List<String> COST_TRIPS = List.of(COST_QUIZ, COST_ICE, COST_BLOOD);
+    /** Priority cases: the tick the trip's goal was reached (-1 none) and when each room was cleared (sim line). */
+    private int goalTick = -1;
+    private final Map<String, Integer> clearedAt = new HashMap<>();
+    private final Map<String, Integer> instaAt = new HashMap<>();
+    /** Armed rooms the priority trip itself sent him into first ("insta clear X first: the way to ..." on its decide). */
+    private final Set<String> onTheWay = new HashSet<>();
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String PATHFINDER = "com.killer560.hub.livemap.autoclear.DungeonMapPathfinder";
     private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
@@ -78,8 +111,18 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private static final String SIM_SCORE = "com.killer560.hub.roomsim.SimScore";
     private static final String STORE = "com.killer560.hub.autoroutes.RouteStore";
     private static final Pattern PICK = Pattern.compile("\\| pick (SECRET|CLEAR|PUZZLE|EXPLORE) (.+?) -?[\\d.]+/[\\d.]+s=");
+    private static final Pattern SIM_CLEARED = Pattern.compile("\\[Sim\\] room cleared: (.+?) \\(");
+    private static final Pattern ROUTE_DONE = Pattern.compile("\\[AutoSecret\\] route (.+?) finished");
     private static final Pattern SCORE = Pattern.compile("decide \\([A-Z_+]+\\): score (\\d+) ");
     private final List<String> all = new ArrayList<>();
+    // 1126-sim-autopilot-instaclear: the run's Allow Insta Clearing, the armed room, and what one() saw.
+    private boolean instaFor;
+    private List<String> armList = new ArrayList<>();
+    private String armRush;
+    private List<String> rushFor = List.of();
+    private List<String[]> lastPicks = List.of();
+    private int lastTick;
+    private final List<String> instaLines = new ArrayList<>();
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -88,7 +131,12 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             logic(ctx);
         }
         List<String> sims = new ArrayList<>();
-        for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, CLEAR_FIRST, SKIP_BLOOD, INSTA}) {
+        if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(CLEAR_FIRST)) {
+            Scenario.skipped(CLEAR_FIRST, "Clear First was removed (autopilot-menu-1126): Clear Then Secret is the"
+                    + " clear-everything-first order (1121-sim-acplan-clearthensecret)");
+        }
+        for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, SKIP_BLOOD, INSTA, INSTA_AP, COST_ALL, COST_QUIZ,
+                COST_ICE, COST_BLOOD}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(n)) {
                 sims.add(n);
             }
@@ -235,6 +283,10 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 try {
                     if (c.equals(INSTA)) {
                         insta(ctx);
+                    } else if (c.equals(INSTA_AP)) {
+                        instaAp(ctx);
+                    } else if (c.equals(COST_ALL) || COST_TRIPS.contains(c)) {
+                        instaCost(ctx, c);
                     } else {
                         one(ctx, c);
                     }
@@ -255,7 +307,6 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                     ModUnderTest.set(ModUnderTest.config(AC_CONFIG), "setEnabled", false);
                     Object as = ModUnderTest.config(AS_CONFIG);
                     ModUnderTest.set(as, "setClearBeforeSecret", false);
-                    ModUnderTest.set(as, "setClearFirst", false);
                     setEnum(as, "setMode", "Mode", "SOLO_300");
                     setEnum(as, "setRoomBeforeBlood", "RoomBeforeBlood", "SAVE_FOR_LAST");
                 } catch (Throwable ignored) {
@@ -311,13 +362,27 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 setEnum(as, "setMode", "Mode", party ? "PARTY_SECRETS" : name.equals(CLEAR_THEN) ? "CLEAR_THEN_SECRET" : "SOLO_300");
                 setEnum(as, "setBloodRush", "BloodRush", "NONE");
                 setEnum(as, "setRoomBeforeBlood", "RoomBeforeBlood", name.equals(SKIP_BLOOD) ? "SKIP" : "SAVE_FOR_LAST");
-                ModUnderTest.set(as, "setClearFirst", name.equals(CLEAR_FIRST));
+                if (name.equals(INSTA_AP) || name.equals(COST_ALL) || COST_TRIPS.contains(name)) {
+                    ModUnderTest.set(as, "setInstaClear", instaFor);
+                }
             } else if (name.equals(SOLO) || name.equals(PARTY_OFF)) {
                 setEnum(as, "setRunMode", "RunMode", party ? "PARTY" : "SOLO");
             } else {
                 throw new IllegalStateException("this jar has no Dungeons Autopilot Mode / Clear First / Room Before Blood");
             }
-            ModUnderTest.set(as, "setBloodFirst", false);
+            ModUnderTest.set(as, "setBloodFirst", name.equals(COST_BLOOD));
+            if (name.equals(COST_ALL) || COST_TRIPS.contains(name)) {
+                Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
+                boolean quiz = name.equals(COST_QUIZ);
+                boolean ice = name.equals(COST_ICE);
+                ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", quiz || ice);
+                ModUnderTest.set(auto, "setAutoQuizEnabled", quiz);
+                ModUnderTest.set(auto, "setAutoIceFillEnabled", ice);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", quiz);
+                ModUnderTest.set(as, "setDoPuzzles", quiz || ice);
+                ModUnderTest.set(as, "setQuizFirst", quiz);
+                ModUnderTest.set(as, "setIceFillFirst", ice);
+            }
             ModUnderTest.set(as, "setChatFeedback", true);
             // The routes written above run only with Auto Routes on (first run: "Auto Routes is off - no secret routes this
             // run", every case 14 clears and 0 secrets).
@@ -332,6 +397,21 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         });
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 400);
+        instaLines.clear();
+        goalTick = -1;
+        clearedAt.clear();
+        instaAt.clear();
+        onTheWay.clear();
+        if (name.equals(INSTA_AP) || name.equals(COST_ALL) || COST_TRIPS.contains(name)) {
+            String why = ctx.computeOnClient(mc -> name.equals(INSTA_AP) ? armInsta() : armCost(name));
+            if (why != null) {
+                row(name, false, why + " (the case could not act)");
+                lastPicks = null;
+                return;
+            }
+        }
+        Set<String> simCleared = new HashSet<>();
+        Set<String> routesDone = new HashSet<>();
         long mark = LogTap.mark();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "startAutopilot"));
         List<String[]> picks = new ArrayList<>();   // {kind, room, tick}
@@ -363,6 +443,32 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 if (sk.find()) {
                     skipped.add(sk.group(1));
                 }
+                if (l.contains("insta clear") || l.contains("Sim insta room")) {
+                    instaLines.add(l);
+                }
+                Matcher rc = SIM_CLEARED.matcher(l);
+                if (rc.find()) {
+                    simCleared.add(rc.group(1));
+                    clearedAt.putIfAbsent(rc.group(1), tick);
+                }
+                for (String r : armList) {
+                    if (l.contains("Sim insta room: " + r + " insta cleared")) {
+                        instaAt.putIfAbsent(r, tick);
+                    }
+                    if (l.contains("insta clear " + r + " first: the way to") && (name.equals(COST_QUIZ)
+                            ? l.contains("decide (Quiz first)") : name.equals(COST_ICE) ? l.contains("decide (Ice Fill first)")
+                            : l.contains("BLOOD_FIRST"))) {
+                        onTheWay.add(r);
+                    }
+                }
+                if (goalTick < 0 && (name.equals(COST_ICE) && l.contains("[AutoSecret] Ice Fill first:")
+                        || name.equals(COST_BLOOD) && l.contains("[Autopilot] the blood door"))) {
+                    goalTick = tick;
+                }
+                Matcher rd = ROUTE_DONE.matcher(l);
+                if (rd.find()) {
+                    routesDone.add(rd.group(1));
+                }
                 if (l.contains("[AutoSecret] autopilot: no Wither Key for the door")) {
                     keyNote = true;
                 }
@@ -384,6 +490,13 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 }
             }
             mark = upTo;
+            if (name.equals(COST_QUIZ) && goalTick < 0 && Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                    "com.killer560.hub.puzzlesolvers.QuizState", "started")))) {
+                goalTick = tick;
+            }
+            if (COST_TRIPS.contains(name) && goalTick >= 0 && tick >= goalTick + 20) {
+                break;   // the trip's goal is reached: the rest of the run is not this case
+            }
             boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "isRunning"));
             started |= running;
             if (started && !running) {
@@ -416,8 +529,42 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 picks.size(), clears, secrets, visits.size(), tick / 20.0, score, score300 < 0 ? "-" : (score300 / 20.0) + " s");
         System.out.println("[" + name + "] RESULT: " + did + "; routes " + routes.size() + "; picks " + seq);
         boolean acted = secrets >= 3;
+        lastPicks = picks;
+        lastTick = tick;
         switch (name) {
-            case CLEAR_THEN, CLEAR_FIRST -> {
+            case INSTA_AP, COST_ALL, COST_QUIZ, COST_ICE, COST_BLOOD -> {
+                // judged by instaAp / instaCost
+            }
+            case SOLO -> {
+                // Per room (killer560 2026-11-26): a room's clear, then its secrets, then the next room's clear.
+                List<String> broken = new ArrayList<>();
+                int perRoom = 0;
+                for (int i = 0; i < picks.size(); i++) {
+                    if (!picks.get(i)[0].equals("CLEAR") || keyClears.contains(i)) {
+                        continue;
+                    }
+                    String room = picks.get(i)[1];
+                    if (picks.stream().noneMatch(p -> p[0].equals("SECRET") && p[1].equals(room))) {
+                        continue;
+                    }
+                    for (int j = i + 1; j < picks.size(); j++) {
+                        String[] p = picks.get(j);
+                        if (p[0].equals("SECRET") && p[1].equals(room)) {
+                            perRoom++;
+                            break;
+                        }
+                        if (p[0].equals("CLEAR") && !p[1].equals(room)) {
+                            broken.add(room + " (next clear " + p[1] + " before its secrets)");
+                            break;
+                        }
+                    }
+                }
+                row(name, acted && simCleared.size() >= 6 && routesDone.size() >= 3 && perRoom >= 3 && broken.isEmpty()
+                        && twice.isEmpty(), perRoom + " room(s) cleared then secreted, out of order " + broken
+                        + ", rooms visited twice " + twice + ", sim cleared " + simCleared.size() + ", routes run "
+                        + routesDone.size() + "; " + did);
+            }
+            case CLEAR_THEN -> {
                 int lastClear = -1;
                 int firstSecret = Integer.MAX_VALUE;
                 for (int i = 0; i < picks.size(); i++) {
@@ -427,9 +574,16 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                         firstSecret = Math.min(firstSecret, i);
                     }
                 }
-                // Acted: several clears and then routes; no route before the last clear.
-                row(name, clears >= 3 && secrets >= 1 && lastClear < firstSecret, (lastClear < firstSecret ? "no route"
-                        : "a route") + " before the last clear; " + did);
+                // Acted: several clears and then routes; no route before the last clear; no room cleared or secreted twice.
+                List<String> again = new ArrayList<>();
+                Set<String> once = new HashSet<>();
+                for (String[] p : picks) {
+                    if (!p[0].equals("EXPLORE") && !once.add(p[0] + " " + p[1])) {
+                        again.add(p[0] + " " + p[1]);
+                    }
+                }
+                row(name, clears >= 3 && secrets >= 1 && lastClear < firstSecret && again.isEmpty(), (lastClear < firstSecret
+                        ? "no route" : "a route") + " before the last clear, picked twice " + again + "; " + did);
             }
             case SKIP_BLOOD -> {
                 List<String> bad = picks.stream().filter(p -> p[0].equals("SECRET") && skipped.contains(p[1]))
@@ -438,8 +592,6 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 row(name, acted && !skipped.isEmpty() && bad.isEmpty(), "skipped " + skipped + ", secreted anyway " + bad
                         + "; " + did);
             }
-            case SOLO -> row(name, acted && clears >= 3 && twice.isEmpty(),
-                    "rooms visited twice " + twice + "; " + did);
             case PARTY_ON -> {
                 Set<String> cleared = new HashSet<>();
                 int pairs = 0;
@@ -478,6 +630,257 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                         + " before the last route (key room clears allowed: " + keyRooms + ", key-wanted clears " + keyClears.size() + "); " + did);
             }
         }
+    }
+
+    /** 1126-sim-autopilot-instaclear: the fixed floor with Allow Insta Clearing OFF, then ON, the same rooms armed. */
+    private void instaAp(ClientGameTestContext ctx) {
+        armList = new ArrayList<>();
+        armRush = null;
+        instaFor = false;
+        one(ctx, INSTA_AP);
+        if (lastPicks == null) {
+            return;
+        }
+        List<String[]> off = lastPicks;
+        int offTick = lastTick;
+        List<String> offLines = new ArrayList<>(instaLines);
+        stop(ctx);
+        SimMobFloorTests.leave(ctx);
+        instaFor = true;
+        one(ctx, INSTA_AP);
+        if (lastPicks == null) {
+            return;
+        }
+        List<String[]> on = lastPicks;
+        int onTick = lastTick;
+        String offSeq = String.join(">", off.stream().map(p -> p[0].charAt(0) + ":" + p[1]).toList());
+        String onSeq = String.join(">", on.stream().map(p -> p[0].charAt(0) + ":" + p[1]).toList());
+        List<String> onDone = instaDone(instaLines);
+        List<String> offDone = instaDone(offLines);
+        boolean credited = armList.stream().anyMatch(r -> instaLines.stream().anyMatch(l -> l.contains("insta clear " + r + " (")
+                || l.contains("insta clear " + r + " first")));
+        boolean rushOut = armRush == null || instaLines.stream().anyMatch(l -> l.contains("insta clear: " + armRush
+                + " left out - a blood rush room"));
+        List<String> rushCredited = new ArrayList<>();
+        for (String l : instaLines) {
+            for (String r : rushFor) {
+                if (l.contains("insta clear " + r + " (") || l.contains("insta clear " + r + " first")) {
+                    rushCredited.add(r);
+                }
+            }
+        }
+        System.out.println("[" + INSTA_AP + "] armed " + armList + " + rush " + armRush + "; rush path " + rushFor + "; off "
+                + offTick + " ticks, insta cleared " + offDone + ": " + offSeq + "; on " + onTick + " ticks, insta cleared "
+                + onDone + ": " + onSeq);
+        // Acted: ON really insta cleared at least 3 armed rooms (the sim's own line; neighbors the map showed after 8-10
+        // ticks next door are not insta clears), no fewer than OFF; the rush room was left out and no rush room credited;
+        // ON is really faster (11-26 pc2: 1147 vs 1447 ticks with 3 of 5).
+        row(INSTA_AP, credited && onDone.size() >= 3 && onDone.size() >= offDone.size() && rushOut && rushCredited.isEmpty()
+                        && onTick < offTick,
+                "armed " + armList.size() + ", insta cleared ON " + onDone.size() + " " + onDone + " / OFF " + offDone.size()
+                        + (credited ? ", credited" : ", NOT credited") + ", rush room " + armRush + (rushOut ? " left out"
+                        : " NOT left out") + ", rush rooms credited " + rushCredited + ", ticks off " + offTick + " on " + onTick);
+    }
+
+    /**
+     * 1126-sim-instacost-*: COST_ALL once ON (count against testkit.instacostMin); a priority trip OFF then ON, the same
+     * rooms armed, each run stopped once its goal is reached.
+     */
+    private void instaCost(ClientGameTestContext ctx, String name) {
+        try {
+            instaCostRuns(ctx, name);
+        } finally {
+            ctx.runOnClient(mc -> {
+                Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
+                ModUnderTest.set(auto, "setAutoQuizEnabled", false);
+                ModUnderTest.set(auto, "setAutoIceFillEnabled", false);
+                Object as = ModUnderTest.config(AS_CONFIG);
+                ModUnderTest.set(as, "setQuizFirst", true);
+                ModUnderTest.set(as, "setIceFillFirst", true);
+                ModUnderTest.set(as, "setBloodFirst", false);
+            });
+        }
+    }
+
+    private void instaCostRuns(ClientGameTestContext ctx, String name) {
+        armList = new ArrayList<>();
+        armRush = null;
+        int[] offGoal = {-1};
+        List<Integer> killClears = new ArrayList<>();
+        if (COST_TRIPS.contains(name)) {
+            instaFor = false;
+            one(ctx, name);
+            if (lastPicks == null) {
+                return;
+            }
+            offGoal[0] = goalTick;
+            killClears.addAll(killClearTicks(lastPicks));
+            stop(ctx);
+            SimMobFloorTests.leave(ctx);
+        }
+        instaFor = true;
+        one(ctx, name);
+        if (lastPicks == null) {
+            return;
+        }
+        killClears.addAll(killClearTicks(lastPicks));
+        String seq = String.join(">", lastPicks.stream().map(p -> p[0].charAt(0) + ":" + p[1]).toList());
+        if (name.equals(COST_ALL)) {
+            // 5: the base branch (autopilot-menu-1126, 8810ad042) insta cleared 4 of these 8 on this floor (11-26).
+            int min = Integer.getInteger("testkit.instacostMin", 5);
+            System.out.println("[" + name + "] armed " + armList.size() + " " + armList + "; insta cleared " + instaAt.size()
+                    + " " + instaAt.keySet() + " in " + lastTick + " ticks: " + seq);
+            row(name, instaAt.size() >= min, "armed " + armList.size() + ", insta cleared " + instaAt.size() + " "
+                    + instaAt.keySet() + " (" + min + " needed), " + lastTick + " ticks");
+            return;
+        }
+        List<Integer> k = new ArrayList<>(killClears);
+        java.util.Collections.sort(k);
+        int oneClear = k.isEmpty() ? 200 : k.get(k.size() / 2);
+        List<String> before = instaAt.entrySet().stream().filter(e -> goalTick >= 0 && e.getValue() <= goalTick
+                && onTheWay.contains(e.getKey())).map(Map.Entry::getKey).toList();
+        System.out.println("[" + name + "] armed " + armList + "; goal OFF " + offGoal[0] + " ON " + goalTick + " ticks; one kill"
+                + " clear " + oneClear + " ticks " + k + "; insta cleared ON " + instaAt + "; ON picks " + seq);
+        row(name, goalTick >= 0 && offGoal[0] >= 0 && !before.isEmpty() && goalTick <= offGoal[0] + oneClear,
+                "armed " + armList + ", insta cleared on the trip before the goal " + before + " (trip picks " + onTheWay
+                        + ", all insta " + instaAt.keySet() + "), goal OFF " + offGoal[0] + " ON " + goalTick
+                        + " (allowed " + (offGoal[0] + oneClear) + ")");
+    }
+
+    /** Ticks from each CLEAR pick to the sim's "room cleared" line for rooms that were not insta cleared. */
+    private List<Integer> killClearTicks(List<String[]> picks) {
+        List<Integer> out = new ArrayList<>();
+        for (String[] p : picks) {
+            Integer done = clearedAt.get(p[1]);
+            if (p[0].equals("CLEAR") && done != null && !instaAt.containsKey(p[1]) && done > Integer.parseInt(p[2])) {
+                out.add(done - Integer.parseInt(p[2]));
+            }
+        }
+        return out;
+    }
+
+    /** Client thread: arms the rooms a 1126-sim-instacost case is about (see the class doc). @return null, else why not. */
+    private String armCost(String name) {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+        int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
+        List<?> rush = (List<?>) ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearFeature", "bloodRushRooms",
+                new Class<?>[]{layout.getClass()}, new Object[]{layout});
+        List<SimAutopilotTests.Status> rooms = SimAutopilotTests.readStatus(net.minecraft.client.Minecraft.getInstance());
+        Set<Integer> near = new HashSet<>();
+        if (!name.equals(COST_ALL)) {
+            List<Integer> from = new ArrayList<>();
+            if (name.equals(COST_BLOOD)) {
+                for (Object r : rush == null ? List.of() : rush) {
+                    from.add((Integer) r);
+                }
+            } else {
+                String goal = name.equals(COST_QUIZ) ? "Quiz" : "Ice Fill";
+                int target = rooms.stream().filter(r -> goal.equals(r.name())).mapToInt(SimAutopilotTests.Status::id)
+                        .findFirst().orElse(-1);
+                if (target < 0) {
+                    return "no " + goal + " on this floor";
+                }
+                List<?> path = (List<?>) ModUnderTest.staticCall(PATHFINDER, "findPath",
+                        new Class<?>[]{layout.getClass(), int.class, int.class, boolean.class}, new Object[]{layout, here, target, true});
+                for (Object st : path == null ? List.of() : path) {
+                    from.add((Integer) ModUnderTest.call(st, "room", new Class<?>[]{}, new Object[]{}));
+                }
+                from.add(target);
+            }
+            for (int r : from) {
+                near.add(r);
+                for (Object n : (List<?>) ModUnderTest.staticCall(PATHFINDER, "neighbours",
+                        new Class<?>[]{layout.getClass(), int.class, boolean.class}, new Object[]{layout, r, true})) {
+                    near.add(((int[]) n)[0]);
+                }
+            }
+        }
+        for (SimAutopilotTests.Status r : rooms) {
+            if (armList.size() >= 12) {
+                break;
+            }
+            boolean onRush = rush != null && rush.contains(r.id());
+            if (r.id() == here || onRush || r.name() == null || r.name().equals("Unknown") || SimAutopilotTests.strands(r.name())
+                    || !java.util.Set.of("NORMAL", "RARE", "CHAMPION").contains(String.valueOf(r.type()).toUpperCase(Locale.ROOT))
+                    || ModUnderTest.staticCall(KEY_ROOMS, "guardOf", new Class<?>[]{layout.getClass(), int.class},
+                    new Object[]{layout, r.id()}) != null || !name.equals(COST_ALL) && !near.contains(r.id())) {
+                continue;
+            }
+            if (!armList.contains(r.name())) {
+                armList.add(r.name());
+            }
+        }
+        if (armList.isEmpty()) {
+            return "no mob room to arm for " + name;
+        }
+        for (String n : armList) {
+            if (!(Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimKeyRoom", "armInstaForTest",
+                    new Class<?>[]{net.minecraft.client.Minecraft.class, String.class},
+                    new Object[]{net.minecraft.client.Minecraft.getInstance(), n})) {
+                return "the sim would not arm " + n;
+            }
+        }
+        return null;
+    }
+
+    private List<String> instaDone(List<String> lines) {
+        return armList.stream().filter(r -> lines.stream().anyMatch(l -> l.contains("Sim insta room: " + r + " insta cleared")))
+                .toList();
+    }
+
+    /** Client thread: arm the same rooms as the first run (or, the first time, up to 5 mob rooms with no key, off the blood
+     *  rush path, not the room the player stands in, the biggest first, plus one such room ON the rush path) as insta
+     *  rooms; also fills {@link #rushFor}. @return null when armed, else why not. */
+    private String armInsta() {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+        int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
+        List<?> rush = (List<?>) ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearFeature", "bloodRushRooms",
+                new Class<?>[]{layout.getClass()}, new Object[]{layout});
+        List<SimAutopilotTests.Status> rooms = SimAutopilotTests.readStatus(net.minecraft.client.Minecraft.getInstance());
+        List<String> rushNames = new ArrayList<>();
+        List<SimAutopilotTests.Status> pool = new ArrayList<>();
+        String rushPick = null;
+        for (SimAutopilotTests.Status r : rooms) {
+            boolean onRush = rush != null && rush.contains(r.id());
+            if (onRush) {
+                rushNames.add(r.name());
+            }
+            if (r.id() == here || r.name() == null || r.name().equals("Unknown") || SimAutopilotTests.strands(r.name())
+                    || java.util.Set.of("PUZZLE", "TRAP", "BLOOD", "ENTRANCE", "FAIRY").contains(String.valueOf(r.type()).toUpperCase(Locale.ROOT))
+                    || ModUnderTest.staticCall(KEY_ROOMS, "guardOf", new Class<?>[]{layout.getClass(), int.class},
+                    new Object[]{layout, r.id()}) != null) {
+                continue;
+            }
+            if (onRush) {
+                rushPick = rushPick == null ? r.name() : rushPick;
+            } else {
+                pool.add(r);
+            }
+        }
+        rushFor = rushNames;
+        if (armList.isEmpty()) {
+            pool.sort((a, b) -> ((int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{b.id()})).length
+                    - ((int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{a.id()})).length);
+            for (SimAutopilotTests.Status r : pool.subList(0, Math.min(5, pool.size()))) {
+                armList.add(r.name());
+            }
+            armRush = rushPick;
+        }
+        if (armList.size() < 4) {
+            return "only " + armList.size() + " mob room(s) off the blood rush path without a key to arm, 4 needed";
+        }
+        List<String> all = new ArrayList<>(armList);
+        if (armRush != null) {
+            all.add(armRush);
+        }
+        for (String n : all) {
+            if (!(Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimKeyRoom", "armInstaForTest",
+                    new Class<?>[]{net.minecraft.client.Minecraft.class, String.class},
+                    new Object[]{net.minecraft.client.Minecraft.getInstance(), n})) {
+                return "the sim would not arm " + n;
+            }
+        }
+        return null;
     }
 
     private void insta(ClientGameTestContext ctx) {

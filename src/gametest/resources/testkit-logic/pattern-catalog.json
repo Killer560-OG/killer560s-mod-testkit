@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T22:38:23",
- "modSource": "lane-sim-puzzle-solved-wording-1126",
- "modGitSha": "d2971ec6e4c240a6af1af9d514ebc9a20b38655b",
+ "generatedAt": "2026-11-27T09:53:09",
+ "modSource": "lane-home-website-button-1126",
+ "modGitSha": "05af7da550a5daa27fc11aeb0c60816f8c3290f4",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
@@ -10958,9 +10958,9 @@
    "expr": "\"\\\\bttt\\\\b\""
   },
   {
-   "id": "scorecalc.ScoreCalculatorFeature#DONE_WORD",
+   "id": "scorecalc.ScoreCalculatorFeature#BLAZE_DONE_WORD",
    "cls": "scorecalc.ScoreCalculatorFeature",
-   "field": "DONE_WORD",
+   "field": "BLAZE_DONE_WORD",
    "index": null,
    "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
    "line": 165,
