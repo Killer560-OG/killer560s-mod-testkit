@@ -6215,7 +6215,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(20);
         long m = LogTap.mark();
         startSampling(ctx);
-        String useLine = "] use tick ";
+        String useLine = "[Bat] #";
         dev.testkit.gametest.SameTick st = act == null ? null : ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(
                 act, act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.SWAP ? 3 : 1,
                 p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
