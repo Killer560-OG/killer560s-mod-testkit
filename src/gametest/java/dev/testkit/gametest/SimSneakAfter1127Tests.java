@@ -21,9 +21,10 @@ import java.util.TreeMap;
  * <ul>
  *   <li><b>1127-sim-ac-sneakafter</b>: 1124-sim-ac-presneak's fixed F7 floor and Hyperion loadout. A trip out of a room
  *   whose last mobs one Wither Impact in place killed stood 1-2 ticks before its first warp: the sneak went down only once
- *   the trip existed (primed only while a mob the blast missed was left). Pass: the floor cleared, at least
- *   {@link #MIN_TRIPS} trips, the room's last cast held the sneak ({@code AutoClearFeature.primedLastCastTicks} rose; origin
- *   has no counter) and at most {@link #MAX_UNHEARD} trip after a cast in place started with the sneak not yet heard.</li>
+ *   the trip existed (primed only while a mob the blast missed was left), and so did a trip that waited on its landing's
+ *   way-out check (16 of 55 on an origin jar). Pass: the floor cleared, at least {@link #MIN_TRIPS} trips, the room's last
+ *   cast and the waits held the sneak ({@code AutoClearFeature.primedLastCastTicks} and {@code primedWaitTicks} rose; origin
+ *   has neither) and at most {@link #MAX_UNHEARD} trip after a way-out wait started with the sneak not yet heard.</li>
  *   <li><b>1127-sim-ap-decidetick</b>: Dungeons Autopilot on SimEntranceExit1126Tests' seeded floor for {@link #AP_TICKS}
  *   ticks after GO. A step that ended in Auto Secret's END handler set DECIDE and the decision waited for the next END, a dead
  *   tick before the trip (45 in his 11-27 session). Pass: at least {@link #MIN_AP_TRIPS} trips, decisions made in the END
@@ -138,6 +139,7 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
         }
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         int primedBefore = counter(ctx, AUTO, "primedLastCastTicks");
+        int waitBefore = counter(ctx, AUTO, "primedWaitTicks");
         ctx.runOnClient(mc -> {
             mc.options.renderDistance().set(16);
             reset();
@@ -174,15 +176,14 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
             problems.add("the room's last cast in place held the sneak " + primedBefore + " -> " + primedAfter
                     + " tick(s), want at least 3 more");
         }
-        int unheard = ctx.computeOnClient(mc -> BY.entrySet().stream()
-                .filter(e -> e.getKey().startsWith("in place") && e.getKey().endsWith("heard=false"))
-                .mapToInt(e -> e.getValue()[0]).sum());
-        if (unheard > MAX_UNHEARD) {
-            problems.add(unheard + " trip(s) after a cast in place started with the sneak not yet heard, want at most "
-                    + MAX_UNHEARD);
+        int waitAfter = counter(ctx, AUTO, "primedWaitTicks");
+        if (waitBefore < 0 || waitAfter - waitBefore < 3) {
+            problems.add("trips waiting on a way-out check or a roam held the sneak " + waitBefore + " -> " + waitAfter
+                    + " tick(s), want at least 3 more");
         }
+        waitedUnheard(ctx, problems);
         String detail = report + "; room ticks " + total + " over " + rooms.size() + " rooms; last-cast primes "
-                + primedBefore + " -> " + primedAfter;
+                + primedBefore + " -> " + primedAfter + ", wait primes " + waitBefore + " -> " + waitAfter;
         finish(AC_CASE, problems.isEmpty() ? null : String.join("; ", problems), detail);
     }
 
@@ -229,6 +230,7 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
             SimEntranceExit1126Tests.leave(ctx);
         }
         int sameAfter = counter(ctx, AS, "sameTickDecides");
+        waitedUnheard(ctx, problems);
         detail = ctx.computeOnClient(mc -> report() + "; Auto Secret TRAVEL entries " + travels + ", END ticks that left DECIDE"
                 + " for the next END " + deferred);
         detail += "; same-tick decisions " + sameBefore + " -> " + sameAfter;
@@ -244,6 +246,22 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
             problems.add(df + " END tick(s) left DECIDE for the next END, want at most " + MAX_DEFERRED);
         }
         finish(AP_CASE, problems.isEmpty() ? null : String.join("; ", problems), detail);
+    }
+
+    /**
+     * Trips that waited on their way-out check the tick before and still started with the sneak unheard (the wait now holds
+     * it down): at most {@link #MAX_UNHEARD}; an origin jar has 16 on the Auto Clear floor.
+     */
+    private static void waitedUnheard(ClientGameTestContext ctx, List<String> problems) {
+        int n = ctx.computeOnClient(mc -> BY.entrySet().stream()
+                .filter(e -> e.getKey().contains("way-out check") && e.getKey().endsWith("heard=false"))
+                .mapToInt(e -> e.getValue()[0]).sum());
+        int waits = ctx.computeOnClient(mc -> BY.entrySet().stream().filter(e -> e.getKey().contains("way-out check"))
+                .mapToInt(e -> e.getValue()[0]).sum());
+        if (n > MAX_UNHEARD) {
+            problems.add(n + " of " + waits + " trip(s) after a way-out check wait started with the sneak not yet heard, want"
+                    + " at most " + MAX_UNHEARD);
+        }
     }
 
     private static void reset() {
