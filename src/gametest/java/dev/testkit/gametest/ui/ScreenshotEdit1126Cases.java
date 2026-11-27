@@ -220,7 +220,7 @@ final class ScreenshotEdit1126Cases {
             for (String bad : new String[]{"../options.txt", "..\\options.txt", "a/../../x.png", "options.txt", "C:\\x.png", "missing-" + SYNTH}) {
                 command(c, "k560screenshot edit " + bad);
                 c.check(!isEditor(current(c)), "the editor opened for the refused name \"" + bad + "\"");
-                c.check(Mod.staticCall(EDIT, "resolve", bad) == null, "resolve accepted \"" + bad + "\"");
+                c.check(c.onClient(mc -> Mod.staticCall(EDIT, "resolve", bad)) == null, "resolve accepted \"" + bad + "\"");
             }
             c.check(c.onClient(mc -> all(mc).stream().limit(Math.max(0, all(mc).size() - chatBefore)).anyMatch(m -> m.content().getString().contains("No screenshot called"))),
                     "a refused name gave no chat line");
@@ -228,7 +228,7 @@ final class ScreenshotEdit1126Cases {
             // feature off: vanilla's line is left exactly as it was
             Mod.call(cfg, "setEnabled", false);
             Component plain = Component.literal("Saved screenshot as x.png");
-            c.check(Mod.staticCall(FEATURE, "withEdit", plain) == plain, "withEdit changed a line while Auto Copy Screenshot is off");
+            c.check(c.onClient(mc -> Mod.staticCall(FEATURE, "withEdit", plain)) == plain, "withEdit changed a line while Auto Copy Screenshot is off");
             Mod.call(cfg, "setEnabled", true);
 
             // ---- part 2: a synthetic picture, exact pixels -----------------------------------------------------------------
