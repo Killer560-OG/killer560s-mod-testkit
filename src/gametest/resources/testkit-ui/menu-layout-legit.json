@@ -370,7 +370,7 @@
       "save current as new": "Saves your current mod settings as a new profile.",
       "save preset": "Saves the current look under the typed name, in the config folder.",
       "scale": "Multiplies every size at once.",
-      "screenshot copy": "Copies each F2 screenshot to your clipboard (Windows only).",
+      "screenshot copy": "Copies each F2 screenshot to your clipboard (Windows only). Click its chat line to crop and mark it up.",
       "scrollable tooltips": "Lets the mouse wheel scroll or nudge an item tooltip in inventories and menus.",
       "secrets": "",
       "secrets hud": "Shows secrets found in your current room out of its total.",
@@ -1024,7 +1024,7 @@
       "score calculator": "Shows a live estimate of your dungeon score on a movable HUD."
     },
     "Screenshot Copy": {
-      "copy screenshots to clipboard": "Copies each screenshot you take to the clipboard so you can paste it with Ctrl+V."
+      "copy screenshots to clipboard": "Copies each screenshot you take to the clipboard so you can paste it with Ctrl+V. Click the screenshot or copied line in chat to open the editor: crop, draw, add text, hide parts."
     },
     "Scrollable Tooltips": {
       "scrollable tooltips": "Lets the mouse wheel scroll or nudge an item tooltip in inventories and menus."

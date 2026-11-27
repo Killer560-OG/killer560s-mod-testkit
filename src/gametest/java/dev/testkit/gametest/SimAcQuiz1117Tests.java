@@ -3,6 +3,8 @@ package dev.testkit.gametest;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.client.Minecraft;
+import dev.testkit.harness.Report;
+import dev.testkit.harness.SuiteVerdict;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -130,47 +132,43 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.RoomLibrary", "isReady"), 2400);
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
-        List<String> failures = new ArrayList<>();
         try {
             if (wait) {
-                one(ctx, WAIT, false, failures);
+                one(ctx, WAIT, false);
             }
             if (gap) {
-                one(ctx, GAP, true, failures);
+                one(ctx, GAP, true);
             }
             if (secret) {
-                one(ctx, SECRET, true, failures);
+                one(ctx, SECRET, true);
             }
             if (routes) {
-                one(ctx, ROUTES, true, failures);
+                one(ctx, ROUTES, true);
             }
             if (ret) {
-                one(ctx, RETURN, true, failures);
+                one(ctx, RETURN, true);
             }
             if (retParty) {
-                one(ctx, RETURN_PARTY, true, failures);
+                one(ctx, RETURN_PARTY, true);
             }
             if (pinParty) {
-                one(ctx, PIN_PARTY, true, failures);
+                one(ctx, PIN_PARTY, true);
             }
             if (pinRet) {
-                one(ctx, PIN_RETURN, true, failures);
+                one(ctx, PIN_RETURN, true);
             }
             if (pocket) {
-                one(ctx, POCKET, true, failures);
+                one(ctx, POCKET, true);
             }
             if (quizIce) {
-                quizIce(ctx, failures);
+                quizIce(ctx);
             }
         } finally {
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
         }
-        if (!failures.isEmpty()) {
-            throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
-        }
     }
 
-    private static void one(ClientGameTestContext ctx, String name, boolean withMobs, List<String> allFailures) {
+    private static void one(ClientGameTestContext ctx, String name, boolean withMobs) {
         List<String> failures = new ArrayList<>();
         String before = System.getProperty("testkit.mobfloorCode", "");
         String pin = PINS.get(name.equals(POCKET) ? PIN_PARTY : name);
@@ -226,9 +224,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 println(name, "FAIL: " + f);
             }
             println(name, failures.isEmpty() ? "PASS" : "FAIL (" + failures.size() + ")");
-            for (String f : failures) {
-                allFailures.add(name + ": " + f);
-            }
+            row(name, failures);
         }
     }
 
@@ -236,7 +232,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static final String[][] QUIZ_ICE_FLOORS = {{"0", "1", "35", "LEAST_ETHERWARPS", "false"},
             {"5", "4", "30", "EDGES_IN", "true"}};
 
-    private static void quizIce(ClientGameTestContext ctx, List<String> allFailures) {
+    private static void quizIce(ClientGameTestContext ctx) {
         List<String> failures = new ArrayList<>();
         String before = System.getProperty("testkit.mobfloorCode", "");
         int judged = 0;
@@ -267,6 +263,12 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     ModUnderTest.set(auto, "setAutoQuizEnabled", true);
                     ModUnderTest.set(auto, "setAutoIceFillEnabled", true);
                     ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", true);
+                    ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.IceFillSolverConfig"), "setEnabled", true);
+                    // As he plays: with Auto Close Chest off the Ice Fill reward chest's window stays open and the
+                    // step waits on it (chain4 floor B sat 6 min); that stall is its own WORKQUEUE job.
+                    Object close = ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig");
+                    ModUnderTest.set(close, "setEnabled", true);
+                    ModUnderTest.set(close, "setAuto", true);
                     Object as = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
                     ModUnderTest.set(as, "setQuizFirst", Boolean.parseBoolean(v[4]));
                     ModUnderTest.set(as, "setIceFillFirst", true);
@@ -308,7 +310,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     }
                     quizDone |= ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "done"));
                     if (!iceDone) {
-                        iceDone = LogTap.since(mark).stream().anyMatch(l -> l.contains("Sim ice fill: fill crossed"));
+                        iceDone = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                                "com.killer560.hub.roomsim.puzzles.SimIceFillPuzzle", "isComplete"));
                     }
                 }
                 String held = LogTap.since(mark).stream().filter(l -> l.contains("Ice Fill waits: the Quiz is started first"))
@@ -330,6 +333,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                         ModUnderTest.set(auto, "setAutoQuizEnabled", false);
                         ModUnderTest.set(auto, "setAutoIceFillEnabled", false);
                         ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
+                        ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"),
+                                "setEnabled", false);
                     } catch (Throwable ignored) {
                         // cleanup must not replace the verdict
                     }
@@ -351,9 +356,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             println(QUIZ_ICE, "FAIL: " + f);
         }
         println(QUIZ_ICE, failures.isEmpty() ? "PASS" : "FAIL (" + failures.size() + ")");
-        for (String f : failures) {
-            allFailures.add(QUIZ_ICE + ": " + f);
-        }
+        row(QUIZ_ICE, failures);
     }
 
     /** An F7 with the Entrance, Ice Fill and the Quiz pinned at those cells; its code, or null unless all three were kept. */
@@ -849,6 +852,17 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     net.minecraft.core.BlockPos.class, k.getClass()}, new Object[]{mc, new net.minecraft.core.BlockPos(-62, -22, -173), k});
         });
         ctx.waitTicks(10);
+        // acquiz-two-fails-1127: 0.2 ms way-out slices, so every chain search takes several ticks, as one did under load on
+        // the main PC (11-27 lane: the first 2 ms slice did not answer and the trip went into the pocket before its verdict).
+        boolean sliceHook = ctx.computeOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall(AUTO, "exitSliceNsForTest", new Class<?>[]{long.class}, new Object[]{200_000L});
+                return true;
+            } catch (AssertionError e) {
+                return false;
+            }
+        });
+        println(POCKET, "short way-out slices: " + (sliceHook ? "on (0.2 ms)" : "no hook in this jar"));
         long mark = LogTap.mark();
         java.util.concurrent.atomic.AtomicReference<String> end = new java.util.concurrent.atomic.AtomicReference<>();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "clearRoom",
@@ -863,12 +877,16 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         }
         net.minecraft.world.phys.Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
+        if (sliceHook) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "exitSliceNsForTest", new Class<?>[]{long.class},
+                    new Object[]{2_000_000L}));
+        }
         List<String> log = LogTap.since(mark);
         long acted = log.stream().filter(l -> l.contains("[Bat] decision for") || l.contains("[AutoClear] etherwarp toward")).count();
         boolean weighed = log.stream().anyMatch(l -> l.contains("[AutoClear] no way out of"));
         boolean landed = in;
         for (String l : log) {
-            if (l.contains("way out of") || l.contains("no way back out")) {
+            if (l.contains("way out of") || l.contains("no way back out") || l.contains("waits for its way-out check")) {
                 println(POCKET, "  " + l.substring(l.indexOf("[AutoClear]")));
             }
         }
@@ -891,10 +909,24 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         } else if (maxSlice > 8.0) {
             failures.add("a single way-out search slice took " + maxSlice + " ms (budget about 2 ms, allowed 8)");
         }
+        if (sliceHook && log.stream().noneMatch(l -> l.contains("waits for its way-out check"))) {
+            failures.add("no trip waited for a way-out verdict with 0.2 ms slices (the race the 11-27 lane hit was not exercised)");
+        }
         if (landed) {
             failures.add("Auto Clear landed him in the Dragon pocket (south of the barrier row, x -71..-54), which no warp or walk leaves");
         } else if (!weighed) {
             failures.add("no block was found with no way out (no 'no way out of' line): the case proves nothing");
+        }
+    }
+
+    /** One row and one verdict per case, so a failure is named by its own id and not by the last case that ran. */
+    private static void row(String name, List<String> failures) {
+        String detail = failures.isEmpty() ? "PASS" : failures.size() + " problem(s): " + String.join("; ", failures);
+        Report.caseStarted(name);
+        Report.caseFinished(name, failures.isEmpty() ? "PASS" : "FAIL", "n/a (singleplayer)", detail, List.of(), List.of());
+        SuiteVerdict.finished(name);
+        if (!failures.isEmpty()) {
+            SuiteVerdict.failCase(name, new AssertionError(detail));
         }
     }
 
