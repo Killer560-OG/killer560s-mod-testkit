@@ -33,8 +33,8 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
     private static final int MIN_TRIPS = 25;
     /** Searched trips handed back between ticks that went from the next START, at least (origin: no counter). */
     private static final int MIN_LATE = 2;
-    /** Ticks from a trip's start to its first warp, averaged over the floor's trips, at most (set from the origin run). */
-    private static final double MAX_DEAD_PER_TRIP = Double.parseDouble(System.getProperty("testkit.tripFirstUseMax", "0.6"));
+    /** Ticks from a trip's start to its first warp, averaged over the floor's trips, at most (origin 0.80 on two runs, the fix 0.54). */
+    private static final double MAX_DEAD_PER_TRIP = Double.parseDouble(System.getProperty("testkit.tripFirstUseMax", "0.65"));
     private static final String[] FIELDS = {"waitReason", "syncDelay", "globalDelay", "compDelay", "sendNow", "gateHold",
             "hold", "pendingInteract", "swappedOnTick", "pathPending", "tripQueued"};
 
