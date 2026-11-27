@@ -39,12 +39,13 @@ import java.util.regex.Pattern;
  *   left out ("a blood rush room") and never credited, and the ON run is not slower (ticks of both printed).</li>
  *   <li>1126-sim-instacost-all (autopilot-instaclear-roomcost-1126): the fixed floor with every mob room that can be insta
  *   cleared (no key, off the blood rush path) armed and Allow Insta Clearing ON: at least {@code testkit.instacostMin}
- *   (default 4) are really insta cleared (the sim's own "insta cleared" line, fired at the room's first entry, before any
+ *   (default 5; the base branch did 4) are really insta cleared (the sim's own "insta cleared" line, fired at the room's first entry, before any
  *   mob in it can die); ticks and the count printed for the base-vs-branch comparison.</li>
  *   <li>1126-sim-instacost-quiz / -icefill / -bloodfirst (killer560 2026-11-26: "it should insta-clear that room before it
  *   and then go into quiz"): with Quiz First, Ice Fill First or Blood First, the mob rooms the trip there would show (on
  *   its door path or next to it; Blood First: next to the rush path, never a rush room) are armed. Run OFF then ON: ON
- *   insta clears at least one of them before the trip's goal (the Quiz started, the Ice Fill trip decided, the blood door
+ *   insta clears at least one of them, picked by that trip's own decide ("insta clear X first: the way to ..."), before
+ *   the trip's goal (the Quiz started, the Ice Fill trip decided, the blood door
  *   open), and ON reaches that goal no later than OFF plus one measured kill clear (the room's own clear it saved).</li>
  *   <li>1121-sim-acplan-clearfirst: skipped since autopilot-menu-1126 (Clear First was removed; Clear Then Secret is the
  *   clear-everything-first order, 1121-sim-acplan-clearthensecret).</li>
@@ -75,6 +76,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private int goalTick = -1;
     private final Map<String, Integer> clearedAt = new HashMap<>();
     private final Map<String, Integer> instaAt = new HashMap<>();
+    /** Armed rooms the priority trip itself sent him into first ("insta clear X first: the way to ..." on its decide). */
+    private final Set<String> onTheWay = new HashSet<>();
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String PATHFINDER = "com.killer560.hub.livemap.autoclear.DungeonMapPathfinder";
     private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
@@ -396,6 +399,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         goalTick = -1;
         clearedAt.clear();
         instaAt.clear();
+        onTheWay.clear();
         if (name.equals(INSTA_AP) || name.equals(COST_ALL) || COST_TRIPS.contains(name)) {
             String why = ctx.computeOnClient(mc -> name.equals(INSTA_AP) ? armInsta() : armCost(name));
             if (why != null) {
@@ -448,6 +452,11 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 for (String r : armList) {
                     if (l.contains("Sim insta room: " + r + " insta cleared")) {
                         instaAt.putIfAbsent(r, tick);
+                    }
+                    if (l.contains("insta clear " + r + " first: the way to") && (name.equals(COST_QUIZ)
+                            ? l.contains("decide (Quiz first)") : name.equals(COST_ICE) ? l.contains("decide (Ice Fill first)")
+                            : l.contains("BLOOD_FIRST"))) {
+                        onTheWay.add(r);
                     }
                 }
                 if (goalTick < 0 && (name.equals(COST_ICE) && l.contains("[AutoSecret] Ice Fill first:")
@@ -714,7 +723,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         killClears.addAll(killClearTicks(lastPicks));
         String seq = String.join(">", lastPicks.stream().map(p -> p[0].charAt(0) + ":" + p[1]).toList());
         if (name.equals(COST_ALL)) {
-            int min = Integer.getInteger("testkit.instacostMin", 4);
+            // 5: the base branch (autopilot-menu-1126, 8810ad042) insta cleared 4 of these 8 on this floor (11-26).
+            int min = Integer.getInteger("testkit.instacostMin", 5);
             System.out.println("[" + name + "] armed " + armList.size() + " " + armList + "; insta cleared " + instaAt.size()
                     + " " + instaAt.keySet() + " in " + lastTick + " ticks: " + seq);
             row(name, instaAt.size() >= min, "armed " + armList.size() + ", insta cleared " + instaAt.size() + " "
@@ -724,12 +734,13 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         List<Integer> k = new ArrayList<>(killClears);
         java.util.Collections.sort(k);
         int oneClear = k.isEmpty() ? 200 : k.get(k.size() / 2);
-        List<String> before = instaAt.entrySet().stream().filter(e -> goalTick >= 0 && e.getValue() <= goalTick)
-                .map(Map.Entry::getKey).toList();
+        List<String> before = instaAt.entrySet().stream().filter(e -> goalTick >= 0 && e.getValue() <= goalTick
+                && onTheWay.contains(e.getKey())).map(Map.Entry::getKey).toList();
         System.out.println("[" + name + "] armed " + armList + "; goal OFF " + offGoal[0] + " ON " + goalTick + " ticks; one kill"
                 + " clear " + oneClear + " ticks " + k + "; insta cleared ON " + instaAt + "; ON picks " + seq);
         row(name, goalTick >= 0 && offGoal[0] >= 0 && !before.isEmpty() && goalTick <= offGoal[0] + oneClear,
-                "armed " + armList + ", insta cleared before the goal " + before + ", goal OFF " + offGoal[0] + " ON " + goalTick
+                "armed " + armList + ", insta cleared on the trip before the goal " + before + " (trip picks " + onTheWay
+                        + ", all insta " + instaAt.keySet() + "), goal OFF " + offGoal[0] + " ON " + goalTick
                         + " (allowed " + (offGoal[0] + oneClear) + ")");
     }
 
