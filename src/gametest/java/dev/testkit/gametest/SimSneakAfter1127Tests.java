@@ -337,6 +337,7 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
         }
         if (asp.equals("DECIDE") && !prevAs.equals("DECIDE") && !prevAs.isEmpty()) {
             deferred++;
+            WHY.merge("DECIDE left after " + prevAs + " (Auto Clear " + acp + ")", 1, Integer::sum);
         }
         if (asp.equals("TRAVEL") && !prevAs.equals("TRAVEL")) {
             travels++;
