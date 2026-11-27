@@ -91,7 +91,7 @@ public final class ModBoardsCases {
     }
 
     private static int count(ShareSiteCases.Stub stub) {
-        return stub.count(PATH);
+        return (int) stub.count(PATH);
     }
 
     /** Waits for the upload chain to go idle, then a little longer, so "nothing was sent" is not just "not yet". */
@@ -320,7 +320,7 @@ public final class ModBoardsCases {
                 run("F7", 400_000L, 5, true, "Terminals", 30_000L);
                 c.check("control: a real run reaches the relay", waitFor(() -> stub.count("POST /site/stats Bearer " + ShareSiteCases.TOKEN) == 1 && count(stub) == 2, 10_000), stub.calls.toString());
                 settle();
-                int posts = stub.count("POST");
+                int posts = (int) stub.count("POST");
                 c.eq("control: the kept solve went with the run", 0, Mod.staticCall(FEATURE, "termsForTest"));
 
                 ctx.runOnClient(mc -> Mod.staticCall("secrets.DungeonState", "setRoomSim", true));
@@ -329,7 +329,7 @@ public final class ModBoardsCases {
                 run("F7", 400_000L, 5, true, "Terminals", 30_000L);
                 ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "flush"));
                 settle();
-                c.eq("a sim run sends nothing at all (stats or boards)", posts, stub.count("POST"));
+                c.eq("a sim run sends nothing at all (stats or boards)", posts, (int) stub.count("POST"));
                 c.eq("and nothing waits", 0, ((List<?>) Mod.staticCall(FEATURE, "boardsPendingForTest")).size());
                 c.eq("and no solve waits", 0, Mod.staticCall(FEATURE, "termsForTest"));
                 ctx.runOnClient(mc -> Mod.staticCall("secrets.DungeonState", "setRoomSim", false));
@@ -339,7 +339,7 @@ public final class ModBoardsCases {
                 run("F7", 400_000L, 5, true, "Terminals", 30_000L);
                 settle();
                 c.eq("a non-Hypixel server keeps no solve", 0, Mod.staticCall(FEATURE, "termsForTest"));
-                c.eq("and sends nothing", posts, stub.count("POST"));
+                c.eq("and sends nothing", posts, (int) stub.count("POST"));
             } finally {
                 end();
             }
