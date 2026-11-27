@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T07:46:17",
- "modSource": "lane-autotune-no-start-done-lines-1126",
- "modGitSha": "045a57cf4b8807f951bfd35107d741f5d7cc420f",
+ "generatedAt": "2026-11-27T08:42:33",
+ "modSource": "lane-acquiz-two-fails-1127",
+ "modGitSha": "55e0b594c3b26e530a485211a8424e2c0569c254",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
