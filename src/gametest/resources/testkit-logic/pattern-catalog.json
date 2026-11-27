@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T04:11:20",
- "modSource": "lane-autopilot-goback-weigh-1127",
- "modGitSha": "220fd8821f0210ac2036528dd6c14bf1f95d33ae",
+ "generatedAt": "2026-11-27T04:24:39",
+ "modSource": "lane-puzzlehud-blaze-dup-1127",
+ "modGitSha": "37417aac2a8afa701c3af216782c060f1f8a1919",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
