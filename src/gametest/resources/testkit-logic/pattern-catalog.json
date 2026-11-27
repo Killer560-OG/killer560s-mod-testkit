@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T17:30:54",
- "modSource": "lane-craftcost-supercraft-1126b",
- "modGitSha": "554aed3b2145176679bbf60f8dd7fedaef27828f",
+ "generatedAt": "2026-11-26T19:24:58",
+ "modSource": "lane-bat-crypt-reroute-1126",
+ "modGitSha": "70deb9a8966abc6dd298cccbb17cfecbca7bc270",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
@@ -2708,10 +2708,10 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/craftcost/CraftCost.java",
    "line": 53,
-   "regex": "^\\d+/(\\d+) (.+)$",
+   "regex": "\\d+/(\\d+) (.+)$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^\\\\d+/(\\\\d+) (.+)$\""
+   "expr": "\"\\\\d+/(\\\\d+) (.+)$\""
   },
   {
    "id": "crashreport.CrashReportFeature#SERVER_ARG",
