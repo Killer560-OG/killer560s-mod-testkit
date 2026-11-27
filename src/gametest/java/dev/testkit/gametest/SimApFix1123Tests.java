@@ -163,6 +163,12 @@ public class SimApFix1123Tests implements FabricClientGameTest {
         }
     }
 
+    /** A new dungeon run for the route memory: an earlier case on this floor may have run the same room (Mines). */
+    private static void freshRun(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset",
+                new Class<?>[]{}, new Object[]{}));
+    }
+
     /**
      * diagonal-short-1127 (killer560 11-27: "it keeps struggling to secret diagonal", then "the number for the node does
      * not matter"): a path-less route of {@code count} ROTATE nodes on separate blocks of one room, its start flag on node
@@ -241,12 +247,6 @@ public class SimApFix1123Tests implements FabricClientGameTest {
                 + "): started " + started + ", fired per node " + java.util.Arrays.toString(fired) + " (start once, every"
                 + " other at least once), route finished " + finished + ", given up " + gaveUp
                 + ", run memory has every node fired " + memory);
-    }
-
-    /** A new dungeon run for the route memory: an earlier case on this floor may have run the same room (Mines). */
-    private static void freshRun(ClientGameTestContext ctx) {
-        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset",
-                new Class<?>[]{}, new Object[]{}));
     }
 
     /** {@code count} ROTATE nodes on standable blocks 6+ apart in the room's main tile, start flag on {@code startIdx}. */
