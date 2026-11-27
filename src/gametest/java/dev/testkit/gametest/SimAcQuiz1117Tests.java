@@ -264,6 +264,11 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     ModUnderTest.set(auto, "setAutoIceFillEnabled", true);
                     ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", true);
                     ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.IceFillSolverConfig"), "setEnabled", true);
+                    // As he plays: with Auto Close Chest off the Ice Fill reward chest's window stays open and the
+                    // step waits on it (chain4 floor B sat 6 min); that stall is its own WORKQUEUE job.
+                    Object close = ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig");
+                    ModUnderTest.set(close, "setEnabled", true);
+                    ModUnderTest.set(close, "setAuto", true);
                     Object as = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
                     ModUnderTest.set(as, "setQuizFirst", Boolean.parseBoolean(v[4]));
                     ModUnderTest.set(as, "setIceFillFirst", true);
@@ -328,6 +333,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                         ModUnderTest.set(auto, "setAutoQuizEnabled", false);
                         ModUnderTest.set(auto, "setAutoIceFillEnabled", false);
                         ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
+                        ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"),
+                                "setEnabled", false);
                     } catch (Throwable ignored) {
                         // cleanup must not replace the verdict
                     }
