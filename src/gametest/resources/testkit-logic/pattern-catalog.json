@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T02:21:19",
- "modSource": "lane-autopilot-prerun-1126c",
- "modGitSha": "25d586735c84b4460bcbef470a0cf7683de4d36b",
+ "generatedAt": "2026-11-27T03:14:09",
+ "modSource": "lane-trap-routes-oldtrap-1127",
+ "modGitSha": "c9f0bebffabd5566d7132b82dcf192163333d60d",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
