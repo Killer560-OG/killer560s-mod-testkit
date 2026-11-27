@@ -28,13 +28,17 @@ import java.util.regex.Pattern;
  *   route) and takes only the secrets the need asks for; Party goes for its secrets in the least-travel order with no
  *   clears, or with Clear Room Before Secreting each secret room's clear right before its route; the two fixed orders.</li>
  *   <li>1121-sim-acplan-solo: a whole Solo run on 1118-sim-acbloodfirst's fixed F7 with a one-node route in every secret
- *   room (each route's secrets credited when it is picked). Since autopilot-menu-1126 (Clear First folded into Blood
- *   First off) the default Solo 300 run clears every mob room before any route, each room cleared once and secreted once.
- *   The run's ticks to the finish are printed for the base-vs-branch comparison.</li>
- *   <li>1126-sim-autopilot-instaclear (autopilot-menu-1126): the same floor twice with one mob room (no key, off the blood
- *   rush path) armed as an insta room the map has not shown: with Allow Insta Clearing ON the decide line credits that
- *   room's insta clear and the tour differs from the OFF run, no blood rush room is ever credited, and the ON run is not
- *   slower to the finish (ticks of both printed).</li>
+ *   room (each route's secrets credited when it is picked): no room is visited twice (its clear and route in one visit),
+ *   and (autopilot-menu-1126, killer560 2026-11-26: "its far better to clear a room then secret it and do it that way")
+ *   a room's secrets are taken before the next room's clear begins, with at least 6 rooms really cleared (the sim's
+ *   "room cleared" line) and 3 routes really run. The run's ticks to the finish are printed for the base-vs-branch
+ *   comparison.</li>
+ *   <li>1126-sim-autopilot-instaclear (autopilot-menu-1126): the same floor twice with 4 or 5 mob rooms (no key, off the
+ *   blood rush path) and one blood rush room armed as insta rooms the map has not shown: with Allow Insta Clearing ON at
+ *   least 4 armed rooms are really insta cleared (the sim's "insta cleared" line) and no fewer than OFF, the rush room is
+ *   left out ("a blood rush room") and never credited, and the ON run is not slower (ticks of both printed).</li>
+ *   <li>1121-sim-acplan-clearfirst: skipped since autopilot-menu-1126 (Clear First was removed; Clear Then Secret is the
+ *   clear-everything-first order, 1121-sim-acplan-clearthensecret).</li>
  *   <li>1121-sim-acplan-party-clearfirst: the same floor in Party with Clear Room Before Secreting on: every secret pick in
  *   a mob room comes right after that room's clear, at least two such visits, none secreted before its clear.</li>
  *   <li>1121-sim-acplan-party-secrets: Party with it off: no clear is picked before the last secret route.</li>
@@ -84,11 +88,14 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private static final String SIM_SCORE = "com.killer560.hub.roomsim.SimScore";
     private static final String STORE = "com.killer560.hub.autoroutes.RouteStore";
     private static final Pattern PICK = Pattern.compile("\\| pick (SECRET|CLEAR|PUZZLE|EXPLORE) (.+?) -?[\\d.]+/[\\d.]+s=");
+    private static final Pattern SIM_CLEARED = Pattern.compile("\\[Sim\\] room cleared: (.+?) \\(");
+    private static final Pattern ROUTE_DONE = Pattern.compile("\\[AutoSecret\\] route (.+?) finished");
     private static final Pattern SCORE = Pattern.compile("decide \\([A-Z_+]+\\): score (\\d+) ");
     private final List<String> all = new ArrayList<>();
     // 1126-sim-autopilot-instaclear: the run's Allow Insta Clearing, the armed room, and what one() saw.
     private boolean instaFor;
-    private String armFor;
+    private List<String> armList = new ArrayList<>();
+    private String armRush;
     private List<String> rushFor = List.of();
     private List<String[]> lastPicks = List.of();
     private int lastTick;
@@ -101,7 +108,11 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             logic(ctx);
         }
         List<String> sims = new ArrayList<>();
-        for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, CLEAR_FIRST, SKIP_BLOOD, INSTA, INSTA_AP}) {
+        if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(CLEAR_FIRST)) {
+            Scenario.skipped(CLEAR_FIRST, "Clear First was removed (autopilot-menu-1126): Clear Then Secret is the"
+                    + " clear-everything-first order (1121-sim-acplan-clearthensecret)");
+        }
+        for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, SKIP_BLOOD, INSTA, INSTA_AP}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(n)) {
                 sims.add(n);
             }
@@ -350,14 +361,15 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 400);
         instaLines.clear();
         if (name.equals(INSTA_AP)) {
-            String armed = ctx.computeOnClient(mc -> armInsta(armFor));
-            if (armed == null) {
-                row(name, false, "no mob room off the blood rush path and without a key to arm (the case could not act)");
+            String why = ctx.computeOnClient(mc -> armInsta());
+            if (why != null) {
+                row(name, false, why + " (the case could not act)");
                 lastPicks = null;
                 return;
             }
-            armFor = armed;
         }
+        Set<String> simCleared = new HashSet<>();
+        Set<String> routesDone = new HashSet<>();
         long mark = LogTap.mark();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "startAutopilot"));
         List<String[]> picks = new ArrayList<>();   // {kind, room, tick}
@@ -391,6 +403,14 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 }
                 if (l.contains("insta clear") || l.contains("Sim insta room")) {
                     instaLines.add(l);
+                }
+                Matcher rc = SIM_CLEARED.matcher(l);
+                if (rc.find()) {
+                    simCleared.add(rc.group(1));
+                }
+                Matcher rd = ROUTE_DONE.matcher(l);
+                if (rd.find()) {
+                    routesDone.add(rd.group(1));
                 }
                 if (l.contains("[AutoSecret] autopilot: no Wither Key for the door")) {
                     keyNote = true;
@@ -451,7 +471,36 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             case INSTA_AP -> {
                 // judged by instaAp over two runs
             }
-            case CLEAR_THEN, CLEAR_FIRST, SOLO -> {
+            case SOLO -> {
+                // Per room (killer560 2026-11-26): a room's clear, then its secrets, then the next room's clear.
+                List<String> broken = new ArrayList<>();
+                int perRoom = 0;
+                for (int i = 0; i < picks.size(); i++) {
+                    if (!picks.get(i)[0].equals("CLEAR") || keyClears.contains(i)) {
+                        continue;
+                    }
+                    String room = picks.get(i)[1];
+                    if (picks.stream().noneMatch(p -> p[0].equals("SECRET") && p[1].equals(room))) {
+                        continue;
+                    }
+                    for (int j = i + 1; j < picks.size(); j++) {
+                        String[] p = picks.get(j);
+                        if (p[0].equals("SECRET") && p[1].equals(room)) {
+                            perRoom++;
+                            break;
+                        }
+                        if (p[0].equals("CLEAR") && !p[1].equals(room)) {
+                            broken.add(room + " (next clear " + p[1] + " before its secrets)");
+                            break;
+                        }
+                    }
+                }
+                row(name, acted && simCleared.size() >= 6 && routesDone.size() >= 3 && perRoom >= 3 && broken.isEmpty()
+                        && twice.isEmpty(), perRoom + " room(s) cleared then secreted, out of order " + broken
+                        + ", rooms visited twice " + twice + ", sim cleared " + simCleared.size() + ", routes run "
+                        + routesDone.size() + "; " + did);
+            }
+            case CLEAR_THEN -> {
                 int lastClear = -1;
                 int firstSecret = Integer.MAX_VALUE;
                 for (int i = 0; i < picks.size(); i++) {
@@ -519,9 +568,10 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         }
     }
 
-    /** 1126-sim-autopilot-instaclear: the fixed floor with Allow Insta Clearing OFF, then ON, one insta room armed. */
+    /** 1126-sim-autopilot-instaclear: the fixed floor with Allow Insta Clearing OFF, then ON, the same rooms armed. */
     private void instaAp(ClientGameTestContext ctx) {
-        armFor = null;
+        armList = new ArrayList<>();
+        armRush = null;
         instaFor = false;
         one(ctx, INSTA_AP);
         if (lastPicks == null) {
@@ -529,6 +579,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         }
         List<String[]> off = lastPicks;
         int offTick = lastTick;
+        List<String> offLines = new ArrayList<>(instaLines);
         stop(ctx);
         SimMobFloorTests.leave(ctx);
         instaFor = true;
@@ -540,62 +591,90 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         int onTick = lastTick;
         String offSeq = String.join(">", off.stream().map(p -> p[0].charAt(0) + ":" + p[1]).toList());
         String onSeq = String.join(">", on.stream().map(p -> p[0].charAt(0) + ":" + p[1]).toList());
-        boolean credited = instaLines.stream().anyMatch(l -> l.contains("insta clear " + armFor + " ("));
+        List<String> onDone = instaDone(instaLines);
+        List<String> offDone = instaDone(offLines);
+        boolean credited = armList.stream().anyMatch(r -> instaLines.stream().anyMatch(l -> l.contains("insta clear " + r + " (")
+                || l.contains("insta clear " + r + " first")));
+        boolean rushOut = armRush == null || instaLines.stream().anyMatch(l -> l.contains("insta clear: " + armRush
+                + " left out - a blood rush room"));
         List<String> rushCredited = new ArrayList<>();
         for (String l : instaLines) {
             for (String r : rushFor) {
-                if (l.contains("insta clear " + r + " (")) {
+                if (l.contains("insta clear " + r + " (") || l.contains("insta clear " + r + " first")) {
                     rushCredited.add(r);
                 }
             }
         }
-        String said = instaLines.stream().filter(l -> l.contains("Sim insta room")).findFirst().orElse("no sim insta clear");
-        System.out.println("[" + INSTA_AP + "] armed " + armFor + "; rush " + rushFor + "; off " + offTick + " ticks: "
-                + offSeq + "; on " + onTick + " ticks: " + onSeq + "; " + said);
-        // Acted: ON credited the armed room's insta clear and toured differently; never a rush room; not slower (5 s slack
-        // for sim noise between two runs of the same floor).
-        row(INSTA_AP, credited && !onSeq.equals(offSeq) && rushCredited.isEmpty() && onTick <= offTick + 100,
-                "armed " + armFor + (credited ? " credited" : " NOT credited") + ", tour " + (onSeq.equals(offSeq) ? "UNCHANGED"
-                        : "changed") + ", rush rooms credited " + rushCredited + ", ticks off " + offTick + " on " + onTick);
+        System.out.println("[" + INSTA_AP + "] armed " + armList + " + rush " + armRush + "; rush path " + rushFor + "; off "
+                + offTick + " ticks, insta cleared " + offDone + ": " + offSeq + "; on " + onTick + " ticks, insta cleared "
+                + onDone + ": " + onSeq);
+        // Acted: ON really insta cleared at least 4 armed rooms (the sim's own line), no fewer than OFF; the rush room was
+        // left out and no rush room credited; not slower (5 s slack for sim noise between two runs of the same floor).
+        row(INSTA_AP, credited && onDone.size() >= 4 && onDone.size() >= offDone.size() && rushOut && rushCredited.isEmpty()
+                        && onTick <= offTick + 100,
+                "armed " + armList.size() + ", insta cleared ON " + onDone.size() + " " + onDone + " / OFF " + offDone.size()
+                        + (credited ? ", credited" : ", NOT credited") + ", rush room " + armRush + (rushOut ? " left out"
+                        : " NOT left out") + ", rush rooms credited " + rushCredited + ", ticks off " + offTick + " on " + onTick);
     }
 
-    /** Client thread: arm {@code want} (or, when null, the largest mob room with no key, off the blood rush path and not
-     *  the room the player stands in) as an insta room; also fills {@link #rushFor}. @return its name, or null. */
-    private String armInsta(String want) {
+    private List<String> instaDone(List<String> lines) {
+        return armList.stream().filter(r -> lines.stream().anyMatch(l -> l.contains("Sim insta room: " + r + " insta cleared")))
+                .toList();
+    }
+
+    /** Client thread: arm the same rooms as the first run (or, the first time, up to 5 mob rooms with no key, off the blood
+     *  rush path, not the room the player stands in, the biggest first, plus one such room ON the rush path) as insta
+     *  rooms; also fills {@link #rushFor}. @return null when armed, else why not. */
+    private String armInsta() {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
         List<?> rush = (List<?>) ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearFeature", "bloodRushRooms",
                 new Class<?>[]{layout.getClass()}, new Object[]{layout});
         List<SimAutopilotTests.Status> rooms = SimAutopilotTests.readStatus(net.minecraft.client.Minecraft.getInstance());
         List<String> rushNames = new ArrayList<>();
-        String best = want;
-        int bestTiles = 0;
+        List<SimAutopilotTests.Status> pool = new ArrayList<>();
+        String rushPick = null;
         for (SimAutopilotTests.Status r : rooms) {
-            if (rush != null && rush.contains(r.id())) {
+            boolean onRush = rush != null && rush.contains(r.id());
+            if (onRush) {
                 rushNames.add(r.name());
-                continue;
             }
-            if (want != null || r.id() == here || r.name() == null || r.name().equals("Unknown")
-                    || SimAutopilotTests.strands(r.name())
+            if (r.id() == here || r.name() == null || r.name().equals("Unknown") || SimAutopilotTests.strands(r.name())
                     || java.util.Set.of("PUZZLE", "TRAP", "BLOOD", "ENTRANCE", "FAIRY").contains(String.valueOf(r.type()).toUpperCase(Locale.ROOT))
                     || ModUnderTest.staticCall(KEY_ROOMS, "guardOf", new Class<?>[]{layout.getClass(), int.class},
                     new Object[]{layout, r.id()}) != null) {
                 continue;
             }
-            int tiles = ((int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{r.id()})).length;
-            if (tiles > bestTiles) {
-                best = r.name();
-                bestTiles = tiles;
+            if (onRush) {
+                rushPick = rushPick == null ? r.name() : rushPick;
+            } else {
+                pool.add(r);
             }
         }
         rushFor = rushNames;
-        if (best == null) {
-            return null;
+        if (armList.isEmpty()) {
+            pool.sort((a, b) -> ((int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{b.id()})).length
+                    - ((int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{a.id()})).length);
+            for (SimAutopilotTests.Status r : pool.subList(0, Math.min(5, pool.size()))) {
+                armList.add(r.name());
+            }
+            armRush = rushPick;
         }
-        boolean ok = (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimKeyRoom", "armInstaForTest",
-                new Class<?>[]{net.minecraft.client.Minecraft.class, String.class},
-                new Object[]{net.minecraft.client.Minecraft.getInstance(), best});
-        return ok ? best : null;
+        if (armList.size() < 4) {
+            return "only " + armList.size() + " mob room(s) off the blood rush path without a key to arm, 4 needed";
+        }
+        List<String> all = new ArrayList<>(armList);
+        if (armRush != null) {
+            all.add(armRush);
+        }
+        for (String n : all) {
+            if (!(Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimKeyRoom", "armInstaForTest",
+                    new Class<?>[]{net.minecraft.client.Minecraft.class, String.class},
+                    new Object[]{net.minecraft.client.Minecraft.getInstance(), n})) {
+                return "the sim would not arm " + n;
+            }
+        }
+        return null;
     }
 
     private void insta(ClientGameTestContext ctx) {

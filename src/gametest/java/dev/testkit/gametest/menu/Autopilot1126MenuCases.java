@@ -146,8 +146,8 @@ final class Autopilot1126MenuCases {
             c.ctx().runOnClient(mc -> Mod.staticCall(AS, "load"));
             c.check(Boolean.TRUE.equals(c.onClient(mc -> Mod.get(AS, "isInstaClear"))),
                     "a fresh config keeps the old default: Allow Insta Clearing ON");
-            c.check(Boolean.TRUE.equals(c.onClient(mc -> Mod.call(Mod.cfg(AS), "clearsFirst"))),
-                    "a fresh config (Solo 300, Blood First off) clears first");
+            c.check(Boolean.FALSE.equals(c.onClient(mc -> Mod.call(Mod.cfg(AS), "clearsFirst"))),
+                    "a fresh config (Solo 300) clears room by room, never every room before any secrets");
         } finally {
             if (was != null) {
                 Files.write(file, was);

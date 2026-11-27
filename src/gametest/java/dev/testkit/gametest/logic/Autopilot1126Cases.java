@@ -147,6 +147,18 @@ final class Autopilot1126Cases {
         Object fixed = Mod.staticCall(P, "chooseOrdered", true, cands, tr, false, 50_000_000L,
                 shape("SMALLEST_TO_LARGEST", Map.of("X", 1, "Y", 2, "Z", 3), nb, "X", Map.of("Z", 20.0), null));
         c.eq("a fixed Room Order is kept", "X,Y,Z", rooms(fixed));
+        // At the step (his 11-26 F7: credited rooms shown on the map by a visit next door first): a pick next door to a
+        // credited room gives way to that room's clear; a credit too small for the detour does not.
+        Object pickY = Mod.cls(P + "$Choice").getConstructor(Mod.cls(P + "$Candidate"), String.class, List.class)
+                .newInstance(cands.get(1), "test", List.of());
+        Object sh = shape("LEAST_ETHERWARPS", Map.of(), nb, "X", Map.of("Z", 20.0), null);
+        Object to = Mod.staticCall(P, "instaNextDoor", pickY, cands, tr, sh);
+        c.eq("next door to Z: Z first", "CLEAR Z", Mod.call(Mod.call(to, "pick"), "kind") + " "
+                + Mod.call(Mod.call(to, "pick"), "room"));
+        c.check("the why names it", String.valueOf(Mod.call(to, "why")).contains("insta clear Z first"), String.valueOf(Mod.call(to, "why")));
+        Object stay = Mod.staticCall(P, "instaNextDoor", pickY, cands, tr,
+                shape("LEAST_ETHERWARPS", Map.of(), nb, "X", Map.of("Z", 0.5), null));
+        c.check("a small credit keeps the pick", stay == pickY, String.valueOf(Mod.call(stay, "why")));
     }
 
     /** "all in N s" from the why line (travel plus work, insta savings off). */
