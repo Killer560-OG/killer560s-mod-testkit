@@ -98,6 +98,9 @@ public class LogicSuite implements FabricClientGameTest {
         ModBoardsCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1120-logic-modboards", ModBoardsCases::boards);
         LogicCase.runOffClient(ctx, "1123-logic-p3board", ModBoardsCases::p3Board);
+        LogicCase.runOffClient(ctx, "1126-logic-share-fields", ModBoardsCases::fields);
+        LogicCase.runOffClient(ctx, "1126-logic-share-sim", ModBoardsCases::sim);
+        LogicCase.runOffClient(ctx, "1126-logic-p3-resync", ModBoardsCases::p3Resync);
         // ---- end Auto Crash Reports
         // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
         AutoUpdateCases.ctx = ctx;
