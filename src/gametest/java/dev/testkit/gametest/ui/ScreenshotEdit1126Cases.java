@@ -289,12 +289,12 @@ final class ScreenshotEdit1126Cases {
             c.check((Integer) Mod.call(e2, "opCount") == 4 && (Integer) Mod.call(e2, "redoCount") == 0, "after Redo: " + Mod.call(e2, "opCount") + "/" + Mod.call(e2, "redoCount"));
             // Ctrl+Z / Ctrl+Y through the keyboard
             c.onClient(mc -> {
-                MenuACases.key(e2, InputConstants.KEY_Z, 2);
+                MenuACases.key(e2, InputConstants.KEY_Z, dev.testkit.compat.McKeys.CTRL);
                 return null;
             });
             c.check((Integer) Mod.call(e2, "opCount") == 3, "Ctrl+Z did not undo");
             c.onClient(mc -> {
-                MenuACases.key(e2, InputConstants.KEY_Y, 2);
+                MenuACases.key(e2, InputConstants.KEY_Y, dev.testkit.compat.McKeys.CTRL);
                 return null;
             });
             c.check((Integer) Mod.call(e2, "opCount") == 4, "Ctrl+Y did not redo");
