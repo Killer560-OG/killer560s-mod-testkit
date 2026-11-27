@@ -30,6 +30,7 @@ final class Autopilot1126MenuCases {
 
     static void register(Session s) {
         MenuSuite.test(s, "1126-menu-autopilot-order", Autopilot1126MenuCases::order);
+        MenuSuite.test(s, "1126-menu-autopilot-autoenable", Autopilot1126MenuCases::autoEnable);
     }
 
     private static List<String> labels(Session c, boolean scan) {
@@ -62,6 +63,51 @@ final class Autopilot1126MenuCases {
             }
         }
         return -1;
+    }
+
+    /**
+     * Auto Enable On Dungeon Entry (autopilot-auto-enable-1126): the row right under the card's switch, OFF on a fresh
+     * config, and a saved ON reads back after a load (the sim cases prove what it does).
+     */
+    static void autoEnable(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.check(labels(c, false).isEmpty(), "the legit jar's Dungeons Autopilot tab should build nothing");
+            return;
+        }
+        Path file = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-autosecret.json"));
+        byte[] was = Files.exists(file) ? Files.readAllBytes(file) : null;
+        try {
+            List<String> l = labels(c, false);
+            int at = at(l, "Auto Enable On Dungeon Entry");
+            c.check(at == 1, "Auto Enable On Dungeon Entry should be the row right under the Dungeons Autopilot switch"
+                    + " (at " + at + "): " + l);
+            Files.deleteIfExists(file);
+            c.ctx().runOnClient(mc -> Mod.staticCall(AS, "load"));
+            c.check(Boolean.FALSE.equals(c.onClient(mc -> Mod.get(AS, "isAutoEnable"))),
+                    "a fresh config should have Auto Enable On Dungeon Entry OFF");
+            List<String> lf = labels(c, false);
+            c.check(at >= 0 && lf.get(Math.max(0, at(lf, "Auto Enable On Dungeon Entry"))).contains("OFF"),
+                    "the row should read OFF on a fresh config: " + lf);
+            c.ctx().runOnClient(mc -> {
+                Mod.set(AS, "setAutoEnable", true);
+                Mod.call(Mod.cfg(AS), "save");
+                Mod.set(AS, "setAutoEnable", false);
+                Mod.staticCall(AS, "load");
+            });
+            String saved = Files.readString(file, StandardCharsets.UTF_8);
+            c.check(saved.contains("\"autoEnable\": true"), "the saved file should carry autoEnable true: " + saved);
+            c.check(Boolean.TRUE.equals(c.onClient(mc -> Mod.get(AS, "isAutoEnable"))),
+                    "a saved Auto Enable On Dungeon Entry ON should load back ON");
+            c.check(!Boolean.TRUE.equals(c.onClient(mc -> Mod.staticCall("autosecret.DungeonsAutopilot", "isOn"))),
+                    "switching it on in the menu outside a dungeon must not start Dungeons Autopilot");
+        } finally {
+            if (was != null) {
+                Files.write(file, was);
+            } else {
+                Files.deleteIfExists(file);
+            }
+            c.ctx().runOnClient(mc -> Mod.staticCall(AS, "load"));
+        }
     }
 
     static void order(Session c) throws Exception {

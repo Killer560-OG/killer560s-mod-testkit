@@ -170,6 +170,7 @@
 			"dev.testkit.gametest.SimAcPreSneakTests",
 			"dev.testkit.gametest.SimMobFloorTests",
 			"dev.testkit.gametest.SimAcQuiz1117Tests",
+			"dev.testkit.gametest.SimApAutoEnable1126Tests",
 			"dev.testkit.gametest.SimAcBloodFirst1118Tests",
 			"dev.testkit.gametest.SimAcSlow1121Tests",
 			"dev.testkit.gametest.SimApFix1123Tests",
