@@ -298,6 +298,7 @@
 			"dev.testkit.gametest.SimBeamsMeleeTests$Solve",
 			"dev.testkit.gametest.SimBeamsMeleeTests$Rotations",
 			"dev.testkit.gametest.SimBeamsMeleeTests$Replay",
+			"dev.testkit.gametest.SimBeamsMeleeTests$Hold",
 			"dev.testkit.gametest.GrimBeamsMeleeTests",
 			"dev.testkit.gametest.SimPuzzleSolveTests$Summary",
 			"dev.testkit.gametest.SessionDemoTest",
