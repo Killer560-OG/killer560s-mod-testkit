@@ -28,6 +28,11 @@ abstract class SolveExtra {
     void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
     }
 
+    /** True when the case needs the harness to leave a container window open (it closes one every tick as a player would). */
+    boolean keepsWindows() {
+        return false;
+    }
+
     /** False while the case still waits for something after the solve (up to 20 s). */
     boolean satisfied() {
         return true;
