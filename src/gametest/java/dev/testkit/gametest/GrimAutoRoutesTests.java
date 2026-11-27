@@ -267,7 +267,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1127-staledig", c -> caseBreakerStaleDig(c, "LEGIT_MULTI", null, false));
             s.test("62-argrim-1127-staledig-burst", c -> caseBreakerStaleDig(c, "BURST", null, false));
             s.test("62-argrim-1127-staledig-again", c -> caseBreakerStaleDig(c, "BURST", null, true));
-            s.test("62-argrim-1127-staledig-same-use", c -> caseBreakerStaleDig(c, "BURST", dev.testkit.gametest.SameTick.Act.USE, false));
+            s.test("62-argrim-1127-staledig-same-use", c -> caseBreakerStaleDig(c, "BURST", dev.testkit.gametest.SameTick.Act.USE_CLICK, false));
             s.test("62-argrim-1127-staledig-same-swap", c -> caseBreakerStaleDig(c, "BURST", dev.testkit.gametest.SameTick.Act.SWAP, false));
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
@@ -6711,7 +6711,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * break"), and the etherwarp held on the closed line. The stale stamp goes into the mod's lastDugAt (1000 ticks ahead
      * of the clock) before his hand etherwarp onto the node: the block must be dug, the warp go only after the dig and
      * land past it, GrimAC silent; {@code style} is the route's Breaker Style, {@code act} his own action in those ticks
-     * (on the wire), {@code again} a second run of the same stack.
+     * (on the wire; USE_CLICK is a right click the node sees queued and yields its dig to, as Breaker Aura does: a dig before
+ * his use_item in one tick is experimental GrimAC PacketOrderI), {@code again} a second run of the same stack.
      */
     private static void caseBreakerStaleDig(Session c, String style, dev.testkit.gametest.SameTick.Act act, boolean again) {
         ClientGameTestContext ctx = c.ctx();
@@ -6743,6 +6744,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     ModUnderTest.staticCall(EXECUTOR, "clearBreakerLinger", new Class<?>[]{String.class}, new Object[]{"test"});
                 });
                 ensureInRoom(ctx);
+                tpRel(ctx, 6.5, 10.5, 0f, 0f); // off the node: a route written under him fires at once
+                ctx.waitTicks(3);
                 Map<int[], String> put = new LinkedHashMap<>();
                 put.put(new int[]{wx, wy, wz}, "minecraft:snow_block"); // one hit with the breaker, as on Hypixel
                 put.put(new int[]{16, F + 5, 20}, "minecraft:stone");
@@ -6768,7 +6771,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                                 p -> (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket pa
                                         && pa.getPos().equals(wall))
                                         || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 3, 6);
-                        t.allow(a == dev.testkit.gametest.SameTick.Act.USE ? 2 : 4); // his use only in the dig's ticks
+                        t.allow(a == dev.testkit.gametest.SameTick.Act.USE_CLICK ? 2 : 4); // his click only in the dig's ticks
                         return t;
                     });
                 }
