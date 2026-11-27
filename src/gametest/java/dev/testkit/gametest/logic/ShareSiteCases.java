@@ -155,6 +155,7 @@ public final class ShareSiteCases {
         try (Stub stub = new Stub()) {
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "setEnabled", true));
             waitFor(() -> !pendingDelete(), 5_000);
+            ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "boardsAnyHostForTest", true)); // a real run host: sim and test servers keep nothing
             stub.calls.clear();
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "onTerminalSolved", "Panes", 4.25));
             c.eq("ON keeps an own terminal solve for the next run", 1, Mod.staticCall(FEATURE, "termsForTest"));
@@ -188,6 +189,7 @@ public final class ShareSiteCases {
                     stub.calls + " pending " + pendingDelete());
         } finally {
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "setEnabled", true));
+            ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "boardsAnyHostForTest", false));
             ctx.waitTicks(10);
         }
     }
