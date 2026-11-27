@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T11:52:32",
- "modSource": "lane-strand-cages-1127b",
- "modGitSha": "1b1a725161bb5116ad5b24f8af45cd3165ff0430",
+ "generatedAt": "2026-11-27T13:29:28",
+ "modSource": "lane-imap-nopath-1127b",
+ "modGitSha": "109f75d5a0f9daef899925253185af01a4900fa6",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
