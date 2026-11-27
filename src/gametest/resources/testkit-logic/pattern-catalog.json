@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T18:42:24",
- "modSource": "lane-craftcost-supercraft-nochange-1126",
- "modGitSha": "9689319256c8deeb58db07570e4241219e4b188f",
+ "generatedAt": "2026-11-26T19:24:58",
+ "modSource": "lane-bat-crypt-reroute-1126",
+ "modGitSha": "70deb9a8966abc6dd298cccbb17cfecbca7bc270",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
