@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T10:16:36",
- "modSource": "lane-sim-puzzle-solved-wording-1126",
- "modGitSha": "71b991a963c089639c3d21b901102457cb7a4156",
+ "generatedAt": "2026-11-27T10:26:05",
+ "modSource": "lane-autopilot-prerun-late-1127",
+ "modGitSha": "424d7966a0fa4bafcccdbb1cd68162fff8f69b78",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
