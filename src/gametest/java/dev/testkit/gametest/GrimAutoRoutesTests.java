@@ -2443,6 +2443,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 blocks.add("13 " + y + " 12");
             }
         }
+        for (int y = stand + 1; y <= stand + 3; y++) {
+            // Above the arena's cleared F..F+8: whatever the world had there blocked his walk at z 11.7 (first run).
+            put.put(new int[]{13, y, 12}, "minecraft:air");
+            put.put(new int[]{13, y, 11}, "minecraft:air");
+        }
         setBlocks(ctx, put);
         JsonObject br = node("DUNGEON_BREAKER", 13, 12, 0f, 0f);
         br.addProperty("y", (double) (stand + 1));
@@ -2514,7 +2519,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 at.y, F, overAir, inside, watch.get("first"), corrections, logHas(m, "predicted gone")));
         // Restore the air the arena does not clear (it clears F..F+8).
         Map<int[], String> clear = new LinkedHashMap<>();
-        for (int y = F + 9; y <= stand; y++) {
+        for (int y = F + 9; y <= stand + 3; y++) {
             clear.put(new int[]{13, y, 12}, "minecraft:air");
             clear.put(new int[]{13, y, 11}, "minecraft:air");
         }
