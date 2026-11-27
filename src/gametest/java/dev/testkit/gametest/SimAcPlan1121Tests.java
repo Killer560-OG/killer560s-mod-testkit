@@ -36,8 +36,10 @@ import java.util.regex.Pattern;
  *   comparison.</li>
  *   <li>1126-sim-autopilot-instaclear (autopilot-menu-1126): the same floor twice with 4 or 5 mob rooms (no key, off the
  *   blood rush path) and one blood rush room armed as insta rooms the map has not shown: with Allow Insta Clearing ON at
- *   least 4 armed rooms are really insta cleared (the sim's "insta cleared" line) and no fewer than OFF, the rush room is
- *   left out ("a blood rush room") and never credited, and the ON run is not slower (ticks of both printed).</li>
+ *   least 3 armed rooms are really insta cleared (the sim's "insta cleared" line; 3 since autopilot-instaclear-oldcase-1126:
+ *   a room the map shows after he stood next door 8-10 ticks, e.g. while taking the neighbor's insta clear, is not an insta
+ *   clear, and the 5 biggest rooms on this floor touch each other) and no fewer than OFF, the rush room is left out ("a
+ *   blood rush room") and never credited, and the ON run is really faster than OFF (ticks of both printed).</li>
  *   <li>1126-sim-instacost-all (autopilot-instaclear-roomcost-1126): the fixed floor with every mob room that can be insta
  *   cleared (no key, off the blood rush path) armed and Allow Insta Clearing ON: at least {@code testkit.instacostMin}
  *   (default 5; the base branch did 4) are really insta cleared (the sim's own "insta cleared" line, fired at the room's first entry, before any
@@ -674,10 +676,11 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         System.out.println("[" + INSTA_AP + "] armed " + armList + " + rush " + armRush + "; rush path " + rushFor + "; off "
                 + offTick + " ticks, insta cleared " + offDone + ": " + offSeq + "; on " + onTick + " ticks, insta cleared "
                 + onDone + ": " + onSeq);
-        // Acted: ON really insta cleared at least 4 armed rooms (the sim's own line), no fewer than OFF; the rush room was
-        // left out and no rush room credited; not slower (5 s slack for sim noise between two runs of the same floor).
-        row(INSTA_AP, credited && onDone.size() >= 4 && onDone.size() >= offDone.size() && rushOut && rushCredited.isEmpty()
-                        && onTick <= offTick + 100,
+        // Acted: ON really insta cleared at least 3 armed rooms (the sim's own line; neighbors the map showed after 8-10
+        // ticks next door are not insta clears), no fewer than OFF; the rush room was left out and no rush room credited;
+        // ON is really faster (11-26 pc2: 1147 vs 1447 ticks with 3 of 5).
+        row(INSTA_AP, credited && onDone.size() >= 3 && onDone.size() >= offDone.size() && rushOut && rushCredited.isEmpty()
+                        && onTick < offTick,
                 "armed " + armList.size() + ", insta cleared ON " + onDone.size() + " " + onDone + " / OFF " + offDone.size()
                         + (credited ? ", credited" : ", NOT credited") + ", rush room " + armRush + (rushOut ? " left out"
                         : " NOT left out") + ", rush rooms credited " + rushCredited + ", ticks off " + offTick + " on " + onTick);

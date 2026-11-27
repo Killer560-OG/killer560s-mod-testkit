@@ -161,6 +161,9 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "1126-logic-autopilot-skipplan", Autopilot1126Cases::skipPlan);
         LogicCase.runOffClient(ctx, "1126-logic-roomcost", InstaCost1126Cases::roomCost);
         LogicCase.runOffClient(ctx, "1127-logic-instapick", InstaCost1126Cases::instaPick);
+        LogicCase.runOffClient(ctx, "1127-logic-goback-expensive", GoBackWeigh1127Cases::expensive);
+        LogicCase.runOffClient(ctx, "1127-logic-goback-cheap", GoBackWeigh1127Cases::cheap);
+        LogicCase.runOffClient(ctx, "1127-logic-goback-enough", GoBackWeigh1127Cases::enough);
         LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
         LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
         LogicCase.run(ctx, "1105-logic-mapinfer-pit", MapInfer1105Cases::pit);

@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T02:12:45",
- "modSource": "lane-waterboard-chest-timed-click-1126",
- "modGitSha": "54ae7be0ff6ef08a620aee4a836504a1b5fd1814",
+ "generatedAt": "2026-11-27T07:46:17",
+ "modSource": "lane-autotune-no-start-done-lines-1126",
+ "modGitSha": "045a57cf4b8807f951bfd35107d741f5d7cc420f",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
