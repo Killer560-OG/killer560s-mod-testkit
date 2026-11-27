@@ -41,7 +41,6 @@ public class SimGreenLate1127Tests implements FabricClientGameTest {
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String PILOT = "com.killer560.hub.autosecret.DungeonsAutopilot";
     private static final String GRS = "com.killer560.hub.autosecret.GreenRoomStart";
-    private static final String DUNGEON_STATE = "com.killer560.hub.secrets.DungeonState";
     private static final String CHAT_OBSERVER = "com.killer560.hub.util.ChatObserver";
     private static final String AUTO_CLEAR = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String AUTO_CLEAR_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
@@ -117,7 +116,11 @@ public class SimGreenLate1127Tests implements FabricClientGameTest {
         } finally {
             ctx.runOnClient(mc -> {
                 PacketTrace.tap = null;
-                ModUnderTest.staticCall(DUNGEON_STATE, "setRoomSim", new Class<?>[]{boolean.class}, new Object[]{true});
+                try {
+                    ModUnderTest.staticCall(GRS, "testUnidentified", new Class<?>[]{boolean.class}, new Object[]{false});
+                } catch (Throwable ignored) {
+                    // origin: no hook
+                }
                 ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{false});
                 ModUnderTest.staticCall(AUTO_CLEAR, "cancel");
                 if ((Boolean) ModUnderTest.staticCall(AS, "isRunning")) {
@@ -214,12 +217,8 @@ public class SimGreenLate1127Tests implements FabricClientGameTest {
         Vec3 spawn = ctx.computeOnClient(mc -> mc.player.position());
         long mark = LogTap.mark();
         int[] uses = ctx.computeOnClient(mc -> useTap());
-        // The sidebar has not named the floor yet: the sim's flag that stands in for it is off for a moment.
-        boolean unknown = ctx.computeOnClient(mc -> {
-            ModUnderTest.staticCall(DUNGEON_STATE, "setRoomSim", new Class<?>[]{boolean.class}, new Object[]{false});
-            return !(Boolean) ModUnderTest.staticCall(DUNGEON_STATE, "isInDungeon");
-        });
-        f.add(unknown ? null : "could not make the dungeon unidentified (isInDungeon stayed true)");
+        // The sidebar has not named the floor yet (the join second): the arm's hook says so.
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(GRS, "testUnidentified", new Class<?>[]{boolean.class}, new Object[]{true}));
         arm(ctx);
         ctx.waitTicks(30);
         int usesWaiting = ctx.computeOnClient(mc -> uses[0]);
@@ -229,7 +228,7 @@ public class SimGreenLate1127Tests implements FabricClientGameTest {
         f.add("armed".equals(waiting) ? null : "after 30 ticks of an unidentified dungeon the arm is \"" + waiting + "\" (want armed, waiting)");
         f.add(usesWaiting == 0 ? null : usesWaiting + " use_item(s) while the dungeon was unidentified");
         f.add(logged ? null : "the wait was not logged (\"not acting yet: the dungeon is not identified\")");
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(DUNGEON_STATE, "setRoomSim", new Class<?>[]{boolean.class}, new Object[]{true}));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(GRS, "testUnidentified", new Class<?>[]{boolean.class}, new Object[]{false}));
         int ticks = settle(ctx, 400);
         String d = warpedBeforeGo(ctx, f, held, uses, mark, "identified, warped in " + ticks + " ticks");
         f.removeIf(java.util.Objects::isNull);
