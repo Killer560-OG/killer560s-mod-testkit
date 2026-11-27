@@ -149,6 +149,7 @@
 			"dev.testkit.gametest.SimPrerunTripTests",
 			"dev.testkit.gametest.SimGateBarrier1126Tests",
 			"dev.testkit.gametest.SimFirstTripPrerun1126Tests",
+			"dev.testkit.gametest.SimGreenLate1127Tests",
 			"dev.testkit.gametest.SimMapUnknownRoomTests",
 			"dev.testkit.gametest.SimNoammMapTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",
