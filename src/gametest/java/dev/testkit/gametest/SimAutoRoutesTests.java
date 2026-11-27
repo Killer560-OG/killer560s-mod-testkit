@@ -179,6 +179,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1017-bridges", "96-ar-1017-mimicaim",
             // arstack-1115: a stack is only a run of CONSECUTIVE same-tile nodes; a later return to the tile is a new stack
             "96-ar-1115-stack-return",
+            // autoroutes-node-number-skip-1126: a node on the tile he is left standing on fires whatever its number
+            "1126-ar-node-number-jump-later", "1126-ar-node-number-jump-skipped", "1126-ar-node-number-jump-control",
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
             "1018-ar-keyspot-empty", "1122-ar-steporder",
             // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
@@ -341,6 +343,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-chain" -> caseChain(ctx);
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
                         case "96-ar-1115-stack-return" -> caseStackReturn(ctx);
+                        case "1126-ar-node-number-jump-later" -> caseNodeNumberJump(ctx, "later");
+                        case "1126-ar-node-number-jump-skipped" -> caseNodeNumberJump(ctx, "skipped");
+                        case "1126-ar-node-number-jump-control" -> caseNodeNumberJump(ctx, "control");
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-charges" -> caseCharges(ctx);
                         case "96-ar-1112-breakrules" -> caseBreakRules(ctx);
@@ -1714,6 +1719,77 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         stopRoute(ctx);
         tpRel(ctx, 14.5, 10.5, 0f, 0f);
         ctx.waitTicks(5);
+    }
+
+    /**
+     * autoroutes-node-number-skip-1126 (killer560 11-26: "if i make a node nubmer 7 but the node that goes onto it is 4
+     * then it just wont fire number 7"; his Raccoon and Supertall routes). A node on the tile he is left standing on fires
+     * whatever its number: "later" - #2 (a rotate, nothing that moves him) is the next in order where #1 lands, #3 and
+     * #4 are elsewhere, #5 on the same tile must warp him on; "skipped" - #1 lands on #3 out of order, #3 lands on #4,
+     * and #2, on #4's tile and never reached in order, must fire there; "control" - the same tile's nodes consecutive
+     * (5 and 6 absent) fire as one stack, as before. Each asserts the earlier node acted first, the late one acted and
+     * the server put him on its landing, and that no idle wait came between. On a legit jar nothing starts at all.
+     */
+    private void caseNodeNumberJump(ClientGameTestContext ctx, String variant) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        List<JsonObject> nodes;
+        int first;
+        int late;
+        int[] goal;
+        switch (variant) {
+            case "later" -> {
+                nodes = List.of(ew(6, 6, 12, 6, true), node("ROTATE", 12, 6, 0f, 0f), ew(18, 6, 18, 12, false),
+                        ew(18, 12, 6, 12, false), ew(12, 6, 12, 12, false));
+                first = 2;
+                late = 5;
+                goal = new int[]{12, 12};
+            }
+            case "skipped" -> {
+                nodes = List.of(ew(6, 6, 18, 6, true), ew(12, 12, 6, 12, false), ew(18, 6, 12, 12, false),
+                        node("ROTATE", 12, 12, 0f, 0f));
+                first = 3;
+                late = 2;
+                goal = new int[]{6, 12};
+            }
+            default -> {
+                nodes = List.of(ew(6, 6, 12, 6, true), node("ROTATE", 12, 6, 0f, 0f), ew(12, 6, 12, 12, false));
+                first = 2;
+                late = 3;
+                goal = new int[]{12, 12};
+            }
+        }
+        writeRoute(ctx, nodes);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        tpRel(ctx, 4.5, 6.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        tpRel(ctx, 6.5, 6.5, -90f, 0f);
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            ctx.waitTicks(60);
+            boolean ran = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            println("node number jump " + variant + " (legit): running " + ran + ", acted " + logHas(m, "ETHERWARP acted"));
+            check(!ran && !logHas(m, "ETHERWARP acted"), "legit: Auto Routes ran a route");
+            return;
+        }
+        Vec3 landed = waitLanded(ctx, goal[0], goal[1], 200);
+        ctx.waitTicks(3);
+        int a = logIndex(m, "Node #1 ETHERWARP acted");
+        int b = logIndex(m, "Node #" + first + " ");
+        int c = logIndex(m, "Node #" + late + " ETHERWARP acted");
+        println("node number jump " + variant + ": #1@" + a + " #" + first + "@" + b + " #" + late + "@" + c + " at " + relPos(ctx)
+                + " | " + LogTap.since(m).stream().filter(l -> l.contains("Stack of") || l.contains("trace idle")
+                || l.contains("Landed in")).limit(8).toList());
+        check(a >= 0 && b > a, "premise: #1 did not warp him onto #" + first + " first (#1@" + a + " #" + first + "@" + b + ")");
+        check(c > b, "node #" + late + " on the tile he stood on never fired (#" + first + "@" + b + " #" + late + "@" + c + ")");
+        check(landed != null, "node #" + late + "'s warp did not put him on " + goal[0] + ", " + goal[1] + " (at " + relPos(ctx) + ")");
+        check(!logHas(m, "trace idle"), "the route sat idle before node #" + late);
+        if (!variant.equals("control")) {
+            int on = variant.equals("later") ? 2 : 4;
+            check(logHas(m, "Stack of 2 on node #" + on + "'s tile"), "node #" + late + " did not fire in #" + on + "'s stack");
+        }
+        stopRoute(ctx);
     }
 
     // ============================================================================================ breaker charges
