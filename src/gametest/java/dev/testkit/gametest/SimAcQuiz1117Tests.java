@@ -263,6 +263,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     ModUnderTest.set(auto, "setAutoQuizEnabled", true);
                     ModUnderTest.set(auto, "setAutoIceFillEnabled", true);
                     ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", true);
+                    ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.IceFillSolverConfig"), "setEnabled", true);
                     Object as = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
                     ModUnderTest.set(as, "setQuizFirst", Boolean.parseBoolean(v[4]));
                     ModUnderTest.set(as, "setIceFillFirst", true);
@@ -304,7 +305,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     }
                     quizDone |= ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "done"));
                     if (!iceDone) {
-                        iceDone = LogTap.since(mark).stream().anyMatch(l -> l.contains("Sim ice fill: fill crossed"));
+                        iceDone = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                                "com.killer560.hub.roomsim.puzzles.SimIceFillPuzzle", "isComplete"));
                     }
                 }
                 String held = LogTap.since(mark).stream().filter(l -> l.contains("Ice Fill waits: the Quiz is started first"))
