@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T16:01:27",
- "modSource": "lane-trap-routes-oldtrap-1127",
- "modGitSha": "5e0dd7b09203ef37e94e8f8b48a61be42e15f0d8",
+ "generatedAt": "2026-11-27T16:12:34",
+ "modSource": "lane-autopilot-icefill-solver-off-1127",
+ "modGitSha": "54553779b4c5474dc828c90bd3508ca188ecda9a",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
