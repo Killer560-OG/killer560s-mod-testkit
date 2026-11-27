@@ -413,6 +413,170 @@ public final class SimBeamsMeleeTests {
         }
     }
 
+    /**
+     * {@code 1126-beams-melee-hold} (beams-hold-loop-1126): his Hypixel run of 2026-11-26 4:06 PM in Melee mode (killer560:
+     * "look at whatever just happened in creeper beams"). Rotation 90 as his room (clay -74,-136), only his four lit pairs,
+     * his start spot (room-relative 15, 68, 5). There the auto warped to a hop (room-relative 26, 72, 17) on the way to the
+     * one spot for lantern 27, 78, 14, read the hop as in reach (4.23 eye to box, but every point of the lantern it could
+     * see lay past 4.5), and turned and held the hit for 155 ticks until he moved. Passes only when the room is solved as
+     * {@link Solve} demands AND that lantern's hit went with at most {@link #HOLD_MAX} held or turning ticks before it.
+     * A legit jar has no Auto Creeper Beams: its row checks the build says so.
+     */
+    public static final class Hold extends MeleeBase {
+        public Hold() {
+            super("hold");
+        }
+
+        @Override
+        String scenarioName() {
+            return "1126-beams-melee-hold";
+        }
+
+        @Override
+        int rotation() {
+            return 90;
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new HoldWatch();
+        }
+
+        @Override
+        public void runTest(ClientGameTestContext ctx) {
+            String name = scenarioName();
+            if (!Scenario.skip(name) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+                dev.testkit.harness.SuiteVerdict.expect(name);
+                dev.testkit.harness.Report.caseStarted(name);
+                say(name, "PASS - legit jar: BuildVariant.CHEAT_FEATURES_ENABLED is false, so Auto Creeper Beams cannot run");
+                dev.testkit.harness.Report.caseFinished(name, "PASS", "n/a (singleplayer)",
+                        "PASS - legit jar, no Auto Creeper Beams", List.of(), List.of());
+                dev.testkit.harness.SuiteVerdict.finished(name);
+                return;
+            }
+            super.runTest(ctx);
+        }
+    }
+
+    /** His four lit pairs, room-relative (rotation 90, clay -74,-136): every other pair is stone before the auto starts. */
+    private static final int[][][] HIS_LIT_1126 = {
+            {{15, 74, 15}, {15, 84, 13}}, {{24, 77, 7}, {5, 76, 24}}, {{27, 78, 14}, {2, 75, 16}}, {{9, 81, 20}, {26, 70, 7}}};
+    /** Held or turning ticks allowed on the watched lantern before its hit: a turn, a hit, and a gate's tick or two. */
+    static final int HOLD_MAX = 8;
+
+    static final class HoldWatch extends MeleeWatch {
+        String lantern = "";
+        String hop = "";
+        int heldLines;
+        int hopWarps;
+        boolean lanternHit;
+
+        @Override
+        void beforeAutoOn(ClientGameTestContext ctx) {
+            java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                Set<BlockPos> lit = new java.util.HashSet<>();
+                for (int[][] pair : HIS_LIT_1126) {
+                    for (int[] e : pair) {
+                        lit.add(SimPuzzleSolveTests.rel(mc, e[0], e[1], e[2]));
+                    }
+                }
+                BlockPos l = SimPuzzleSolveTests.rel(mc, 27, 78, 14);
+                BlockPos h = SimPuzzleSolveTests.rel(mc, 26, 72, 17);
+                lantern = l.getX() + ", " + l.getY() + ", " + l.getZ();
+                hop = h.getX() + ", " + h.getY() + ", " + h.getZ();
+                BlockPos start = SimPuzzleSolveTests.rel(mc, 15, 69, 5);
+                var uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    try {
+                        Class<?> c = Class.forName(PUZZLE);
+                        var wf = c.getDeclaredField("worldPairs");
+                        var cf = c.getDeclaredField("connected");
+                        wf.setAccessible(true);
+                        cf.setAccessible(true);
+                        List<?> world = (List<?>) wf.get(null);
+                        boolean[] connected = (boolean[]) cf.get(null);
+                        var level = server.overworld();
+                        int kept = 0;
+                        for (int i = 0; i < world.size(); i++) {
+                            Object pair = world.get(i);
+                            var a = pair.getClass().getDeclaredMethod("a");
+                            var b = pair.getClass().getDeclaredMethod("b");
+                            a.setAccessible(true);
+                            b.setAccessible(true);
+                            BlockPos pa = (BlockPos) a.invoke(pair);
+                            BlockPos pb = (BlockPos) b.invoke(pair);
+                            if (lit.contains(pa) && lit.contains(pb)) {
+                                kept++;
+                                continue;
+                            }
+                            level.setBlockAndUpdate(pa, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                            level.setBlockAndUpdate(pb, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                            if (i < connected.length) {
+                                connected[i] = false;
+                            }
+                        }
+                        if (kept != HIS_LIT_1126.length) {
+                            done.set("FAILED: " + kept + " of his " + HIS_LIT_1126.length + " lit pairs found in the sim room");
+                            return;
+                        }
+                        var sp = server.getPlayerList().getPlayer(uuid);
+                        if (sp != null) {
+                            sp.teleportTo(start.getX() + 0.5, start.getY(), start.getZ() + 0.5);
+                        }
+                        done.set("ok: his " + kept + " lit pairs kept, the rest stone, start " + start.toShortString());
+                    } catch (ReflectiveOperationException | RuntimeException e) {
+                        done.set("FAILED " + e);
+                    }
+                });
+            });
+            ctx.waitFor(mc -> done.get() != null, 200);
+            ctx.waitTicks(20);
+            say(name, "hold setup " + done.get() + "; watched lantern " + lantern + ", his hop " + hop + "; now "
+                    + ctx.computeOnClient(mc -> mc.player.blockPosition().toShortString()));
+            if (!done.get().startsWith("ok")) {
+                throw new AssertionError("hold setup: " + done.get());
+            }
+            super.beforeAutoOn(ctx);
+        }
+
+        @Override
+        void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
+            long before = seen;
+            super.tick(ctx, t, solvedAt, container);
+            if (seen > before) {
+                for (String l : LogTap.since(before)) {
+                    if (lanternHit || lantern.isEmpty()) {
+                        continue;
+                    }
+                    if (l.contains("melee: the hit on " + lantern + " was held") || l.contains("melee: turning onto " + lantern)) {
+                        heldLines++;
+                    } else if (l.contains("melee: warping to " + hop + " for " + lantern)) {
+                        hopWarps++;
+                    } else if (l.contains("Beams (melee): hit " + lantern + " ")) {
+                        lanternHit = true;
+                    }
+                }
+            }
+        }
+
+        @Override
+        String verdict(ClientGameTestContext ctx, int solvedAt) {
+            String v = super.verdict(ctx, solvedAt);
+            say(name, "HOLD on " + lantern + ": " + heldLines + " held/turning line(s) before its hit (limit " + HOLD_MAX
+                    + "), hit " + lanternHit + ", warps to his hop " + hopWarps);
+            if (heldLines > HOLD_MAX) {
+                return "the hit on " + lantern + " was held or turned " + heldLines + " times before it went (limit "
+                        + HOLD_MAX + ")" + (v == null ? "" : "; " + v);
+            }
+            if (v != null) {
+                return v;
+            }
+            return lanternHit ? null : "the auto never logged its hit on " + lantern;
+        }
+    }
+
     /** Each run at the next quarter turn ({@code -PsolveRepeat=4} plays all four). */
     public static final class Rotations extends MeleeBase {
         public Rotations() {

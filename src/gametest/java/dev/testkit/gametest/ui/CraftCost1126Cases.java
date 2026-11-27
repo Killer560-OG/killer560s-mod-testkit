@@ -133,6 +133,9 @@ final class CraftCost1126Cases {
         int nameX = rs.get(1)[2];
         c.check(rs.stream().skip(1).limit(3).allMatch(r -> r[2] == nameX), "ingredient names do not start at one x");
         c.check(rs.get(1)[3] == 1 && rs.get(3)[3] == 1 && rs.get(0)[3] == 0, "which rows click is wrong");
+        // Most expensive first: Judgement Core 112M, 8x Tessellated Ender Pearl 32k, Braided Griffin Feather 1k.
+        c.check(got.get(1).contains("Judgement Core") && got.get(2).contains("Tessellated Ender Pearl")
+                && got.get(3).contains("Braided Griffin Feather"), "rows are not ordered by total cost, highest first: " + got);
 
         List<String> sent = new CopyOnWriteArrayList<>();
         java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> before = dev.testkit.harness.PacketTrace.tap;
@@ -142,16 +145,16 @@ final class CraftCost1126Cases {
             }
         };
         try {
-            c.check(click(c, rs.get(1)[2] + 2, rs.get(1)[1]), "a click on the Bazaar row was not taken");
+            c.check(click(c, rs.get(2)[2] + 2, rs.get(2)[1]), "a click on the Bazaar row was not taken");
             c.ticks(4);
             c.check(sent.equals(List.of("bz Tessellated Ender Pearl")), "Bazaar row sent " + sent);
             sent.clear();
-            c.check(click(c, rs.get(3)[2] + 2, rs.get(3)[1]), "a click on the BIN row was not taken");
+            c.check(click(c, rs.get(1)[2] + 2, rs.get(1)[1]), "a click on the BIN row was not taken");
             c.ticks(4);
             c.check(sent.equals(List.of("ahs Judgement Core")), "BIN row sent " + sent);
             sent.clear();
             c.check(!click(c, rs.get(0)[2] + 2, rs.get(0)[1]), "the title row was taken as a click");
-            c.check(!click(c, rs.get(0)[2] - 40, rs.get(1)[1]), "a click left of the panel was taken");
+            c.check(!click(c, rs.get(0)[2] - 40, rs.get(2)[1]), "a click left of the panel was taken");
             c.ticks(4);
             c.check(sent.isEmpty(), "a click outside the rows sent " + sent);
         } finally {
@@ -213,8 +216,9 @@ final class CraftCost1126Cases {
             for (int i : new int[]{14, 15, 16, 22, 24}) {
                 box.setItem(i, new ItemStack(Items.STICK));
             }
-            box.setItem(53, supercraft("Supercraft (8x crafts)", "§0/32 §fTessellated Ender Pearl", "0/8 Braided Griffin Feather",
-                    "Right-Click to set amount!"));
+            box.setItem(53, supercraft("Supercraft (8x crafts)", "✖ 0/300 Tessellated Ender Pearl", "✖ 0/8 Braided Griffin Feather", "",
+                    "Ingredients are taken from your", "inventory, sacks, ender chests and", "backpacks.", "", "Right-Click to set amount!",
+                    "Missing ingredients!"));
             McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
                     mc.player.getInventory(), Component.literal("Terminator")));
             return null;
@@ -227,11 +231,11 @@ final class CraftCost1126Cases {
         pointer(c, true);
         List<String> got = lines(c);
         c.note("hovered: " + got);
-        String qa = "4x (32x) Tessellated Ender Pearl  " + fmt(c, 16000) + " (" + fmt(c, 128000) + ")";
+        String qa = "4x (300x) Tessellated Ender Pearl  " + fmt(c, 16000) + " (" + fmt(c, 1200000) + ")";
         c.check(got.size() == 4 && got.get(1).equals(qa), "hovered row: " + got);
         c.check(got.get(2).equals("1x (8x) Braided Griffin Feather  " + fmt(c, 1000) + " (" + fmt(c, 8000) + ")"), "second row: " + got);
-        c.check(got.get(0).equals("Craft Cost  " + fmt(c, 17000) + " (" + fmt(c, 136000) + ")"), "title total: " + got);
-        c.check(got.get(3).equals("Instant Buy  " + fmt(c, 4 * 4100 + 1100) + " (" + fmt(c, 8 * (4 * 4100 + 1100)) + ")"), "instant buy: " + got);
+        c.check(got.get(0).equals("Craft Cost  " + fmt(c, 17000) + " (" + fmt(c, 1208000) + ")"), "title total: " + got);
+        c.check(got.get(3).equals("Instant Buy  " + fmt(c, 4 * 4100 + 1100) + " (" + fmt(c, 300 * 4100 + 8 * 1100) + ")"), "instant buy: " + got);
         try {
             java.nio.file.Path shot = c.ctx().takeScreenshot("craftcost-supercraft-1126");
             java.nio.file.Files.copy(shot, java.nio.file.Path.of("C:/Users/Hunter/killer560s-mod-logs/craftcost-supercraft-1126.png"),
@@ -295,8 +299,8 @@ final class CraftCost1126Cases {
             List<String> got = lines(c);
             c.check(!got.isEmpty(), "the panel never built on the recipe menu - the feature never acted");
             c.note("lines: " + got);
-            c.check(got.equals(List.of("Craft Cost  730+", "5x Alpha  500", "4x Beta  200", "1x Gamma  not on Bazaar",
-                    "1x Delta  30 BIN", "Instant Buy  870+")), "panel text (no Makes line): " + got);
+            c.check(got.equals(List.of("Craft Cost  730+", "5x Alpha  500", "4x Beta  200", "1x Delta  30 BIN",
+                    "1x Gamma  not on Bazaar", "Instant Buy  870+")), "panel text (no Makes line): " + got);
 
             int n0 = (Integer) c.onClient(mc -> Mod.staticCall(CC, "computesForTest"));
             c.ticks(20);
