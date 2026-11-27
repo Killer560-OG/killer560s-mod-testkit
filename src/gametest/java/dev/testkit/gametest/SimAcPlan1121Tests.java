@@ -77,6 +77,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private static final String COST_QUIZ = "1126-sim-instacost-quiz";
     private static final String COST_ICE = "1126-sim-instacost-icefill";
     private static final String COST_BLOOD = "1126-sim-instacost-bloodfirst";
+    private static final String ICE_SOLVER = "1127-sim-ap-icefill-solver";
     private static final List<String> COST_TRIPS = List.of(COST_QUIZ, COST_ICE, COST_BLOOD);
     /** Priority cases: the tick the trip's goal was reached (-1 none) and when each room was cleared (sim line). */
     private int goalTick = -1;
@@ -121,6 +122,9 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private final List<String> all = new ArrayList<>();
     // 1126-sim-autopilot-instaclear: the run's Allow Insta Clearing, the armed room, and what one() saw.
     private boolean instaFor;
+    /** 1127-sim-ap-icefill-solver: whether the Ice Fill Solver is on in this run, and whether the floor has an Ice Fill. */
+    private boolean iceSolverOn;
+    private boolean iceRoomHere;
     private List<String> armList = new ArrayList<>();
     private String armRush;
     private List<String> rushFor = List.of();
@@ -140,14 +144,20 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                     + " clear-everything-first order (1121-sim-acplan-clearthensecret)");
         }
         for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, SKIP_BLOOD, INSTA, INSTA_AP, COST_ALL, COST_BIG,
-                COST_QUIZ, COST_ICE, COST_BLOOD}) {
+                COST_QUIZ, COST_ICE, COST_BLOOD, ICE_SOLVER}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(n)) {
                 sims.add(n);
             }
         }
         if (!sims.isEmpty()) {
             if (!dev.testkit.gametest.mod.Mod.isCheat()) {
-                sims.forEach(n -> Scenario.skipped(n, "Auto Clear is cheat build only"));
+                sims.forEach(n -> {
+                    if (n.equals(ICE_SOLVER)) {
+                        row(n, true, "Dungeons Autopilot is cheat build only: nothing to plan on a legit jar");
+                    } else {
+                        Scenario.skipped(n, "Auto Clear is cheat build only");
+                    }
+                });
             } else {
                 sim(ctx, sims);
             }
@@ -289,6 +299,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                         insta(ctx);
                     } else if (c.equals(INSTA_AP)) {
                         instaAp(ctx);
+                    } else if (c.equals(ICE_SOLVER)) {
+                        iceSolver(ctx);
                     } else if (allArm(c) || COST_TRIPS.contains(c)) {
                         instaCost(ctx, c);
                     } else {
@@ -366,7 +378,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 setEnum(as, "setMode", "Mode", party ? "PARTY_SECRETS" : name.equals(CLEAR_THEN) ? "CLEAR_THEN_SECRET" : "SOLO_300");
                 setEnum(as, "setBloodRush", "BloodRush", "NONE");
                 setEnum(as, "setRoomBeforeBlood", "RoomBeforeBlood", name.equals(SKIP_BLOOD) ? "SKIP" : "SAVE_FOR_LAST");
-                if (name.equals(INSTA_AP) || allArm(name) || COST_TRIPS.contains(name)) {
+                if (name.equals(INSTA_AP) || allArm(name) || COST_TRIPS.contains(name) || name.equals(ICE_SOLVER)) {
                     ModUnderTest.set(as, "setInstaClear", instaFor);
                 }
             } else if (name.equals(SOLO) || name.equals(PARTY_OFF)) {
@@ -375,14 +387,17 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 throw new IllegalStateException("this jar has no Dungeons Autopilot Mode / Clear First / Room Before Blood");
             }
             ModUnderTest.set(as, "setBloodFirst", name.equals(COST_BLOOD));
-            if (allArm(name) || COST_TRIPS.contains(name)) {
+            if (allArm(name) || COST_TRIPS.contains(name) || name.equals(ICE_SOLVER)) {
                 Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
                 boolean quiz = name.equals(COST_QUIZ);
-                boolean ice = name.equals(COST_ICE);
+                boolean ice = name.equals(COST_ICE) || name.equals(ICE_SOLVER);
                 ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", quiz || ice);
                 ModUnderTest.set(auto, "setAutoQuizEnabled", quiz);
                 ModUnderTest.set(auto, "setAutoIceFillEnabled", ice);
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", quiz);
+                // Auto Ice Fill needs the Ice Fill Solver (1127: with it off the Autopilot plans no trip there).
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.IceFillSolverConfig"), "setEnabled",
+                        name.equals(ICE_SOLVER) ? iceSolverOn : ice);
                 ModUnderTest.set(as, "setDoPuzzles", quiz || ice);
                 ModUnderTest.set(as, "setQuizFirst", quiz);
                 ModUnderTest.set(as, "setIceFillFirst", ice);
@@ -402,6 +417,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 400);
         instaLines.clear();
+        iceRoomHere = ctx.computeOnClient(SimAutopilotTests::readStatus).stream().anyMatch(r -> "Ice Fill".equals(r.name()));
         goalTick = -1;
         clearedAt.clear();
         instaAt.clear();
@@ -465,7 +481,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                         onTheWay.add(r);
                     }
                 }
-                if (goalTick < 0 && (name.equals(COST_ICE) && l.contains("[AutoSecret] Ice Fill first:")
+                if (goalTick < 0 && ((name.equals(COST_ICE) || name.equals(ICE_SOLVER)) && l.contains("[AutoSecret] Ice Fill first:")
                         || name.equals(COST_BLOOD) && l.contains("[Autopilot] the blood door"))) {
                     goalTick = tick;
                 }
@@ -498,7 +514,10 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                     "com.killer560.hub.puzzlesolvers.QuizState", "started")))) {
                 goalTick = tick;
             }
-            if (COST_TRIPS.contains(name) && goalTick >= 0 && tick >= goalTick + 20) {
+            if (name.equals(ICE_SOLVER) && !iceSolverOn && tick >= Integer.getInteger("testkit.iceSolverOffTicks", 2400)) {
+                break;   // solver off: two minutes of the run is plenty to show no trip to Ice Fill went out
+            }
+            if ((COST_TRIPS.contains(name) || name.equals(ICE_SOLVER)) && goalTick >= 0 && tick >= goalTick + 20) {
                 break;   // the trip's goal is reached: the rest of the run is not this case
             }
             boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "isRunning"));
@@ -536,7 +555,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         lastPicks = picks;
         lastTick = tick;
         switch (name) {
-            case INSTA_AP, COST_ALL, COST_BIG, COST_QUIZ, COST_ICE, COST_BLOOD -> {
+            case INSTA_AP, COST_ALL, COST_BIG, COST_QUIZ, COST_ICE, COST_BLOOD, ICE_SOLVER -> {
                 // judged by instaAp / instaCost
             }
             case SOLO -> {
@@ -690,6 +709,39 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
      * 1126-sim-instacost-*: COST_ALL once ON (count against testkit.instacostMin); a priority trip OFF then ON, the same
      * rooms armed, each run stopped once its goal is reached.
      */
+    /**
+     * 1127-sim-ap-icefill-solver (autopilot-icefill-solver-off-1127): Auto Ice Fill is on but the Ice Fill Solver is off, so the
+     * auto only waits ("waiting: Ice Fill Solver is off"); the Autopilot must plan no trip to Ice Fill and carry on with the
+     * rest. Run 1 solver off: no "Ice Fill first" and no PUZZLE pick of Ice Fill, with the floor having one and the run
+     * picking 3+ other rooms. Run 2 solver on: the trip goes out.
+     */
+    private void iceSolver(ClientGameTestContext ctx) {
+        try {
+            instaFor = false;
+            iceSolverOn = false;
+            one(ctx, ICE_SOLVER);
+            if (lastPicks == null) {
+                return;
+            }
+            boolean room = iceRoomHere;
+            int offGoal = goalTick;
+            List<String[]> offPicks = lastPicks;
+            boolean pickedIce = offPicks.stream().anyMatch(p -> "Ice Fill".equals(p[1]));
+            long others = offPicks.stream().filter(p -> !"Ice Fill".equals(p[1])).count();
+            stop(ctx);
+            SimMobFloorTests.leave(ctx);
+            iceSolverOn = true;
+            one(ctx, ICE_SOLVER);
+            boolean onOk = goalTick >= 0;
+            row(ICE_SOLVER, room && offGoal < 0 && !pickedIce && others >= 3 && onOk, "floor has Ice Fill " + room
+                    + "; solver OFF: Ice Fill first at " + offGoal + ", Ice Fill picked " + pickedIce + ", other picks " + others
+                    + "; solver ON: Ice Fill first at " + goalTick);
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig"),
+                    "setAutoIceFillEnabled", false));
+        }
+    }
+
     private void instaCost(ClientGameTestContext ctx, String name) {
         try {
             instaCostRuns(ctx, name);

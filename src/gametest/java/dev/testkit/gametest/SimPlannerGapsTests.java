@@ -488,7 +488,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
      * land on, how many of those are in {@code room} within 4 blocks of the target's height, whether the target itself
      * is one, and (with {@code twoHops}) whether any second warp from a first landing (every 2 degrees) lands on it.
      */
-    private static String oracle(ClientGameTestContext ctx, Vec3 feet, BlockPos target, String room, boolean twoHops,
+    static String oracle(ClientGameTestContext ctx, Vec3 feet, BlockPos target, String room, boolean twoHops,
                                  float step) {
         AtomicReference<String> out = new AtomicReference<>();
         ctx.runOnClient(mc -> {
@@ -587,7 +587,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
      * @return "REACHABLE in N warp(s) via ..." / "sealed: ..." (the whole reachable set expanded, no target) /
      *         "unsure: ..." (capped)
      */
-    private static String bfsOracle(ClientGameTestContext ctx, Vec3 feet, BlockPos target) {
+    static String bfsOracle(ClientGameTestContext ctx, Vec3 feet, BlockPos target) {
         AtomicReference<String> out = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             int floor = 69 + (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset");
@@ -735,7 +735,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
     }
 
     /** The blocks around his feet, layer by layer: '#' solid, '.' air, '@' him, 'T' the line toward the target. */
-    private static void dumpAround(ClientGameTestContext ctx, String name, String label, Vec3 feet, BlockPos target) {
+    static void dumpAround(ClientGameTestContext ctx, String name, String label, Vec3 feet, BlockPos target) {
         List<String> lines = ctx.computeOnClient(mc -> {
             List<String> out = new ArrayList<>();
             int fx = (int) Math.floor(feet.x);
@@ -832,7 +832,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
     }
 
     /** The planner's answer from {@code feet} to {@code target}, as Auto Clear asks it (on the planner thread). */
-    private static String planOnPlanner(ClientGameTestContext ctx, Vec3 feet, BlockPos target) {
+    static String planOnPlanner(ClientGameTestContext ctx, Vec3 feet, BlockPos target) {
         AtomicReference<String> result = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
@@ -863,7 +863,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
      * Runs the trip with the Interactive Map's executor (what Auto Clear does) and judges it: he moved, he ended on
      * the target block in the target room, the server refused nothing. Failures go into {@code failures}.
      */
-    private static String runTrip(ClientGameTestContext ctx, String name, String label, Vec3 feet, BlockPos target,
+    static String runTrip(ClientGameTestContext ctx, String name, String label, Vec3 feet, BlockPos target,
                                   String room, List<String> failures) {
         long mark = LogTap.mark();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "etherPath", new Class<?>[]{BlockPos.class,
@@ -1118,11 +1118,11 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
 
     // ------------------------------------------------------------------------------------------------ misc
 
-    private static String fmt(Vec3 v) {
+    static String fmt(Vec3 v) {
         return String.format(Locale.US, "(%.2f, %.2f, %.2f)", v.x, v.y, v.z);
     }
 
-    private static void println(String name, String s) {
+    static void println(String name, String s) {
         System.out.println("[" + name + "] " + s);
     }
 }

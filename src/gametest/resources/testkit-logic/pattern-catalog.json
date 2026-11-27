@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T07:46:17",
- "modSource": "lane-autotune-no-start-done-lines-1126",
- "modGitSha": "045a57cf4b8807f951bfd35107d741f5d7cc420f",
+ "generatedAt": "2026-11-27T13:51:29",
+ "modSource": "lane-autoroutes-breaker-fall-1127",
+ "modGitSha": "b2becd60649e993410ea185f27267ddcf41415c7",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
@@ -10958,9 +10958,9 @@
    "expr": "\"\\\\bttt\\\\b\""
   },
   {
-   "id": "scorecalc.ScoreCalculatorFeature#BLAZE_DONE_WORD",
+   "id": "scorecalc.ScoreCalculatorFeature#DONE_WORD",
    "cls": "scorecalc.ScoreCalculatorFeature",
-   "field": "BLAZE_DONE_WORD",
+   "field": "DONE_WORD",
    "index": null,
    "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
    "line": 165,

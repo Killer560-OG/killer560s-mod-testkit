@@ -251,7 +251,7 @@ final class DocMenuCases {
                     }
                 }
                 List<String> kept = new ArrayList<>();
-                for (String b : new String[]{"Edit HUD", "Edit Bars", "Check Updates", "Discord", "GitHub", "Features Doc"}) {
+                for (String b : new String[]{"Edit HUD", "Edit Bars", "Check Updates", "Website", "Discord", "GitHub"}) {
                     if (Mod.call(s[0], "homeButtonBounds", b) == null) {
                         return "Home lost its " + b + " button";
                     }
@@ -336,8 +336,7 @@ final class DocMenuCases {
                 }
                 @SuppressWarnings("unchecked")
                 List<String> labels = (List<String>) Mod.call(s[0], "homeButtonLabels");
-                List<String> want = List.of("Edit HUD", "Edit Bars", "Check Updates", "Sweat Mode", "YouTube", "Discord", "GitHub",
-                        "Features Doc"); // killer560 2026-10-16: tools on top, links below
+                List<String> want = List.of("Edit HUD", "Edit Bars", "Check Updates", "Sweat Mode", "YouTube", "Website", "Discord", "GitHub"); // killer560 2026-10-16: tools on top, links below; Website replaced Features Doc 2026-11-26
                 if (!labels.equals(want)) {
                     return "Home's buttons are " + labels + ", wanted " + want;
                 }
@@ -479,8 +478,7 @@ final class DocMenuCases {
             dev.testkit.compat.McCompat.setScreen(mc, null);
             return null;
         });
-        // Home's quick buttons (2026-10-16): Edit HUD, Edit Bars, Check Updates, Sweat Mode, then YouTube, Discord, GitHub,
-        // Features Doc.
+        // Home's quick buttons (2026-10-16): Edit HUD, Edit Bars, Check Updates, Sweat Mode, then YouTube, Discord, GitHub.
         String home = c.onClient(mc -> {
             Screen h = openMenu(mc);
             Mod.call(h, "selectCategory", "Home");

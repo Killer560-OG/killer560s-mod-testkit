@@ -150,6 +150,8 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
             ModUnderTest.set(auto, "setAutoQuizEnabled", true);
             ModUnderTest.set(auto, "setAutoIceFillEnabled", true);
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", true);
+            // Autopilot plans no Ice Fill trip with the Ice Fill Solver off (autopilot-icefill-solver-off-1127): this run needs it solved.
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.IceFillSolverConfig"), "setEnabled", true);
             Object as = ModUnderTest.config(AS_CONFIG);
             Object solo = ModUnderTest.enumValue(AS_CONFIG + "$RunMode", "SOLO");
             ModUnderTest.call(as, "setRunMode", new Class<?>[]{solo.getClass()}, new Object[]{solo});
