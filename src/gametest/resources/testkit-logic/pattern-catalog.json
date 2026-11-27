@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T12:13:44",
- "modSource": "lane-acquiz-two-fails-1127",
- "modGitSha": "a74c0e5313c4dd1442bc41c9101eeba566e53942",
+ "generatedAt": "2026-11-27T13:16:49",
+ "modSource": "lane-autopilot-diagonal-short-1127b",
+ "modGitSha": "8abb768a3db89a40d903ed1a38cb2e0735d02613",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
