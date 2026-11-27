@@ -38,7 +38,9 @@ public class SimApFix1123Tests implements FabricClientGameTest {
     private static final String BELOW = "1127-sim-ap-start-below";
     /** diagonal-short-1127: one node below the start and two above it with a walk gap between each. */
     private static final String ABOVE = "1127-sim-ap-start-gap-above";
-    private static final List<String> ALL = List.of(WALK, HOLD, BELOW, ABOVE);
+    /** goback-partial-1127: a go-back runs only the node whose secret wait was never met, not the whole route. */
+    private static final String PARTIAL = "1127-sim-ap-goback-partial";
+    private static final List<String> ALL = List.of(WALK, HOLD, BELOW, ABOVE, PARTIAL);
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AP = "com.killer560.hub.autosecret.Autopilot";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
@@ -161,6 +163,9 @@ public class SimApFix1123Tests implements FabricClientGameTest {
         if (Scenario.named(ABOVE)) {
             wrapCase(ctx, ABOVE, 4, 1, used);
         }
+        if (Scenario.named(PARTIAL)) {
+            partialCase(ctx, used);
+        }
     }
 
     /**
@@ -185,7 +190,7 @@ public class SimApFix1123Tests implements FabricClientGameTest {
                     || List.of("PUZZLE", "TRAP", "BLOOD", "ENTRANCE").contains(r.type())) {
                 continue;
             }
-            route = ctx.computeOnClient(mc -> spreadRoute(r, name, count, startIdx));
+            route = ctx.computeOnClient(mc -> spreadRoute(r, name, count, startIdx, -1));
             if (route != null) {
                 room = r.name();
                 break;
@@ -242,8 +247,87 @@ public class SimApFix1123Tests implements FabricClientGameTest {
                 + ", run memory has every node fired " + memory);
     }
 
+    /**
+     * goback-partial-1127 (killer560 11-27: "itll miss a secret and redo the whole room wasting a bunch of time"): four
+     * ROTATE nodes a walk apart, #3 waiting for a secret that never comes (it lets go). The only route on the floor, so
+     * Auto Secret reaches its endgame and goes back for the room's missing secrets: the go-back must name that one node,
+     * warp onto it and run it alone - no other node fires again - and the route must finish. On origin the go-back
+     * reruns the whole route from its start node.
+     */
+    private static void partialCase(ClientGameTestContext ctx, Set<String> used) {
+        String preBlood = ctx.computeOnClient(SimAutoSecretTests::preBloodName);
+        int here = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
+                "currentRoom", new Class<?>[]{}, new Object[]{}));
+        String room = null;
+        JsonObject route = null;
+        List<SimAutoSecretTests.Room> rooms = ctx.computeOnClient(SimAutoSecretTests::readRooms);
+        rooms.sort((a, b) -> Integer.compare(b.unfound(), a.unfound()));
+        for (SimAutoSecretTests.Room r : rooms) {
+            if (!r.reachable() || r.id() == here || r.unfound() <= 0 || r.name().equals("Unknown") || r.name().equals(preBlood)
+                    || used.contains(r.name()) || !SimAutoSecretTests.pathsOut(r)
+                    || List.of("PUZZLE", "TRAP", "BLOOD", "ENTRANCE").contains(r.type())) {
+                continue;
+            }
+            route = ctx.computeOnClient(mc -> spreadRoute(r, PARTIAL, 4, 0, 2));
+            if (route != null) {
+                room = r.name();
+                break;
+            }
+        }
+        if (room == null) {
+            row(PARTIAL, "FAIL|no reachable room on this floor has 4 standable blocks 6+ apart in its main tile");
+            return;
+        }
+        used.add(room);
+        SimAutoSecretTests.writeRoutes(ctx, Map.of(room, route));
+        long mark = LogTap.mark();
+        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+        String target = room;
+        int finishes = 0;
+        long goBack = -1;
+        boolean stopped = false;
+        for (int t = 0; t < 20 * 180 && finishes < 2 && !stopped && Boolean.TRUE.equals(started); t += 5) {
+            ctx.waitTicks(5);
+            finishes = 0;
+            List<String> lines = LogTap.since(mark);
+            for (int i = 0; i < lines.size(); i++) {
+                String l = lines.get(i);
+                if (l.contains("[AutoSecret] route " + target + " finished")) {
+                    finishes++;
+                }
+                if (goBack < 0 && l.contains("[AutoSecret] endgame: " + target + " ended its route short")) {
+                    goBack = i;
+                }
+            }
+            stopped = !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "isRunning"));
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
+                new Object[]{"test over", true}));
+        List<String> lines = LogTap.since(mark);
+        int[] first = new int[4];
+        int[] again = new int[4];
+        boolean named = false;
+        for (int i = 0; i < lines.size(); i++) {
+            String l = lines.get(i);
+            named |= goBack >= 0 && i > goBack && l.contains("going back for 1 node(s) of its route");
+            for (int k = 0; k < 4; k++) {
+                if (l.contains("[AutoRoutes] Node #" + (k + 1) + " ROTATE finished")) {
+                    (goBack >= 0 && i > goBack ? again : first)[k]++;
+                }
+            }
+        }
+        boolean firstAll = first[0] >= 1 && first[1] >= 1 && first[2] >= 1 && first[3] >= 1;
+        boolean onlyMissed = again[2] >= 1 && again[0] == 0 && again[1] == 0 && again[3] == 0;
+        boolean pass = Boolean.TRUE.equals(started) && firstAll && goBack >= 0 && named && onlyMissed && finishes >= 2;
+        row(PARTIAL, (pass ? "PASS" : "FAIL") + "|route in " + room + " (4 nodes, #3 waits for a secret that never comes):"
+                + " started " + started + ", first run fired " + java.util.Arrays.toString(first) + ", went back "
+                + (goBack >= 0) + ", named only #3 " + named + ", go-back fired " + java.util.Arrays.toString(again)
+                + " (want only #3), route finished " + finishes + " time(s)");
+    }
+
     /** {@code count} ROTATE nodes on standable blocks 6+ apart in the room's main tile, start flag on {@code startIdx}. */
-    private static JsonObject spreadRoute(SimAutoSecretTests.Room r, String name, int count, int startIdx) {
+    private static JsonObject spreadRoute(SimAutoSecretTests.Room r, String name, int count, int startIdx,
+                                          int awaitIdx) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r.id()});
         if (cr == null) {
@@ -292,6 +376,11 @@ public class SimApFix1123Tests implements FabricClientGameTest {
                 node.addProperty("pitch", 0f);
                 if (i == startIdx) {
                     node.addProperty("start", true);
+                }
+                if (i == awaitIdx) {
+                    node.addProperty("awaitEnabled", true);
+                    node.addProperty("await", "SECRET");
+                    node.addProperty("amount", 1);
                 }
                 nodes.add(node);
                 where.append(" #").append(i + 1).append(i == startIdx ? "(start)" : "").append(' ').append(p.toShortString());
