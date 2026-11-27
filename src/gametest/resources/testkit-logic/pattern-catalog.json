@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T07:12:20",
- "modSource": "lane-autopilot-goback-weigh-1127",
- "modGitSha": "f5f799a708fdc110928b4952c595bf15e5a51e02",
+ "generatedAt": "2026-11-27T08:19:34",
+ "modSource": "lane-acflakes-1127",
+ "modGitSha": "653d7708ad2bac2176596fa519d51962284c94b2",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
