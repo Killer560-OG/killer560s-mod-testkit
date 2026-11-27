@@ -185,6 +185,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestBot1104Cases.register(s);
                     // Water Board reward chest click with his use / scroll / dig / teleport in its ticks (1115-same-waterchest-*, mod acslow3-1115).
                     HxWaterChest1115Cases.register(s);
+                    // Reward chest step closes the window it opened itself, waits on his own screen (1126-same-rewardchest-close-*, 1126-rewardchest-player-screen).
+                    HxRewardChestClose1126Cases.register(s);
                     // Powder chests he dug with no line, beside another player's, far, island lapse, section update (1113-chestmiss-*, mod chestmiss-1113).
                     HxChestMiss1113Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).

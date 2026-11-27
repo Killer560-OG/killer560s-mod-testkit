@@ -1084,7 +1084,9 @@ public final class SimPuzzleSolveTests {
                                 + (McCompat.screen(mc) == null ? "" : " / " + McCompat.screen(mc).getTitle().getString());
                         // Closed for him, as he would: a container left open stops every auto
                         // (they all refuse to act with a screen up).
-                        mc.player.closeContainer();
+                        if (caseExtra == null || !caseExtra.keepsWindows()) {
+                            mc.player.closeContainer();
+                        }
                     }
                     return new Object[]{open, mc.player == null ? null
                             : new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()}};

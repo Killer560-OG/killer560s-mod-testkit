@@ -41,6 +41,8 @@ public final class SimChestStallTests {
     static final int QUIET_TICKS = 2;
     static final int COMPLETE_TICKS = 2;
     static final int TAB_TICKS = 40;
+    /** The step closes its own chest window the tick after it opens: a few ticks cover the server's stall. */
+    static final int OWN_WINDOW_TICKS = 6;
 
     private SimChestStallTests() {
     }
@@ -72,7 +74,26 @@ public final class SimChestStallTests {
 
     /** One reward-chest step under Auto Close Chest, judged against the server's chest clicks. */
     static SolveExtra autoCloseClaim(String tag, int chests) {
+        return claim(tag, chests, true);
+    }
+
+    /**
+     * Auto Close Chest OFF (rewardchest-screen-stall-1126): the window of the chest the step opened stays up unless the step
+     * closes it, and the harness is told not to close it for the player. The step must close it itself, claim every chest and
+     * end, with no window left and the activity quiet - the old step waited on its own window for good ("a screen is open").
+     */
+    static SolveExtra claim(String tag, int chests, boolean closeOn) {
         return new SolveExtra() {
+            int openRun = 0;
+            int openMax = 0;
+            int closedLines = 0;
+            boolean openAtEnd = false;
+
+            @Override
+            boolean keepsWindows() {
+                return !closeOn;
+            }
+
             int serverClicks0 = -1;
             int lastServerClickT = -1;
             int seenServerClicks = 0;
@@ -88,8 +109,8 @@ public final class SimChestStallTests {
             void configure(Object auto, Object cheat) {
                 hook();
                 ModUnderTest.set(cheat, "setSecretAuraEnabled", false);
-                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setEnabled", true);
-                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setAuto", true);   // the cheat Auto (was the default mode)
+                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setEnabled", closeOn);
+                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setAuto", closeOn);   // the cheat Auto (was the default mode)
             }
 
             @Override
@@ -103,6 +124,9 @@ public final class SimChestStallTests {
                     return;
                 }
                 screenSeen |= container;
+                openRun = container ? openRun + 1 : 0;
+                openMax = Math.max(openMax, openRun);
+                openAtEnd = container;
                 int n = SERVER_CHEST_CLICK_COUNT.get() - serverClicks0;
                 if (n > seenServerClicks) {
                     seenServerClicks = n;
@@ -111,7 +135,11 @@ public final class SimChestStallTests {
                             t / 20.0, n, SERVER_CHEST_CLICKS.size()));
                 }
                 int clicks = 0;
+                closedLines = 0;
                 for (String l : LogTap.since(mark)) {
+                    if (l.contains("] " + tag + ": closed the chest window it opened")) {
+                        closedLines++;
+                    }
                     if (l.contains("] " + tag + ": clicked the reward chest")) {
                         clicks++;
                     }
@@ -147,8 +175,11 @@ public final class SimChestStallTests {
                 if (seenServerClicks == 0) {
                     return "UNTESTED - the server took no click on a chest after the solve";
                 }
-                if (screenSeen) {
+                if (closeOn && screenSeen) {
                     return "UNTESTED - a chest screen showed, so Auto Close Chest did not hide the window";
+                }
+                if (!closeOn && !screenSeen) {
+                    return "UNTESTED - no chest window ever showed, so the step had nothing of its own to close";
                 }
                 int claimed = SERVER_CHEST_CLICKS.size();
                 if (claimed < chests) {
@@ -166,7 +197,16 @@ public final class SimChestStallTests {
                     if (!stepWhy.startsWith("done (")) {
                         bad.add("the step ended \"" + stepWhy + "\", not \"done\"");
                     }
-                    if (stepAt - lastServerClickT > STEP_TICKS) {
+                    if (!closeOn && closedLines < chests) {
+                        bad.add("the step closed " + closedLines + " of " + chests + " chest window(s) it opened");
+                    }
+                    if (!closeOn && openMax > OWN_WINDOW_TICKS) {
+                        bad.add("a chest window stayed open " + openMax + " tick(s) (allowed " + OWN_WINDOW_TICKS + ")");
+                    }
+                    if (!closeOn && openAtEnd) {
+                        bad.add("a chest window was still open when the step ended");
+                    }
+                    if (stepAt - lastServerClickT > (closeOn ? STEP_TICKS : STEP_TICKS + OWN_WINDOW_TICKS)) {
                         bad.add(String.format("the step ended %d tick(s) after the last claim (allowed %d)",
                                 stepAt - lastServerClickT, STEP_TICKS));
                     }
@@ -293,6 +333,20 @@ public final class SimChestStallTests {
         @Override
         SolveExtra extra() {
             return autoCloseClaim("Ice Fill", 2);
+        }
+    }
+
+    /** {@code 93-solve-icefill-chest-noclose} (rewardchest-screen-stall-1126): Auto Close Chest OFF, see {@link #claim}. */
+    public static final class IceFillChestNoClose extends SimPuzzleSolveTests.Base {
+        public IceFillChestNoClose() {
+            super(new SimPuzzleSolveTests.Spec("icefill-chest-noclose", "Ice Fill", "setAutoIceFillEnabled",
+                    "isAutoIceFillEnabled", "IceFillSolverConfig", "SimIceFillPuzzle", 0, false, 60,
+                    SimPuzzleSolveTests.Approach.NONE, "IceFillSolverFeature.getCurrentPath"));
+        }
+
+        @Override
+        SolveExtra extra() {
+            return claim("Ice Fill", 2, false);
         }
     }
 
