@@ -22,6 +22,7 @@
     {"input": "breakeraura config list", "expect": "ok", "source": "dungeonextras/BreakerAuraCommands.java:82 (prints to chat; list is under config)"}
   ],
   "parseOnly": [
+    {"root": "k560screenshot", "why": "screenshot-edit-1126: only k560screenshot edit FILE, run by the chat Edit click; it opens the editor on a screenshot file; testkit 1126-ui-screenshot-edit"},
     {"root": "k", "why": "Command Prefixes (mod cmdprefix-1109): a second name for /killer560, OFF by default (requires), so a sweep cannot run it; testkit 1109-ui-cmdprefix-names runs each"},
     {"root": "k5", "why": "Command Prefixes (mod cmdprefix-1109): same as k"},
     {"root": "k560", "why": "Command Prefixes (mod cmdprefix-1109): same as k"},

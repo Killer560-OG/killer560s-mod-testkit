@@ -48,6 +48,7 @@ public final class HxDungeonModule implements HxModule {
     @Override
     public void register() {
         HxAbilities.register();
+        HxGroundWatch.register();
         HxBridge.register("dungeon.status", (server, args) -> new JsonPrimitive(HxAbilities.enabled() ? "abilities" : "stub"));
         HxBridge.register("dungeon.abilities", (server, args) -> {
             HxAbilities.setEnabled(!args.has("enabled") || args.get("enabled").getAsBoolean());
