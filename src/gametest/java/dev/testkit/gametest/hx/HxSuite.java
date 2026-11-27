@@ -65,6 +65,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Per-trigger-bot delays (797-798, branch nt-trigger-delays), own block.
                     HxTriggerDelayCases.register(s);
                     HxFlagHuntB1110Cases.register(s);
+                    // Secret Aura after a teleport landing (tickledger-1127), own block.
+                    HxTickLedger1127Cases.register(s);
                     // Player Cosmetics names: fade, tab, nametag height, own name in F5 (811-818, branch
                     // nt-cosmetic-names), own block.
                     HxCosmeticNameCases.register(s);
