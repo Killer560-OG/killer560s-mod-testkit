@@ -35,6 +35,7 @@ import java.util.regex.Pattern;
 public class SimEntranceExit1126Tests implements FabricClientGameTest {
 
     private static final String CASE = "1126-sim-ac-entrance-exit";
+    private static final String COLD = "1126-sim-ac-coldtrip";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -72,6 +73,7 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
                 }
             });
             finish(CASE, on ? "Dungeons Autopilot switched on in a legit jar" : null, "legit jar: Dungeons Autopilot stays off");
+            finish(COLD, on ? "Dungeons Autopilot switched on in a legit jar" : null, "legit jar: no Auto Clear trips");
             return;
         }
         LogTap.install();
@@ -97,13 +99,19 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
             ModUnderTest.call(as, "setBloodRush", new Class<?>[]{door.getClass()}, new Object[]{door});
             ModUnderTest.set(as, "setDisableAfterBloodRush", true);
         });
+        coldTrip(ctx);
         List<String> f = new ArrayList<>();
         List<String> floors = new ArrayList<>();
         int trips = 0;
-        for (int i = 0; i < SEEDS.length; i++) {
+        // acflakes-1126: env TESTKIT_EE_REPEAT=N plays the floors N times, TESTKIT_CPU_BURN=N loads the CPUs meanwhile (floor 1
+        // failed only inside a full run: the door trip's planner out of time while its floor graph still warmed).
+        String rep = System.getenv("TESTKIT_EE_REPEAT");
+        int rounds = rep == null ? 1 : Integer.parseInt(rep.trim());
+        dev.testkit.harness.CpuBurn.startFromEnv();
+        for (int i = 0; i < SEEDS.length * rounds; i++) {
             try {
                 int[] t = new int[1];
-                floors.add("floor " + (i + 1) + ": " + floorCase(ctx, SEEDS[i], i + 1, f, t));
+                floors.add("floor " + (i + 1) + ": " + floorCase(ctx, SEEDS[i % SEEDS.length], i + 1, f, t));
                 trips += t[0];
             } catch (Throwable e) {
                 e.printStackTrace(System.out);
@@ -120,6 +128,7 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
                 leave(ctx);
             }
         }
+        dev.testkit.harness.CpuBurn.stop();
         ctx.runOnClient(mc -> {
             Object as = ModUnderTest.config(AS_CONFIG);
             Object none = ModUnderTest.enumValue(AS_CONFIG + "$BloodRush", "NONE");
@@ -133,6 +142,42 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
         if (!f.isEmpty()) {
             throw new AssertionError(String.join("; ", f));
         }
+    }
+
+    /**
+     * 1126-sim-ac-coldtrip (acflakes-1126): three trips that fail while the floor graph is not warm (the planner's
+     * "nothing" ran out of time, no proof of no way) are not counted toward giving the wither door up. On a loaded PC four
+     * such failures in 2 s at GO gave the door up for good (entrance-exit floor 1, 11-26 1 PM).
+     */
+    private static void coldTrip(ClientGameTestContext ctx) {
+        long mark = LogTap.mark();
+        String r = ctx.computeOnClient(mc -> {
+            try {
+                if ((Boolean) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.EtherwarpPathfinder", "fullWarm")) {
+                    return "the floor graph is warm here: nothing to test";
+                }
+                Class<?> c = Class.forName(AUTO_CLEAR, true, mc.getClass().getClassLoader());
+                java.lang.reflect.Field ts = c.getDeclaredField("travelStarted");
+                ts.setAccessible(true);
+                java.lang.reflect.Method te = c.getDeclaredMethod("tripEnded", net.minecraft.client.player.LocalPlayer.class,
+                        boolean.class);
+                te.setAccessible(true);
+                for (int i = 0; i < 3; i++) {
+                    ts.setBoolean(null, true);
+                    te.invoke(null, mc.player, true);
+                }
+                ts.setBoolean(null, false);
+                return null;
+            } catch (Throwable t) {
+                return "reflection: " + t;
+            }
+        });
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO_CLEAR, "cancel"));
+        List<String> lines = LogTap.since(mark);
+        long uncounted = lines.stream().filter(l -> l.contains("still warming up - not counted")).count();
+        long counted = lines.stream().filter(l -> l.contains("[AutoClear] trip ") && l.contains(" of 4)")).count();
+        String d = "3 failed trips on a cold floor graph: " + uncounted + " not counted, " + counted + " counted";
+        finish(COLD, r != null ? r : uncounted == 3 && counted == 0 ? null : "cold-graph failures were counted", d);
     }
 
     private static void finish(String name, String failure, String detail) {
