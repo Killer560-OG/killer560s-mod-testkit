@@ -41,6 +41,8 @@ import java.util.regex.Pattern;
  *   cleared (no key, off the blood rush path) armed and Allow Insta Clearing ON: at least {@code testkit.instacostMin}
  *   (default 5; the base branch did 4) are really insta cleared (the sim's own "insta cleared" line, fired at the room's first entry, before any
  *   mob in it can die); ticks and the count printed for the base-vs-branch comparison.</li>
+ *   <li>1127-sim-instapick-big (instaclear-pick-1127): the same run, judged by the room the first tour credits most (the
+ *   most tiles): it is really insta cleared and then counted cleared.</li>
  *   <li>1126-sim-instacost-quiz / -icefill / -bloodfirst (killer560 2026-11-26: "it should insta-clear that room before it
  *   and then go into quiz"): with Quiz First, Ice Fill First or Blood First, the mob rooms the trip there would show (on
  *   its door path or next to it; Blood First: next to the rush path, never a rush room) are armed. Run OFF then ON: ON
@@ -68,6 +70,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private static final String INSTA = "1121-sim-acplan-insta-warptile";
     private static final String INSTA_AP = "1126-sim-autopilot-instaclear";
     private static final String COST_ALL = "1126-sim-instacost-all";
+    /** instaclear-pick-1127: COST_ALL's run, judged by its biggest credited room (see the class doc). */
+    private static final String COST_BIG = "1127-sim-instapick-big";
     private static final String COST_QUIZ = "1126-sim-instacost-quiz";
     private static final String COST_ICE = "1126-sim-instacost-icefill";
     private static final String COST_BLOOD = "1126-sim-instacost-bloodfirst";
@@ -133,8 +137,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             Scenario.skipped(CLEAR_FIRST, "Clear First was removed (autopilot-menu-1126): Clear Then Secret is the"
                     + " clear-everything-first order (1121-sim-acplan-clearthensecret)");
         }
-        for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, SKIP_BLOOD, INSTA, INSTA_AP, COST_ALL, COST_QUIZ,
-                COST_ICE, COST_BLOOD}) {
+        for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, SKIP_BLOOD, INSTA, INSTA_AP, COST_ALL, COST_BIG,
+                COST_QUIZ, COST_ICE, COST_BLOOD}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(n)) {
                 sims.add(n);
             }
@@ -283,7 +287,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                         insta(ctx);
                     } else if (c.equals(INSTA_AP)) {
                         instaAp(ctx);
-                    } else if (c.equals(COST_ALL) || COST_TRIPS.contains(c)) {
+                    } else if (allArm(c) || COST_TRIPS.contains(c)) {
                         instaCost(ctx, c);
                     } else {
                         one(ctx, c);
@@ -360,7 +364,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 setEnum(as, "setMode", "Mode", party ? "PARTY_SECRETS" : name.equals(CLEAR_THEN) ? "CLEAR_THEN_SECRET" : "SOLO_300");
                 setEnum(as, "setBloodRush", "BloodRush", "NONE");
                 setEnum(as, "setRoomBeforeBlood", "RoomBeforeBlood", name.equals(SKIP_BLOOD) ? "SKIP" : "SAVE_FOR_LAST");
-                if (name.equals(INSTA_AP) || name.equals(COST_ALL) || COST_TRIPS.contains(name)) {
+                if (name.equals(INSTA_AP) || allArm(name) || COST_TRIPS.contains(name)) {
                     ModUnderTest.set(as, "setInstaClear", instaFor);
                 }
             } else if (name.equals(SOLO) || name.equals(PARTY_OFF)) {
@@ -369,7 +373,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 throw new IllegalStateException("this jar has no Dungeons Autopilot Mode / Clear First / Room Before Blood");
             }
             ModUnderTest.set(as, "setBloodFirst", name.equals(COST_BLOOD));
-            if (name.equals(COST_ALL) || COST_TRIPS.contains(name)) {
+            if (allArm(name) || COST_TRIPS.contains(name)) {
                 Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
                 boolean quiz = name.equals(COST_QUIZ);
                 boolean ice = name.equals(COST_ICE);
@@ -400,7 +404,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         clearedAt.clear();
         instaAt.clear();
         onTheWay.clear();
-        if (name.equals(INSTA_AP) || name.equals(COST_ALL) || COST_TRIPS.contains(name)) {
+        firstTour = null;
+        if (name.equals(INSTA_AP) || allArm(name) || COST_TRIPS.contains(name)) {
             String why = ctx.computeOnClient(mc -> name.equals(INSTA_AP) ? armInsta() : armCost(name));
             if (why != null) {
                 row(name, false, why + " (the case could not act)");
@@ -443,6 +448,9 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 }
                 if (l.contains("insta clear") || l.contains("Sim insta room")) {
                     instaLines.add(l);
+                }
+                if (firstTour == null && l.contains("[Autopilot] tour:") && l.contains("insta clear")) {
+                    firstTour = l;
                 }
                 Matcher rc = SIM_CLEARED.matcher(l);
                 if (rc.find()) {
@@ -530,7 +538,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         lastPicks = picks;
         lastTick = tick;
         switch (name) {
-            case INSTA_AP, COST_ALL, COST_QUIZ, COST_ICE, COST_BLOOD -> {
+            case INSTA_AP, COST_ALL, COST_BIG, COST_QUIZ, COST_ICE, COST_BLOOD -> {
                 // judged by instaAp / instaCost
             }
             case SOLO -> {
@@ -722,6 +730,10 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         }
         killClears.addAll(killClearTicks(lastPicks));
         String seq = String.join(">", lastPicks.stream().map(p -> p[0].charAt(0) + ":" + p[1]).toList());
+        if (name.equals(COST_BIG)) {
+            instaBig(name, seq);
+            return;
+        }
         if (name.equals(COST_ALL)) {
             // 5: the base branch (autopilot-menu-1126, 8810ad042) insta cleared 4 of these 8 on this floor (11-26).
             int min = Integer.getInteger("testkit.instacostMin", 5);
@@ -756,6 +768,41 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         return out;
     }
 
+    private static boolean allArm(String name) {
+        return name.equals(COST_ALL) || name.equals(COST_BIG);
+    }
+
+    /** The first tour line that credits insta clears (both "insta clear X (-N s)" and "no insta clear for X"). */
+    private String firstTour;
+    /** Armed room -> its map tiles: the sim credits a room's insta clear by its tiles (Autopilot.clearEstimate). */
+    private final Map<String, Integer> armTiles = new HashMap<>();
+    private static final Pattern CREDITED = Pattern.compile("(?:, insta clear ([^,(|]+?) \\(-[\\d.]+ s\\)|no insta clear for ([^,(|]+?) \\()");
+
+    /**
+     * 1127-sim-instapick-big (instaclear-pick-1127, killer560 2026-11-27: "it isnt choosing good rooms yet to insta
+     * clear"): of the rooms the first tour credits, the one worth the most (most tiles, the sim's clear cost) is really
+     * insta cleared (the sim's "insta cleared" line, fired at its first entry with every mob in it alive) and then counted
+     * cleared (the sim's "room cleared" line).
+     */
+    private void instaBig(String name, String seq) {
+        Set<String> credited = new HashSet<>();
+        Matcher m = CREDITED.matcher(firstTour == null ? "" : firstTour);
+        while (m.find()) {
+            String r = m.group(1) != null ? m.group(1) : m.group(2);
+            if (armTiles.containsKey(r)) {
+                credited.add(r);
+            }
+        }
+        int most = credited.stream().mapToInt(armTiles::get).max().orElse(-1);
+        List<String> biggest = credited.stream().filter(r -> armTiles.get(r) == most).sorted().toList();
+        List<String> done = biggest.stream().filter(r -> instaAt.containsKey(r) && clearedAt.containsKey(r)).toList();
+        System.out.println("[" + name + "] credited " + credited + " (tiles " + armTiles + "); biggest " + biggest
+                + "; insta cleared " + instaAt.keySet() + "; picks " + seq);
+        row(name, credited.size() >= 2 && !done.isEmpty(), "credited " + credited.size() + " " + credited + ", biggest "
+                + biggest + " (" + most + " tiles), insta cleared and counted cleared " + done + ", all insta "
+                + instaAt.keySet() + ", " + lastTick + " ticks");
+    }
+
     /** Client thread: arms the rooms a 1126-sim-instacost case is about (see the class doc). @return null, else why not. */
     private String armCost(String name) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
@@ -764,7 +811,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 new Class<?>[]{layout.getClass()}, new Object[]{layout});
         List<SimAutopilotTests.Status> rooms = SimAutopilotTests.readStatus(net.minecraft.client.Minecraft.getInstance());
         Set<Integer> near = new HashSet<>();
-        if (!name.equals(COST_ALL)) {
+        armTiles.clear();
+        if (!allArm(name)) {
             List<Integer> from = new ArrayList<>();
             if (name.equals(COST_BLOOD)) {
                 for (Object r : rush == null ? List.of() : rush) {
@@ -800,11 +848,13 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             if (r.id() == here || onRush || r.name() == null || r.name().equals("Unknown") || SimAutopilotTests.strands(r.name())
                     || !java.util.Set.of("NORMAL", "RARE", "CHAMPION").contains(String.valueOf(r.type()).toUpperCase(Locale.ROOT))
                     || ModUnderTest.staticCall(KEY_ROOMS, "guardOf", new Class<?>[]{layout.getClass(), int.class},
-                    new Object[]{layout, r.id()}) != null || !name.equals(COST_ALL) && !near.contains(r.id())) {
+                    new Object[]{layout, r.id()}) != null || !allArm(name) && !near.contains(r.id())) {
                 continue;
             }
             if (!armList.contains(r.name())) {
                 armList.add(r.name());
+                armTiles.put(r.name(), ((int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class},
+                        new Object[]{r.id()})).length);
             }
         }
         if (armList.isEmpty()) {
