@@ -6737,10 +6737,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.call(ar, "setBreakStyle", new Class<?>[]{styleBefore.getClass()},
                     new Object[]{ModUnderTest.enumValue(styleClass, style)}));
             for (int run = 0; run < (again ? 2 : 1); run++) {
-                ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
+                ctx.runOnClient(mc -> {
+                    ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                    // An origin jar left the last run's block to the linger, which digs it once the stale stamp is gone.
+                    ModUnderTest.staticCall(EXECUTOR, "clearBreakerLinger", new Class<?>[]{String.class}, new Object[]{"test"});
+                });
                 ensureInRoom(ctx);
                 Map<int[], String> put = new LinkedHashMap<>();
-                put.put(new int[]{wx, wy, wz}, "minecraft:stone");
+                put.put(new int[]{wx, wy, wz}, "minecraft:snow_block"); // one hit with the breaker, as on Hypixel
                 put.put(new int[]{16, F + 5, 20}, "minecraft:stone");
                 setBlocks(ctx, put);
                 writeRoute(ctx, List.of(br, w));
@@ -6819,6 +6823,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 ModUnderTest.call(ar, "setBreakStyle", new Class<?>[]{styleBefore.getClass()}, new Object[]{styleBefore});
                 ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                ModUnderTest.staticCall(EXECUTOR, "clearBreakerLinger", new Class<?>[]{String.class}, new Object[]{"test"});
                 lastDugAt().clear();
             });
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
