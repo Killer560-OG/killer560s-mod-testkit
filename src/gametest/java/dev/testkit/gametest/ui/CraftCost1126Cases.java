@@ -178,7 +178,7 @@ final class CraftCost1126Cases {
         return s;
     }
 
-    /** Puts the cursor over container slot {@code slot} (34 is the Supercraft item) or, below 0, far off every slot, then lets a frame draw. */
+    /** Puts the cursor over container slot {@code slot} (32 is the Supercraft item) or, below 0, far off every slot, then lets a frame draw. */
     private static void pointer(UiCase c, int slot) {
         boolean over = slot >= 0;
         double[] g = c.onClient(mc -> {
@@ -194,7 +194,7 @@ final class CraftCost1126Cases {
 
     private static void setSuper(UiCase c, ItemStack s) {
         c.onClient(mc -> {
-            ((ContainerScreen) McCompat.screen(mc)).getMenu().getSlot(34).set(s);
+            ((ContainerScreen) McCompat.screen(mc)).getMenu().getSlot(32).set(s);
             return null;
         });
         c.ticks(4);
@@ -222,7 +222,7 @@ final class CraftCost1126Cases {
             for (int i : new int[]{14, 15, 16, 22, 24}) {
                 box.setItem(i, new ItemStack(Items.STICK));
             }
-            box.setItem(34, supercraft("Supercraft (8x crafts)", "✖ 0/300 Tessellated Ender Pearl", "✖ 0/8 Braided Griffin Feather", "",
+            box.setItem(32, supercraft("Supercraft (8x crafts)", "✖ 0/300 Tessellated Ender Pearl", "✖ 0/8 Braided Griffin Feather", "",
                     "Ingredients are taken from your", "inventory, sacks, ender chests and", "backpacks.", "", "Right-Click to set amount!",
                     "Missing ingredients!"));
             McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
@@ -234,7 +234,7 @@ final class CraftCost1126Cases {
         List<String> plain = lines(c);
         c.note("unhovered: " + plain);
         c.check(plain.size() == 4 && plain.stream().noneMatch(CraftCost1126Cases::amountParens), "parentheses with nothing hovered: " + plain);
-        pointer(c, 34);
+        pointer(c, 32);
         List<String> got = lines(c);
         c.note("hovered: " + got);
         String qa = "4x (300x) Tessellated Ender Pearl  " + fmt(c, 16000) + " (" + fmt(c, 1200000) + ")";
@@ -287,7 +287,7 @@ final class CraftCost1126Cases {
         setSuper(c, supercraft("Supercraft (8x crafts)", "Missing ingredients!"));
         got = lines(c);
         c.check(got.size() == 4 && got.stream().noneMatch(CraftCost1126Cases::amountParens), "no-ingredient lore still showed parentheses: " + got);
-        pointer(c, 34);
+        pointer(c, 32);
         setSuper(c, supercraft("Supercraft (8x crafts)", "0/32 Tessellated Ender Pearl"));
         c.check(lines(c).get(1).contains("(32x)"), "a good lore after a bad one did not show: " + lines(c));
         pointer(c, -1);
@@ -388,6 +388,85 @@ final class CraftCost1126Cases {
         c.check(got.get(0).startsWith("Craft Cost (3 crafts)") && got.get(1).startsWith("96x Enchanted Lapis Lazuli Block"),
                 "a yield of 3 needs 3 crafts for 8: " + got);
         close(c);
+    }
+
+    /** A Supercraft ingredient line as Hypixel sends it: reset, one space, red "x 0/N ", reset, the name in its rarity color. */
+    private static Component need(int total, String name, net.minecraft.ChatFormatting color) {
+        return Component.empty().withStyle(net.minecraft.ChatFormatting.RESET).append(Component.literal(" "))
+                .append(Component.empty().withStyle(net.minecraft.ChatFormatting.RESET)
+                        .append(Component.literal("\u2716 0/" + total + " ").withStyle(net.minecraft.ChatFormatting.RED)))
+                .append(Component.empty().withStyle(net.minecraft.ChatFormatting.RESET).append(Component.literal(name).withStyle(color)));
+    }
+
+    /**
+     * The real Tessellated Ender Pearl recipe menu, from the logger's packets of 11-26 (win=6): the result and the Supercraft item
+     * (slot 32, "Supercraft (8x crafts)", lore with the ingredient lines above, no custom data) arrive BEFORE the content packet,
+     * which then fills the grid (Lapis Block 4 x 8, Absolute Pearl 5 x 16) and the panes. Hover slot 32: the parenthesized amounts.
+     */
+    static void realHover(UiCase c) throws Exception {
+        Object cfg = Mod.cfg(CFG);
+        boolean wasOn = (Boolean) Mod.call(cfg, "isEnabled");
+        Class<?> price = Mod.cls("pricetooltip.PriceData");
+        try {
+            Mod.staticCall("pricetooltip.PriceData", "markStartedForTest");
+            Mod.staticCall("pricetooltip.PriceData", "clearForTest");
+            R.setStatic(price, "bazaarSell", Map.of("ELB", 95999.9, "AEP", 11999.9));
+            R.setStatic(price, "bazaarBuy", Map.of("ELB", 100000.0, "AEP", 12500.0));
+            R.setStatic(price, "lowestBin", Map.of());
+            Mod.set(CFG, "setEnabled", true);
+            c.onClient(mc -> {
+                SimpleContainer box = new SimpleContainer(54);
+                box.setItem(25, item("TEP", "Tessellated Ender Pearl", 1));
+                ItemStack sup = new ItemStack(Items.GOLDEN_PICKAXE);
+                sup.set(DataComponents.CUSTOM_NAME, Component.literal("Supercraft").withStyle(net.minecraft.ChatFormatting.GREEN)
+                        .append(Component.literal(" (8x crafts)").withStyle(net.minecraft.ChatFormatting.AQUA)));
+                sup.set(DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(
+                        need(256, "Enchanted Lapis Lazuli Block", net.minecraft.ChatFormatting.BLUE),
+                        need(640, "Absolute Ender Pearl", net.minecraft.ChatFormatting.BLUE), Component.empty(),
+                        Component.literal("Ingredients are taken from your").withStyle(net.minecraft.ChatFormatting.GRAY),
+                        Component.literal("inventory, sacks, ender chests and").withStyle(net.minecraft.ChatFormatting.GRAY),
+                        Component.literal("backpacks.").withStyle(net.minecraft.ChatFormatting.GRAY), Component.empty(),
+                        Component.literal("Right-Click to set amount!").withStyle(net.minecraft.ChatFormatting.AQUA),
+                        Component.literal("Missing ingredients!").withStyle(net.minecraft.ChatFormatting.RED))));
+                box.setItem(32, sup);
+                McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
+                        mc.player.getInventory(), Component.literal("Tessellated Ender Pearl")));
+                return null;
+            });
+            c.ticks(3);
+            // The content packet: grid, crafting table and panes.
+            c.onClient(mc -> {
+                net.minecraft.world.inventory.AbstractContainerMenu m = ((ContainerScreen) McCompat.screen(mc)).getMenu();
+                for (int i : new int[]{10, 12, 28, 30}) {
+                    m.getSlot(i).set(item("ELB", "Enchanted Lapis Lazuli Block", 8));
+                }
+                for (int i : new int[]{11, 19, 20, 21, 29}) {
+                    m.getSlot(i).set(item("AEP", "Absolute Ender Pearl", 16));
+                }
+                m.getSlot(23).set(new ItemStack(Items.CRAFTING_TABLE));
+                for (int i : new int[]{14, 15, 16, 22, 24}) {
+                    m.getSlot(i).set(new ItemStack(Items.BLACK_STAINED_GLASS_PANE));
+                }
+                return null;
+            });
+            c.ticks(4);
+            pointer(c, -1);
+            List<String> plain = lines(c);
+            c.note("real menu, not hovered: " + plain);
+            c.check(plain.size() == 4 && plain.stream().noneMatch(CraftCost1126Cases::amountParens), "real menu unhovered: " + plain);
+            pointer(c, 32);
+            List<String> got = lines(c);
+            c.note("real menu, Supercraft hovered: " + got);
+            c.check(got.size() == 4
+                    && got.get(0).equals("Craft Cost  " + fmt(c, 4032000) + " (" + fmt(c, 32256000) + ")")
+                    && got.get(1).equals("32x (256x) Enchanted Lapis Lazuli Block  " + fmt(c, 3072000) + " (" + fmt(c, 24576000) + ")")
+                    && got.get(2).equals("80x (640x) Absolute Ender Pearl  " + fmt(c, 960000) + " (" + fmt(c, 7680000) + ")")
+                    && got.get(3).equals("Instant Buy  " + fmt(c, 4200000) + " (" + fmt(c, 33600000) + ")"), "real menu hovered: " + got);
+            close(c);
+        } finally {
+            Mod.set(CFG, "setEnabled", wasOn);
+            Mod.staticCall("pricetooltip.PriceData", "clearForTest");
+        }
     }
 
     static void craftCost(UiCase c) throws Exception {
