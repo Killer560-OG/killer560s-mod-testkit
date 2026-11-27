@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T22:04:33",
- "modSource": "lane-acquiz-autoroutes-on-1126",
- "modGitSha": "33db70ffaf0a1ace0497bb57a259d1c28b986f74",
+ "generatedAt": "2026-11-27T07:46:17",
+ "modSource": "lane-autotune-no-start-done-lines-1126",
+ "modGitSha": "045a57cf4b8807f951bfd35107d741f5d7cc420f",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {

@@ -40,7 +40,7 @@ import java.util.function.Function;
  */
 final class PuzzleTimingExtra extends SolveExtra {
 
-    enum Kind { CLICK, WARP, SHOT, MAP_WARP, SHIFT_DOWN, SHIFT_UP, LAND, READY, CAMERA_WAIT, VOLLEY_START, VOLLEY_END }
+    enum Kind { CLICK, WARP, SHOT, MAP_WARP, SHIFT_DOWN, SHIFT_UP, LAND, READY, CAMERA_WAIT, VOLLEY_START, VOLLEY_END, GATE }
 
     record Ev(long tick, Kind kind, String info) {
     }
@@ -60,6 +60,9 @@ final class PuzzleTimingExtra extends SolveExtra {
     private static int lastWait;
     private static long logMark;
     private static Function<Minecraft, String> probe;
+    private static Function<Minecraft, Boolean> gateProbe;
+    private static Boolean lastGate;
+    private Function<Minecraft, Boolean> gate;
     private static final List<Ev> EVENTS = new ArrayList<>();
 
     private final List<Pair> need;
@@ -86,6 +89,17 @@ final class PuzzleTimingExtra extends SolveExtra {
         this.roomProbe = roomProbe;
         this.inner = inner;
         this.settings = settings;
+    }
+
+    /**
+     * A block reading that keeps a chest shut until it reads TRUE (Water Board: the walkway layers down,
+     * waterboard-chest-timed-click-1126). Its flip to TRUE is a GATE moment; a chest click is timed from the later of its
+     * ready moment and the last gate before it. Read at END of tick t: a block packet is handled before START of t, where
+     * the auto runs, so the auto could act on it in t itself.
+     */
+    PuzzleTimingExtra gate(Function<Minecraft, Boolean> g) {
+        this.gate = g;
+        return this;
     }
 
     /** Judge the landing and ready gaps only for actions {@code p} accepts (Water Board: the reward chest's click). */
@@ -133,6 +147,18 @@ final class PuzzleTimingExtra extends SolveExtra {
                 add(t + 1, Kind.READY, v);
             }
             lastProbe = v;
+        }
+        if (gateProbe != null) {
+            Boolean g;
+            try {
+                g = gateProbe.apply(mc);
+            } catch (Throwable e) {
+                g = null;
+            }
+            if (Boolean.TRUE.equals(g) && Boolean.FALSE.equals(lastGate)) {
+                add(t, Kind.GATE, "walkway clear");
+            }
+            lastGate = g;
         }
         // The mod's own "a reward chest is there to click" line (RewardChest picks it the tick it appears).
         long m = LogTap.mark();
@@ -330,10 +356,12 @@ final class PuzzleTimingExtra extends SolveExtra {
         lastPos = null;
         lastShift = null;
         lastProbe = null;
+        lastGate = null;
         lastWait = 0;
         waitUnreadable = null;
         logMark = LogTap.mark();
         probe = roomProbe;
+        gateProbe = gate;
         watchVolleys = need.contains(Pair.VOLLEY_NEXT);
         ARROWS.clear();
         ARROWS_SEEN.clear();
@@ -372,6 +400,7 @@ final class PuzzleTimingExtra extends SolveExtra {
         recording = false;
         PacketTrace.tap = oldTap;
         probe = null;
+        gateProbe = null;
         List<Ev> ev;
         synchronized (EVENTS) {
             ev = new ArrayList<>(EVENTS);
@@ -395,6 +424,15 @@ final class PuzzleTimingExtra extends SolveExtra {
         }
         if (line.length() > 0) {
             SimPuzzleRoundTests.say(name, "timeline " + line);
+        }
+        if (gate != null) {
+            StringBuilder gl = new StringBuilder();
+            for (Ev e : ev) {
+                if (e.kind() == Kind.GATE) {
+                    gl.append(e.tick()).append(' ');
+                }
+            }
+            SimPuzzleRoundTests.say(name, "gate (walkway clear) at tick(s): " + (gl.length() == 0 ? "none" : gl.toString().trim()));
         }
         Stats clickUse = new Stats("click -> use");
         Stats sneakUse = new Stats("sneak -> warp use");
@@ -486,6 +524,13 @@ final class PuzzleTimingExtra extends SolveExtra {
                             }
                         }
                     }
+                    if (why != null && e.info().endsWith(" chest")) {
+                        long g = lastGate(ev, e.tick());
+                        if (g > ready) {
+                            ready = g;
+                            why = "walkway clear";
+                        }
+                    }
                     if (why != null && judged.test(e)) {
                         readyClick.add(e.tick() - ready, why + " at " + ready + " -> click at " + e.tick() + " on " + e.info());
                     }
@@ -538,6 +583,11 @@ final class PuzzleTimingExtra extends SolveExtra {
                                     ready = v;
                                     why += ", the volley before it ended at " + v;
                                 }
+                                long g = lastGate(ev, n.tick());
+                                if (g > ready) {
+                                    ready = g;
+                                    why += ", the walkway cleared at " + g;
+                                }
                             }
                             landAct.add(n.tick() - ready, why + " -> " + n.kind().name().toLowerCase(Locale.ROOT)
                                     + " at " + n.tick());
@@ -579,6 +629,17 @@ final class PuzzleTimingExtra extends SolveExtra {
     }
 
     /** The end tick of the last volley started before event {@code j} (possibly after it), or Long.MIN_VALUE. */
+    /** The tick of the last GATE moment at or before {@code tick}, or Long.MIN_VALUE. */
+    private static long lastGate(List<Ev> ev, long tick) {
+        long g = Long.MIN_VALUE;
+        for (Ev x : ev) {
+            if (x.kind() == Kind.GATE && x.tick() <= tick && x.tick() > g) {
+                g = x.tick();
+            }
+        }
+        return g;
+    }
+
     private static long lastVolleyEnd(List<Ev> ev, int j) {
         for (int k = j - 1; k >= 0; k--) {
             if (ev.get(k).kind() == Kind.VOLLEY_START) {
