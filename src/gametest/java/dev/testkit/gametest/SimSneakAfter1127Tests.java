@@ -54,6 +54,12 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
     private static Field acPhase;
     private static Field acAction;
     private static Field asPhase;
+    /** AutoSecretFeature.endTicks / decideEnd (this branch; null on an origin jar, where every DECIDE an END leaves counts). */
+    private static Field asEndTicks;
+    private static Field asDecideEnd;
+    /** endTicks of the END that left DECIDE for later (-1 none), and why. */
+    private static long pendingEnd = -1;
+    private static String pendingWhy = "";
     private static String prevKey = "";
     private static String startKey = "";
     private static String prevAs = "";
@@ -275,6 +281,7 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
         lastPress = Long.MIN_VALUE;
         prevKey = "";
         prevAs = "";
+        pendingEnd = -1;
     }
 
     private static String report() {
@@ -301,6 +308,15 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
             acAction.setAccessible(true);
             asPhase = Class.forName(AS).getDeclaredField("phase");
             asPhase.setAccessible(true);
+            try {
+                asEndTicks = Class.forName(AS).getDeclaredField("endTicks");
+                asEndTicks.setAccessible(true);
+                asDecideEnd = Class.forName(AS).getDeclaredField("decideEnd");
+                asDecideEnd.setAccessible(true);
+            } catch (NoSuchFieldException e) {
+                asEndTicks = null;   // an origin jar
+                asDecideEnd = null;
+            }
             waitReason = Class.forName(EXEC).getDeclaredField("waitReason");
             waitReason.setAccessible(true);
             swappedOnTick = Class.forName(EXEC).getDeclaredField("swappedOnTick");
@@ -353,9 +369,33 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
         } catch (RuntimeException | IllegalAccessException e) {
             return;
         }
-        if (asp.equals("DECIDE") && !prevAs.equals("DECIDE") && !prevAs.isEmpty()) {
+        // A DECIDE set after Auto Secret's own END (the Auto Clear hand-back, a start from another END handler) is decided
+        // at the next tick's START, before that tick's keys and packets: no tick lost. It counts only when the decision
+        // came later than that START (decideEnd is the endTicks it was made at; START keeps the END's count).
+        long endNow = -1;
+        long decidedAt = -2;
+        try {
+            if (asEndTicks != null) {
+                endNow = ((Number) asEndTicks.get(null)).longValue();
+                decidedAt = ((Number) asDecideEnd.get(null)).longValue();
+            }
+        } catch (IllegalAccessException e) {
+            endNow = -1;
+        }
+        if (pendingEnd >= 0 && decidedAt != pendingEnd) {
             deferred++;
-            WHY.merge("DECIDE left after " + prevAs + " (Auto Clear " + acp + ")", 1, Integer::sum);
+            WHY.merge(pendingWhy, 1, Integer::sum);
+        }
+        pendingEnd = -1;
+        if (asp.equals("DECIDE") && !prevAs.equals("DECIDE") && !prevAs.isEmpty()) {
+            String why = "DECIDE left after " + prevAs + " (Auto Clear " + acp + ")";
+            if (endNow < 0) {
+                deferred++;
+                WHY.merge(why, 1, Integer::sum);
+            } else {
+                pendingEnd = endNow;
+                pendingWhy = why + ", not decided at the next START";
+            }
         }
         if (asp.equals("TRAVEL") && !prevAs.equals("TRAVEL")) {
             travels++;
