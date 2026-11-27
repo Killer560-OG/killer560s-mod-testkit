@@ -366,7 +366,8 @@ final class ScreenshotEdit1126Cases {
             c.check(clipImg.getWidth() == cw && clipImg.getHeight() == ch, "clipboard picture is " + clipImg.getWidth() + "x" + clipImg.getHeight());
 
             // Esc with unsaved edits asks once, the second Esc closes
-            c.onClient(mc -> Mod.call(e2, "addOp", op("LINE", 0xFF000000, 0, new int[]{10, 10, 60, 60}, null)));
+            Object lineOp = op("LINE", 0xFF000000, 0, new int[]{10, 10, 60, 60}, null);
+            c.onClient(mc -> Mod.call(e2, "addOp", lineOp));
             c.onClient(mc -> {
                 MenuACases.key(e2, InputConstants.KEY_ESCAPE, 0);
                 return null;
