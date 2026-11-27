@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T07:46:17",
- "modSource": "lane-autotune-no-start-done-lines-1126",
- "modGitSha": "045a57cf4b8807f951bfd35107d741f5d7cc420f",
+ "generatedAt": "2026-11-27T08:25:47",
+ "modSource": "lane-gatehold-aotv-click-1127",
+ "modGitSha": "a2d2890342989f1e8cff039c70b78b62d52b0c1e",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
