@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T22:11:43",
- "modSource": "lane-autopilot-instaclear-roomcost-1126",
- "modGitSha": "ba1d2b4982298f38852bf5b1dbdb089b4058d60f",
+ "generatedAt": "2026-11-26T22:04:33",
+ "modSource": "lane-acquiz-autoroutes-on-1126",
+ "modGitSha": "33db70ffaf0a1ace0497bb57a259d1c28b986f74",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
