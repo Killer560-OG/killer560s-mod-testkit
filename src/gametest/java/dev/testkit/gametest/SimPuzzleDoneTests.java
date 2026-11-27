@@ -48,7 +48,8 @@ public final class SimPuzzleDoneTests {
         void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
             long now = LogTap.mark();
             for (String l : LogTap.since(seen)) {
-                if (chat < 0 && l.contains("[CHAT] PUZZLE SOLVED! ") && l.contains(room + "! Good job!")) {
+                if (chat < 0 && l.contains("[CHAT] PUZZLE SOLVED! ") && l.contains("Three Weirdos".equals(room)
+                        ? " wasn't fooled by " : room + "! Good job!")) {
                     chat = t;
                     chatLine = l.substring(l.indexOf("PUZZLE SOLVED!"));
                 }
@@ -81,13 +82,16 @@ public final class SimPuzzleDoneTests {
 
         @Override
         boolean satisfied() {
-            return idle >= 0;
+            return idle >= 0 && (chat >= 0 || !"Three Weirdos".equals(room));
         }
 
         @Override
         String verdict(ClientGameTestContext ctx, int solvedAt) {
             if (solved < 0) {
                 return "the sim never called " + room + " solved";
+            }
+            if (chat < 0 && "Three Weirdos".equals(room)) {
+                return "the sim sent no \"PUZZLE SOLVED! <name> wasn't fooled by <NPC>! Good job!\" line";
             }
             if (idle < 0) {
                 return "AutoPuzzleActivity still read working 20 s after the solve";
@@ -142,7 +146,7 @@ public final class SimPuzzleDoneTests {
         }
     }
 
-    /** Nothing after the right chest. */
+    /** Nothing after the right chest; case 93-solve-threeweirdos-resume also needs the sim's real "wasn't fooled by" line. */
     public static final class ThreeWeirdosDone extends DoneBase {
         public ThreeWeirdosDone() {
             super(spec("threeweirdos-resume", "Three Weirdos", "setAutoWeirdosEnabled", "isAutoWeirdosEnabled",
