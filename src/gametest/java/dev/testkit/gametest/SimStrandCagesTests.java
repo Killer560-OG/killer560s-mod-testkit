@@ -98,46 +98,80 @@ public class SimStrandCagesTests implements FabricClientGameTest {
         int off = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset"));
         int dy = off - EVIDENCE_OFF;
         SimAutopilotTests.Status cages = null;
+        SimAutopilotTests.Status quizRoom = null;
         for (SimAutopilotTests.Status s : ctx.computeOnClient(SimAutopilotTests::readStatus)) {
             if (s.name().equals("Cages")) {
                 cages = s;
+            } else if (s.name().equals("Quiz")) {
+                quizRoom = s;
             }
         }
-        if (cages == null) {
-            failures.add("Cages is not on the rebuilt floor - not a reproduction");
+        if (cages == null || quizRoom == null) {
+            failures.add("Cages or the Quiz is not on the rebuilt floor - not a reproduction");
             return;
         }
-        BlockPos stand = SimAutopilotTests.standOf(ctx, cages);
-        BlockPos want = EVIDENCE_STAND.above(dy);
-        println("sim y offset " + off + "; Cages start node stands on " + (stand == null ? "nothing" : stand.toShortString())
-                + " (evidence run: " + want.toShortString() + ")");
-        if (stand == null) {
-            failures.add("standOf found no block in Cages' main tile");
-            return;
-        }
+        BlockPos pocket = EVIDENCE_STAND.above(dy);
         BlockPos quiz = EVIDENCE_QUIZ.above(dy);
-        Vec3 feet = new Vec3(want.getX() + 0.5, want.getY() + 1.0, want.getZ() + 0.5);
-        var st = ctx.computeOnClient(mc -> mc.level.getBlockState(want).toString());
-        println("evidence stand block: " + st);
-        if (!SimPlannerGapsTests.place(ctx, feet)) {
-            Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
-            println("not on the ground at " + SimPlannerGapsTests.fmt(feet) + " - he is at " + SimPlannerGapsTests.fmt(at));
-            feet = at;
+        // 1. The evidence block: what walls it in, and the server's own etherwarp walk from it (the ground truth).
+        Vec3 inPocket = new Vec3(pocket.getX() + 0.5, pocket.getY() + 1.0, pocket.getZ() + 0.5);
+        println("sim y offset " + off + "; evidence block " + pocket.toShortString() + ": " + ctx.computeOnClient(mc -> {
+            StringBuilder sb = new StringBuilder(mc.level.getBlockState(pocket).getBlock().getName().getString());
+            for (int[] d : new int[][]{{1, 1, 0}, {-1, 1, 0}, {0, 1, 1}, {0, 1, -1}, {1, 2, 0}, {0, 4, 0}}) {
+                BlockPos p = pocket.offset(d[0], d[1], d[2]);
+                sb.append("; ").append(p.toShortString()).append(' ')
+                        .append(mc.level.getBlockState(p).getBlock().getName().getString());
+            }
+            return sb.toString();
+        }));
+        String pocketTruth = "not placed";
+        if (SimPlannerGapsTests.place(ctx, inPocket)) {
+            SimPlannerGapsTests.dumpAround(ctx, NAME, "pocket", inPocket, quiz);
+            pocketTruth = SimPlannerGapsTests.bfsOracle(ctx, inPocket, quiz);
         }
-        SimPlannerGapsTests.dumpAround(ctx, NAME, "stand", feet, quiz);
-        println("first warps: " + SimPlannerGapsTests.oracle(ctx, feet, quiz, "Cages", false, 1f));
-        String truth = SimPlannerGapsTests.bfsOracle(ctx, feet, quiz);
-        println("ground truth to the Quiz " + quiz.toShortString() + ": " + truth);
-        String plan = SimPlannerGapsTests.planOnPlanner(ctx, feet, quiz);
-        println("planner on the warm graph: " + plan);
-        List<String> tripFailures = new ArrayList<>();
-        String trip = SimPlannerGapsTests.runTrip(ctx, NAME, "to-quiz", feet, quiz, "Quiz", tripFailures);
-        println(trip);
-        if (truth.startsWith("sealed")) {
-            failures.add("the start node block is a pocket no etherwarp leaves (" + truth + ")");
-        } else {
-            failures.addAll(tripFailures);
+        println("ground truth from the evidence block to the Quiz " + quiz.toShortString() + ": " + pocketTruth);
+        // 2. Cages' room landing as the mod picks it (TeleportUtils.etherwarpableInTile from the tile center: Autopilot's
+        //    tile site, and the testkit's route start node through standOf) must have a way out.
+        BlockPos land = SimAutopilotTests.standOf(ctx, cages);
+        println("Cages' tile landing (etherwarpableInTile from the center): " + (land == null ? "none" : land.toShortString()));
+        if (land == null) {
+            failures.add("no landing in Cages' main tile");
+            return;
         }
+        Vec3 onLand = new Vec3(land.getX() + 0.5, land.getY() + 1.0, land.getZ() + 0.5);
+        if (!SimPlannerGapsTests.place(ctx, onLand)) {
+            failures.add("could not stand him on Cages' tile landing " + land.toShortString());
+            return;
+        }
+        String landTruth = SimPlannerGapsTests.bfsOracle(ctx, onLand, quiz);
+        println("ground truth from Cages' tile landing to the Quiz: " + landTruth);
+        if (!landTruth.startsWith("REACHABLE") && !landTruth.startsWith("unsure")) {
+            failures.add("Cages' tile landing " + land.toShortString() + " is a pocket no etherwarp leaves (" + landTruth + ")");
+        }
+        // 3. From the Quiz, a trip onto the evidence block must not leave him in it (the planner refuses, or lands where
+        //    he can warp on). Then the Quiz -> Cages -> Quiz round trip on the mod's own landing arrives both ways.
+        BlockPos quizLand = SimAutopilotTests.standOf(ctx, quizRoom);
+        Vec3 inQuiz = new Vec3(quizLand.getX() + 0.5, quizLand.getY() + 1.0, quizLand.getZ() + 0.5);
+        if (!SimPlannerGapsTests.place(ctx, inQuiz)) {
+            failures.add("could not stand him in the Quiz on " + quizLand.toShortString());
+            return;
+        }
+        List<String> ignored = new ArrayList<>();
+        String into = SimPlannerGapsTests.runTrip(ctx, NAME, "into-pocket", inQuiz, pocket, "Cages", ignored);
+        println(into);
+        BlockPos stoodOn = ctx.computeOnClient(mc -> BlockPos.containing(mc.player.getX(), mc.player.getY() - 0.2,
+                mc.player.getZ()));
+        if (stoodOn.equals(pocket) && pocketTruth.startsWith("sealed")) {
+            failures.add("a trip flew him onto " + pocket.toShortString() + ", a pocket no etherwarp leaves");
+        }
+        if (!SimPlannerGapsTests.place(ctx, inQuiz)) {
+            failures.add("could not stand him in the Quiz again");
+            return;
+        }
+        List<String> trips = new ArrayList<>();
+        println(SimPlannerGapsTests.runTrip(ctx, NAME, "quiz-to-cages", inQuiz, land, "Cages", trips));
+        Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
+        println(SimPlannerGapsTests.runTrip(ctx, NAME, "cages-to-quiz", at, quizLand, "Quiz", trips));
+        failures.addAll(trips);
     }
 
     private static void println(String s) {
