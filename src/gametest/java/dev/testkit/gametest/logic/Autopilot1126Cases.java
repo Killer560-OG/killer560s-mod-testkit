@@ -158,7 +158,11 @@ final class Autopilot1126Cases {
         c.check("the why names it", String.valueOf(Mod.call(to, "why")).contains("insta clear Z first"), String.valueOf(Mod.call(to, "why")));
         Object stay = Mod.staticCall(P, "instaNextDoor", pickY, cands, tr,
                 shape("LEAST_ETHERWARPS", Map.of(), nb, "X", Map.of("Z", 0.5), null));
-        c.check("a small credit keeps the pick", stay == pickY, String.valueOf(Mod.call(stay, "why")));
+        // autopilot-instaclear-roomcost-1126 (killer560 2026-11-26: insta clearing is "100% of the time" faster): Z's clear
+        // needs a visit anyway, so with no leg added beyond the trip to Y even a small credit goes first
+        // (1126-logic-roomcost pins that a credit smaller than the added leg does not).
+        c.check("a small credit with no added leg still goes first", stay != pickY
+                && "Z".equals(Mod.call(Mod.call(stay, "pick"), "room")), String.valueOf(Mod.call(stay, "why")));
     }
 
     /** "all in N s" from the why line (travel plus work, insta savings off). */
