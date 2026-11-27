@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T21:46:06",
- "modSource": "lane-acplan-insta-warptile-fix-1126",
- "modGitSha": "47460f127e9fc7f393ae561242a16ed6f75e67c2",
+ "generatedAt": "2026-11-26T22:04:33",
+ "modSource": "lane-acquiz-autoroutes-on-1126",
+ "modGitSha": "33db70ffaf0a1ace0497bb57a259d1c28b986f74",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
