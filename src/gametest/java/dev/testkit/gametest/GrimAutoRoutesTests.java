@@ -237,6 +237,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1020-boomsneak", GrimAutoRoutesTests::caseBoomSneak);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-1013-breakerfall", GrimAutoRoutesTests::caseBreakerFall); // ar breaker linger (2026-10-13)
+            // newtrap-fall-1127: a breaker node digs the block under him and a column 9 blocks lower, with a real round trip.
+            s.test("62-argrim-1127-breakerfall-lag", c -> caseBreakerFallLag(c, 150, 0));
+            s.test("62-argrim-1127-breakerfall-stall", c -> caseBreakerFallLag(c, 100, 350));
             // Multi Break at one a server tick (mod multibreak-1102): ten blocks round him, back to back; repeat with
             // -PmultiBreakRepeat=N (names "#k").
             for (int k = 1; k <= Integer.getInteger("testkit.multiBreakRepeat", 1); k++) {
@@ -2410,6 +2413,120 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(logHas(m, "DUNGEON_BREAKER acted"), "the breaker node never fired");
         check(logHas(m, "block(s) broken") && logHas(m, "Breaker linger"), "nothing was mined after the node finished");
         check(gone, "the pillar was not all broken");
+        noteFlags(c, s);
+    }
+
+    /**
+     * killer560 (2026-11-27, New Trap): "look at the flag in new trap every time it falls." A breaker node digs the block
+     * he stands on and a 3-high column 9 blocks below him (out of reach when it fires, so the linger digs it as he falls);
+     * with a {@code ms} round trip (and {@code stallMs} more from the moment the route fires, a server stall) the column
+     * comes into reach about two ticks before he reaches it, under a round trip. A client that keeps a dug block solid
+     * until the server's update lands on it while the server has already broken it: every move it sends there claims
+     * ground over the server's air, which Hypixel corrects three times per fall (GrimAC judges against what the client
+     * acknowledged and stays silent). Asserted on the server: no tick with ground over server air, none inside a block the
+     * server still has; on the wire: the digs went, the column broke, he landed below it; GrimAC silent.
+     */
+    private static void caseBreakerFallLag(Session c, int ms, int stallMs) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int stand = F + 12;
+        int colTop = F + 2;
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int y = F; y <= stand; y++) {
+            boolean pillar = y <= colTop || y == stand;
+            put.put(new int[]{13, y, 12}, pillar ? "minecraft:stone_bricks" : "minecraft:air");
+            put.put(new int[]{13, y, 11}, "minecraft:stone");
+            if (pillar) {
+                blocks.add("13 " + y + " 12");
+            }
+        }
+        setBlocks(ctx, put);
+        JsonObject br = node("DUNGEON_BREAKER", 13, 12, 0f, 0f);
+        br.addProperty("y", (double) (stand + 1));
+        br.add("blocks", blocks);
+        br.addProperty("start", true);
+        writeRoute(ctx, List.of(br));
+        double[] p = ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, 13.5, (double) (stand + 1), 11.3});
+            float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(), float.class},
+                    new Object[]{frame, 0f});
+            return new double[]{v.x, v.y, v.z, yaw};
+        });
+        lookYaw = (float) p[3];
+        lookPitch = 30f;
+        c.server().command("effect give @a minecraft:resistance 40 4 true"); // a 13-block fall, no physics change
+        session.hx().call("dungeon.tp", "x", p[0], "y", p[1], "z", p[2], "yaw", (float) p[3], "pitch", 30f);
+        Vec3 target = new Vec3(p[0], p[1], p[2]);
+        waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(target) < 0.05));
+        ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(ms));
+        ctx.waitTicks(20);
+        long m = LogTap.mark();
+        startSampling(ctx);
+        session.hx().call("dungeon.groundWatch", "on", true);
+        boolean gone;
+        JsonObject watch;
+        Vec3 at;
+        List<Sample> s;
+        try {
+            ctx.getInput().holdKey(o -> o.keyUp);
+            boolean onPillar;
+            try {
+                onPillar = waitFor(ctx, 60, () -> {
+                    Vec3 r = relPos(ctx);
+                    return r.z >= 12.2 || r.y < stand + 0.5;
+                });
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyUp);
+            }
+            if (stallMs > 0) {
+                ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(ms + stallMs));
+            }
+            check(onPillar, "he never got over the pillar (at " + relPos(ctx) + ")");
+            gone = waitFor(ctx, 160, () -> {
+                for (int y = F; y <= colTop; y++) {
+                    if (!blockAir(ctx, 13, y, 12)) {
+                        return false;
+                    }
+                }
+                return blockAir(ctx, 13, stand, 12) && relPos(ctx).y < F + 0.5;
+            });
+            ctx.waitTicks(30);
+            watch = session.hx().call("dungeon.groundWatch").getAsJsonObject();
+            s = stopSampling(ctx);
+            at = relPos(ctx);
+        } finally {
+            session.hx().call("dungeon.groundWatch", "on", false);
+            ctx.runOnClient(mc -> dev.testkit.harness.Latency.remove());
+        }
+        printTrace("breaker fall lag", s);
+        int digs = count(s, "player_action");
+        long corrections = LogTap.since(m).stream().filter(l -> l.contains("[Correction] Auto Routes")).count();
+        int overAir = watch.get("overAir").getAsInt();
+        int inside = watch.get("inside").getAsInt();
+        c.note(String.format(Locale.ROOT, "breaker fall lag %d ms (+%d stall): %d dig packet(s), linger %s, column gone %s,"
+                        + " ended at y %.2f (floor %d), server: %d tick(s) ground over its air, %d inside its blocks %s,"
+                        + " %d correction(s), predicted lines %s", ms, stallMs, digs, logHas(m, "block(s) broken"), gone,
+                at.y, F, overAir, inside, watch.get("first"), corrections, logHas(m, "predicted gone")));
+        // Restore the air the arena does not clear (it clears F..F+8).
+        Map<int[], String> clear = new LinkedHashMap<>();
+        for (int y = F + 9; y <= stand; y++) {
+            clear.put(new int[]{13, y, 12}, "minecraft:air");
+            clear.put(new int[]{13, y, 11}, "minecraft:air");
+        }
+        setBlocks(ctx, clear);
+        check(logHas(m, "DUNGEON_BREAKER acted"), "the breaker node never fired");
+        check(logHas(m, "block(s) broken") && logHas(m, "Breaker linger"), "the column was not mined as he fell");
+        check(digs >= colTop - F + 2, "only " + digs + " dig packet(s) for " + (colTop - F + 2) + " blocks");
+        check(gone, "the column was not all broken, or he never landed below it (at " + at + ")");
+        check(overAir == 0, overAir + " server tick(s) of ground over the server's air " + watch.get("first")
+                + " - the client stood on a block the server had already broken (Hypixel corrects this)");
+        check(inside == 0, inside + " server tick(s) inside a block the server still has " + watch.get("first"));
+        check(corrections == 0, corrections + " correction(s) during the fall");
         noteFlags(c, s);
     }
 
