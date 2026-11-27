@@ -49,8 +49,8 @@ final class InstaCost1126Cases {
             c.check(t + " can never be insta cleared", !(Boolean) Mod.staticCall(P, "instaType", t), "");
         }
 
-        // H - P - Q (Quiz), X off P. X credited 30 s, its detour 2 s.
-        Map<String, Double> at = Map.of("H", 0.0, "P", 2.0, "Q", 4.0, "X", 3.0);
+        // H - P - Q (Quiz), X off P. X credited 30 s, its detour 4 s.
+        Map<String, Double> at = Map.of("H", 0.0, "P", 2.0, "Q", 4.0, "X", 6.0);
         Map<String, List<String>> nb = Map.of("H", List.of("P"), "P", List.of("H", "Q", "X"), "Q", List.of("P"),
                 "X", List.of("P"));
         Object tr = java.lang.reflect.Proxy.newProxyInstance(InstaCost1126Cases.class.getClassLoader(),
