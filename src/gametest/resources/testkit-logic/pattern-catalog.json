@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T20:37:08",
- "modSource": "lane-craftcost-supercraft-stillnochange-1126b",
- "modGitSha": "0994f0b9b48f3a97ec882a34084b4602a09d624d",
+ "generatedAt": "2026-11-26T21:16:33",
+ "modSource": "lane-sharesite-upload-fixes-1126",
+ "modGitSha": "e401a8db8d5b7d7fa54cfb7a93aedf6db8750e8e",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
