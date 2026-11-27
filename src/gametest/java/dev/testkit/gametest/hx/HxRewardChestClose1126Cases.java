@@ -102,6 +102,11 @@ final class HxRewardChestClose1126Cases {
                     4, 5));
             for (int trial = 0; trial < 3; trial++) {
                 boolean[] seen = {false};
+                setblock(c, x, y, z, "minecraft:air");
+                c.ctx().waitTicks(2);
+                setblock(c, x, y, z, "minecraft:chest[facing=north]"); // a fresh chest each claim (his left clicks may break one)
+                c.waitUntil("the chest on the client", mc -> mc.level.getBlockState(new BlockPos(x, y, z))
+                        .getBlock() instanceof net.minecraft.world.level.block.ChestBlock, 100);
                 c.onClient(mc -> {
                     Mod.staticCall(WATER, "chestStartAtForTest", new BlockPos(x, y, z));
                     driving = true;
@@ -154,8 +159,7 @@ final class HxRewardChestClose1126Cases {
         });
         c.ctx().waitTicks(40);
         int clicks = c.onClient(mc -> (Integer) Mod.staticCall(WATER, "chestClicksForTest"));
-        boolean still = c.onClient(mc -> dev.testkit.compat.McCompat.screen(mc) instanceof
-                net.minecraft.client.gui.screens.inventory.InventoryScreen);
+        boolean still = c.onClient(mc -> dev.testkit.compat.McCompat.screen(mc) != null); // creative swaps the inventory screen class
         c.check(clicks == 0 && c.hx().events(since, "use_block").isEmpty(), "the step clicked the chest (" + clicks
                 + ") with a screen of his open");
         c.check(still && active(c), "his screen was closed or the step gave up while it was open");
