@@ -852,6 +852,17 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     net.minecraft.core.BlockPos.class, k.getClass()}, new Object[]{mc, new net.minecraft.core.BlockPos(-62, -22, -173), k});
         });
         ctx.waitTicks(10);
+        // acquiz-two-fails-1127: 0.2 ms way-out slices, so every chain search takes several ticks, as one did under load on
+        // the main PC (11-27 lane: the first 2 ms slice did not answer and the trip went into the pocket before its verdict).
+        boolean sliceHook = ctx.computeOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall(AUTO, "exitSliceNsForTest", new Class<?>[]{long.class}, new Object[]{200_000L});
+                return true;
+            } catch (AssertionError e) {
+                return false;
+            }
+        });
+        println(POCKET, "short way-out slices: " + (sliceHook ? "on (0.2 ms)" : "no hook in this jar"));
         long mark = LogTap.mark();
         java.util.concurrent.atomic.AtomicReference<String> end = new java.util.concurrent.atomic.AtomicReference<>();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "clearRoom",
@@ -866,12 +877,16 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         }
         net.minecraft.world.phys.Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
+        if (sliceHook) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "exitSliceNsForTest", new Class<?>[]{long.class},
+                    new Object[]{2_000_000L}));
+        }
         List<String> log = LogTap.since(mark);
         long acted = log.stream().filter(l -> l.contains("[Bat] decision for") || l.contains("[AutoClear] etherwarp toward")).count();
         boolean weighed = log.stream().anyMatch(l -> l.contains("[AutoClear] no way out of"));
         boolean landed = in;
         for (String l : log) {
-            if (l.contains("way out of") || l.contains("no way back out")) {
+            if (l.contains("way out of") || l.contains("no way back out") || l.contains("waits for its way-out check")) {
                 println(POCKET, "  " + l.substring(l.indexOf("[AutoClear]")));
             }
         }
@@ -893,6 +908,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             failures.add("no way-out search ran in slices (the budget check proves nothing)");
         } else if (maxSlice > 8.0) {
             failures.add("a single way-out search slice took " + maxSlice + " ms (budget about 2 ms, allowed 8)");
+        }
+        if (sliceHook && log.stream().noneMatch(l -> l.contains("waits for its way-out check"))) {
+            failures.add("no trip waited for a way-out verdict with 0.2 ms slices (the race the 11-27 lane hit was not exercised)");
         }
         if (landed) {
             failures.add("Auto Clear landed him in the Dragon pocket (south of the barrier row, x -71..-54), which no warp or walk leaves");
