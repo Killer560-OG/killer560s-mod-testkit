@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T02:12:45",
- "modSource": "lane-waterboard-chest-timed-click-1126",
- "modGitSha": "54ae7be0ff6ef08a620aee4a836504a1b5fd1814",
+ "generatedAt": "2026-11-27T02:48:34",
+ "modSource": "lane-entrance-flash-1127",
+ "modGitSha": "4e0933ce77599d49daf20e773f9f81c0b7f5c132",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
