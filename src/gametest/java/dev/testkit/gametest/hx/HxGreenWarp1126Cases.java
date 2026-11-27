@@ -24,6 +24,13 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * </ul>
  * Names: 1126-hx-greenwarp-same-idle, 1126-hx-greenwarp-same-use, 1126-hx-greenwarp-same-attack,
  * 1126-hx-greenwarp-same-swap, 1126-hx-greenwarp-same-click, 1126-hx-greenwarp-same-tp.
+ * <p>
+ * 1126-hx-firsttrip-gate-same-&lt;idle|use|attack|swap|click|tp&gt; (autopilot-prerun-1126): the same legs, each warp held
+ * as the first trip through the shut entrance gate is ({@code ClearExecutor.testGate}: primed each tick - item, sneak,
+ * turn - and let go the tick a stone block beside the floor is air), the block taken away 3-7 ticks into the hold, so his
+ * actions land in the held ticks and in the release tick. Names: 1126-hx-firsttrip-gate-same-idle,
+ * 1126-hx-firsttrip-gate-same-use, 1126-hx-firsttrip-gate-same-attack, 1126-hx-firsttrip-gate-same-swap,
+ * 1126-hx-firsttrip-gate-same-click, 1126-hx-firsttrip-gate-same-tp.
  */
 final class HxGreenWarp1126Cases {
 
@@ -38,7 +45,8 @@ final class HxGreenWarp1126Cases {
 
     static void register(Session s) {
         for (String a : new String[]{"idle", "use", "attack", "swap", "click", "tp"}) {
-            s.test("1126-hx-greenwarp-same-" + a, c -> same(c, a));
+            s.test("1126-hx-greenwarp-same-" + a, c -> same(c, a, false));
+            s.test("1126-hx-firsttrip-gate-same-" + a, c -> same(c, a, true));
         }
     }
 
@@ -111,7 +119,7 @@ final class HxGreenWarp1126Cases {
         return p instanceof ServerboundUseItemPacket || p instanceof ServerboundPlayerInputPacket in && in.input().shift();
     }
 
-    private static void same(Session c, String a) {
+    private static void same(Session c, String a, boolean gate) {
         if (!Mod.isCheat()) {
             c.note("legit jar: Dungeons Autopilot is cheat-only");
             return;
@@ -142,13 +150,33 @@ final class HxGreenWarp1126Cases {
             int legs = 0;
             int warped = 0;
             int settled = 0;
+            BlockPos block = ends[0].offset(-6, 1, -5);
+            int openAt = -1;
+            int heldTicks = 0;
+            int released = 0;
             for (int i = 0; i < 240; i++) {
                 String r = result(c);
                 if (!"warping".equals(r) && !"armed".equals(r) && (settled++ > 6 || legs == 0)) {
                     warped += "warped".equals(r) ? 1 : 0;
+                    if (gate) {
+                        c.server().command(String.format("setblock %d %d %d stone", block.getX(), block.getY(), block.getZ()));
+                        c.waitUntil("the gate block on the client", mc -> !mc.level.getBlockState(block).isAir(), 40);
+                        c.onClient(mc -> {
+                            Mod.staticCall(CE, "testGate", java.util.List.of(block));
+                            return null;
+                        });
+                        openAt = i + 3 + legs % 5;
+                    }
                     go(c, ends[legs % 2]);
                     legs++;
                     settled = 0;
+                }
+                if (gate && c.onClient(mc -> (Boolean) Mod.staticCall(CE, "waitingForGate"))) {
+                    heldTicks++;
+                }
+                if (gate && i == openAt) {
+                    c.server().command(String.format("setblock %d %d %d air", block.getX(), block.getY(), block.getZ()));
+                    released++;
                 }
                 if (act == SameTick.Act.SCREEN_CLICK && i % 30 == 1) {
                     c.onClient(mc -> {
@@ -178,6 +206,11 @@ final class HxGreenWarp1126Cases {
             if (warped < 2 || landed < 3 && warped < 3) {
                 dumpWire(c);
             }
+            if (gate) {
+                c.note(heldTicks + " tick(s) held for the gate over " + released + " release(s)");
+                c.check(heldTicks >= legs && released >= 3, "the warps were not held for the gate (" + heldTicks
+                        + " held tick(s), " + released + " release(s))");
+            }
             c.check(landed >= 3 || warped >= 3, "only " + landed + " warp(s) landed (nothing tested)");
             c.check(warped >= 2, "only " + warped + " leg(s) ended warped");
             // His clicks never ride the warp item: the AOTV in hand on his level look was an Instant Transmission or an
@@ -197,6 +230,7 @@ final class HxGreenWarp1126Cases {
             }
             c.onClient(mc -> {
                 wireOff();
+                Mod.staticCall(CE, "testGate", (Object) null);
                 return null;
             });
             clean(c);
