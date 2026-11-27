@@ -42,6 +42,10 @@ public class SimStrandCagesTests implements FabricClientGameTest {
         if (Scenario.skip(NAME)) {
             return;
         }
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) { // Auto Clear is cheat build only: its floor graph never warms on a legit jar
+            Scenario.skipped(NAME, "Auto Clear is cheat build only");
+            return;
+        }
         ModUnderTest.require("killer560smod");
         LogTap.install();
         ctx.waitTicks(40);
