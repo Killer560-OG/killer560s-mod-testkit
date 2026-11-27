@@ -6111,13 +6111,19 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(late > 0, "no searched trip went from the START after its late hand-back (the late start was not tested)");
     }
 
-    /** 62-argrim-1127-same-lastcast-*: the plain row (hops on); the room's last cast in place must hold the sneak. */
+    /**
+     * 62-argrim-1127-same-lastcast-*: the trip row (hops off, so casts go in place; with hops on every cast is a room plan
+     * hop and nothing primes, 2026-11-27 run grimdef1); the room's last cast in place must hold the sneak. The way-out
+     * wait primes of the same trips are printed.
+     */
     private static void caseLastCast(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
         String auto = "com.killer560.hub.autoclear.AutoClearFeature";
         int p0 = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedLastCastTicks"));
-        caseAutoClearHype(c, act, second);
+        int w0 = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedWaitTicks"));
+        caseAutoClearHype(c, act, second, false, true, "[AutoClear] etherwarp toward");
         int primed = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedLastCastTicks")) - p0;
-        c.note("ticks the room's last cast held the sneak: " + primed);
+        int waits = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedWaitTicks")) - w0;
+        c.note("ticks the room's last cast held the sneak: " + primed + ", ticks a way-out wait or roam held it: " + waits);
         check(primed > 0, "the room's last cast in place never held the sneak (the prime was not tested)");
     }
 
@@ -7452,6 +7458,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
                                     || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
                             .armedBy(() -> logHas(m, "[AutoSecret] clear ")));
+            // The arena has no Mort: before the run a start is only ARMED (ArmedStart) and start() answers false.
+            ctx.runOnClient(mc -> runStartedForTest(true));
             Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as, "start"));
             check(Boolean.TRUE.equals(started), "Auto Secret refused to start");
             boolean[] again = {false};
@@ -7504,6 +7512,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             noteFlags(c, s);
         } finally {
             ctx.runOnClient(mc -> {
+                runStartedForTest(false);
                 if ((Boolean) ModUnderTest.staticCall(as, "isRunning")) {
                     ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
                             new Object[]{"test over", true});
