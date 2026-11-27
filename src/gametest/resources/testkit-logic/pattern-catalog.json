@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T11:35:57",
- "modSource": "lane-imap-nopath-1127b",
- "modGitSha": "043feb060f20a5b1bf5d3b422c6357a5feabd98d",
+ "generatedAt": "2026-11-27T13:16:49",
+ "modSource": "lane-autopilot-diagonal-short-1127b",
+ "modGitSha": "8abb768a3db89a40d903ed1a38cb2e0735d02613",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
