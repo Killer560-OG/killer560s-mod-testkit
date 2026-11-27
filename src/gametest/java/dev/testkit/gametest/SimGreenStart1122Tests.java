@@ -399,7 +399,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         // The planner's first search from a cold graph takes ~1 s (970 ms on the first green run): 40 ticks, not 15.
         f.add(out > 0 && out <= 40 ? null : "not out through the door within 40 ticks of GO (tick " + out + ")");
         f.add(inside == 0 ? null : inside + " warp(s) landed inside the Entrance before the door (want 0)");
-        f.add(warps <= 1 ? null : warps + " warps before leaving the Entrance (want <= 1)");
+        f.add(warps <= 2 ? null : warps + " warps before leaving the Entrance (want <= 2: the doorway hop, then out)");
         f.add(logged ? null : "no \"[GreenRoomStart] walking\" log line");
         f.removeIf(java.util.Objects::isNull);
         return pre + "; " + post;
@@ -413,23 +413,45 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
             ctx.waitTicks(1);
             toGo++;
         }
-        int warps = 0;
-        int inside = 0;
+        // Warps are read off the wire, never off per-tick positions: two hops a tick apart land in one sample or in two
+        // depending on where the server tick falls (the route's own doorway hop then showed as a warp "inside"; 26.2,
+        // gatehold-aotv-click-1126). Each landing is the position packet that follows a teleport accept.
+        List<double[]> landings = new java.util.concurrent.CopyOnWriteArrayList<>();
+        boolean[] accepted = {false};
+        java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> prev = PacketTrace.tap;
+        PacketTrace.tap = p -> {
+            if (prev != null) {
+                prev.accept(p);
+            }
+            if (p instanceof net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket) {
+                accepted[0] = true;
+            } else if (accepted[0] && p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket m && m.hasPosition()) {
+                accepted[0] = false;
+                landings.add(new double[]{m.getX(0), m.getZ(0)});
+            }
+        };
         int out = -1;
         Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
         for (int i = 1; i <= 200 && out < 0; i++) {
             ctx.waitTicks(1);
             Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
             double past = -((now.x - (door.getX() + 0.5)) * in[0] + (now.z - (door.getZ() + 0.5)) * in[1]);
-            if (now.distanceTo(last) > 2.5) {
-                warps++;
-                if (past <= 1.0) {
-                    inside++;   // a warp that landed still inside the Entrance: one spent reaching a start spot
-                }
-            }
             last = now;
             if (past > 1.0) {
                 out = i;
+            }
+        }
+        PacketTrace.tap = prev;
+        int warps = 0;
+        int inside = 0;
+        for (double[] l : landings) {
+            warps++;
+            double past = -((l[0] - (door.getX() + 0.5)) * in[0] + (l[1] - (door.getZ() + 0.5)) * in[1]);
+            if (past > 1.0) {
+                break;
+            }
+            if (past < 0.0) {
+                inside++;   // a landing short of the door plane: one spent reaching a start spot (the doorway hop is 0..1)
             }
         }
         return new int[]{out, warps, inside};
