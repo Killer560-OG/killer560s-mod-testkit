@@ -6807,7 +6807,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         + "dig stamp held it): " + notes);
                 check(gone, "run " + run + ": the wall block is still standing: " + notes);
                 check(use > dig, "run " + run + ": the stacked etherwarp went before the breaker's dig: " + notes);
-                check(landed && warps >= 2, "run " + run + ": the stacked etherwarp did not land past the wall: " + notes);
+                // His own right click with the AOTV in the warp's tick is a warp of his own (caseStandEye): the landing is
+                // judged only without it; the route's warp must still have gone after the dig.
+                check((landed && warps >= 2) || act == dev.testkit.gametest.SameTick.Act.USE_CLICK,
+                        "run " + run + ": the stacked etherwarp did not land past the wall: " + notes);
                 if (st != null) {
                     check(st.done() > 0, act + ": his action never went in (nothing tested): " + notes);
                     st = null;
