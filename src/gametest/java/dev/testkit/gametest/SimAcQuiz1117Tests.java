@@ -51,6 +51,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
      *  left from (-70,-24,-181). The pocket's block -63,-23,-175 (barrier blocks and walls, a one-block slit) has no warp, walk
      *  or warp chain out: Auto Clear must weigh it and never land there. The origin jar lands him in it. */
     private static final String POCKET = "1123-sim-ac-pocket";
+    /** ptam-wayout-budget: the Dragon pocket clear at full speed; no trip waits more than 2 ticks for a way-out verdict. */
+    private static final String NOWAIT = "1127-sim-ac-wayout-nowait";
     /** autopilot-menu-1126 (killer560 2026-11-26: "it should always open quiz before icefill if both are on"): two F7s with
      *  Ice Fill pinned next to the Entrance and the Quiz in the far corner (Quiz First off with Fastest Time, then on with
      *  Edges In; Ice Fill First on in both): Oruo's first question opened before he first stood in Ice Fill, and both
@@ -93,8 +95,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         boolean pinParty = !Scenario.skip(PIN_PARTY);
         boolean pinRet = !Scenario.skip(PIN_RETURN);
         boolean pocket = !Scenario.skip(POCKET);
+        boolean noWait = !Scenario.skip(NOWAIT);
         boolean quizIce = !Scenario.skip(QUIZ_ICE);
-        if (!gap && !wait && !secret && !routes && !ret && !retParty && !pinParty && !pinRet && !pocket && !quizIce) {
+        if (!gap && !wait && !secret && !routes && !ret && !retParty && !pinParty && !pinRet && !pocket && !noWait && !quizIce) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
@@ -107,6 +110,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (pinParty) Scenario.skipped(PIN_PARTY, "Auto Clear is cheat build only");
             if (pinRet) Scenario.skipped(PIN_RETURN, "Auto Clear is cheat build only");
             if (pocket) Scenario.skipped(POCKET, "Auto Clear is cheat build only");
+            if (noWait) Scenario.skipped(NOWAIT, "Auto Clear is cheat build only");
             if (quizIce) Scenario.skipped(QUIZ_ICE, "Auto Clear is cheat build only");
             return;
         }
@@ -124,6 +128,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (pinParty) Scenario.skipped(PIN_PARTY, "needs real room captures and room database");
             if (pinRet) Scenario.skipped(PIN_RETURN, "needs real room captures and room database");
             if (pocket) Scenario.skipped(POCKET, "needs real room captures and room database");
+            if (noWait) Scenario.skipped(NOWAIT, "needs real room captures and room database");
             if (quizIce) Scenario.skipped(QUIZ_ICE, "needs real room captures and room database");
             return;
         }
@@ -160,6 +165,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (pocket) {
                 one(ctx, POCKET, true);
             }
+            if (noWait) {
+                one(ctx, NOWAIT, true);
+            }
             if (quizIce) {
                 quizIce(ctx);
             }
@@ -171,7 +179,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static void one(ClientGameTestContext ctx, String name, boolean withMobs) {
         List<String> failures = new ArrayList<>();
         String before = System.getProperty("testkit.mobfloorCode", "");
-        String pin = PINS.get(name.equals(POCKET) ? PIN_PARTY : name);
+        String pin = PINS.get(name.equals(POCKET) || name.equals(NOWAIT) ? PIN_PARTY : name);
         boolean pinned = pin != null && before.isBlank();
         if (pinned) {
             System.setProperty("testkit.mobfloorCode", pin);
@@ -413,8 +421,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
         });
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
-        if (name.equals(POCKET)) {
-            pocket(ctx, failures);
+        if (name.equals(POCKET) || name.equals(NOWAIT)) {
+            pocket(ctx, name, failures);
             return;
         }
         if (!withMobs) {
@@ -818,7 +826,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 && mc.player.getZ() > -176.99 && mc.player.getZ() < -171.0 && mc.player.getY() > -25.0 && mc.player.getY() < -18.0);
     }
 
-    private static void pocket(ClientGameTestContext ctx, List<String> failures) {
+    private static void pocket(ClientGameTestContext ctx, String name, List<String> failures) {
+        boolean noWait = name.equals(NOWAIT);
         SimMobFloorTests.teleport(ctx, -69.5, -23, -180.5);
         ctx.waitTicks(40);
         // The Hyperion alone (sim bats blast through walls, and whether one lands near enough is chance) with hops off: the
@@ -854,15 +863,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         ctx.waitTicks(10);
         // acquiz-two-fails-1127: 0.2 ms way-out slices, so every chain search takes several ticks, as one did under load on
         // the main PC (11-27 lane: the first 2 ms slice did not answer and the trip went into the pocket before its verdict).
-        boolean sliceHook = ctx.computeOnClient(mc -> {
-            try {
-                ModUnderTest.staticCall(AUTO, "exitSliceNsForTest", new Class<?>[]{long.class}, new Object[]{200_000L});
-                return true;
-            } catch (AssertionError e) {
-                return false;
-            }
-        });
-        println(POCKET, "short way-out slices: " + (sliceHook ? "on (0.2 ms)" : "no hook in this jar"));
+        // ptam-wayout-budget: the search runs off the client thread; its hook holds each search back 200 ms instead.
+        String hook = noWait ? null : ctx.computeOnClient(mc -> slowExitHook(true));
+        boolean sliceHook = hook != null;
+        println(name, "slow way-out searches: " + (sliceHook ? "on (" + hook + ")" : noWait ? "off (full speed)" : "no hook in this jar"));
         long mark = LogTap.mark();
         java.util.concurrent.atomic.AtomicReference<String> end = new java.util.concurrent.atomic.AtomicReference<>();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "clearRoom",
@@ -871,15 +875,45 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                         (java.util.function.Consumer<String>) why -> end.set("gave up: " + why)}));
         boolean in = false;
         int t = 0;
-        for (; t < 1200 && end.get() == null && !in; t += 2) {
-            ctx.waitTicks(2);
+        int step = noWait ? 1 : 2;
+        // NOWAIT: the tick each "trip onto X waits" line was first seen, and the longest a trip stood until X's verdict.
+        java.util.Map<String, Integer> waitingSince = new java.util.HashMap<>();
+        int longestWait = 0;
+        String longestAt = "none";
+        int seen = 0;
+        for (; t < 1200 && end.get() == null && !in; t += step) {
+            ctx.waitTicks(step);
             in = inPocket(ctx);
+            if (noWait) {
+                List<String> now = LogTap.since(mark);
+                for (; seen < now.size(); seen++) {
+                    String l = now.get(seen);
+                    java.util.regex.Matcher w = WAITS.matcher(l);
+                    if (w.find()) {
+                        waitingSince.putIfAbsent(w.group(1), t);
+                        continue;
+                    }
+                    java.util.regex.Matcher v = VERDICT.matcher(l);
+                    if (v.find() && waitingSince.containsKey(v.group(1))) {
+                        int waited = t - waitingSince.remove(v.group(1));
+                        if (waited > longestWait) {
+                            longestWait = waited;
+                            longestAt = v.group(1);
+                        }
+                    }
+                }
+            }
+        }
+        for (var e : waitingSince.entrySet()) {   // still waiting at the end
+            if (t - e.getValue() > longestWait) {
+                longestWait = t - e.getValue();
+                longestAt = e.getKey() + " (no verdict yet)";
+            }
         }
         net.minecraft.world.phys.Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
         if (sliceHook) {
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "exitSliceNsForTest", new Class<?>[]{long.class},
-                    new Object[]{2_000_000L}));
+            ctx.runOnClient(mc -> slowExitHook(false));
         }
         List<String> log = LogTap.since(mark);
         long acted = log.stream().filter(l -> l.contains("[Bat] decision for") || l.contains("[AutoClear] etherwarp toward")).count();
@@ -887,27 +921,34 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         boolean landed = in;
         for (String l : log) {
             if (l.contains("way out of") || l.contains("no way back out") || l.contains("waits for its way-out check")) {
-                println(POCKET, "  " + l.substring(l.indexOf("[AutoClear]")));
+                println(name, "  " + l.substring(l.indexOf("[AutoClear]")));
             }
         }
-        println(POCKET, String.format(Locale.US, "RESULT after %.1f s: %s, at %.2f %.2f %.2f, %d Auto Clear decision(s), pocket"
+        println(name, String.format(Locale.US, "RESULT after %.1f s: %s, at %.2f %.2f %.2f, %d Auto Clear decision(s), pocket"
                 + " weighed %s, landed in it %s", t / 20.0, end.get() == null ? (in ? "in the pocket" : "still running") : end.get(),
                 at.x, at.y, at.z, acted, weighed, landed));
         if (acted == 0) {
             failures.add("Auto Clear never acted in Dragon (the case proves nothing)");
         }
         // acpocket-perf-1124: the way-out search runs a slice a tick; its log line carries the slice count and longest slice.
-        java.util.regex.Matcher sl = java.util.regex.Pattern.compile("(\\d+) slice\\(s\\), longest ([\\d.]+) ms").matcher(String.join("\n", log));
+        java.util.regex.Matcher sl = java.util.regex.Pattern.compile("slice\\(s\\), longest|on the way-out thread").matcher(String.join("\n", log));
         int judged = 0;
         while (sl.find()) {
             judged++;
         }
         double maxSlice = ctx.computeOnClient(mc -> (Double) ModUnderTest.staticCall(AUTO, "exitMaxSliceMs"));
-        println(POCKET, String.format(Locale.US, "way-out searches judged in slices: %d, longest slice %.1f ms", judged, maxSlice));
+        println(name, String.format(Locale.US, "way-out searches judged: %d, longest client-thread share %.1f ms", judged, maxSlice));
         if (judged == 0) {
-            failures.add("no way-out search ran in slices (the budget check proves nothing)");
+            failures.add("no way-out chain search ran (the budget check proves nothing)");
         } else if (maxSlice > 8.0) {
-            failures.add("a single way-out search slice took " + maxSlice + " ms (budget about 2 ms, allowed 8)");
+            failures.add("a way-out search took " + maxSlice + " ms of the client thread (allowed 8)");
+        }
+        if (noWait) {
+            println(name, "longest trip wait for a way-out verdict: " + longestWait + " tick(s) at " + longestAt);
+            if (longestWait > 2) {
+                failures.add("a trip stood " + longestWait + " ticks waiting for the way-out verdict of " + longestAt
+                        + " (allowed 2): the search must not hold him idle");
+            }
         }
         if (sliceHook && log.stream().noneMatch(l -> l.contains("waits for its way-out check"))) {
             failures.add("no trip waited for a way-out verdict with 0.2 ms slices (the race the 11-27 lane hit was not exercised)");
@@ -916,6 +957,25 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             failures.add("Auto Clear landed him in the Dragon pocket (south of the barrier row, x -71..-54), which no warp or walk leaves");
         } else if (!weighed) {
             failures.add("no block was found with no way out (no 'no way out of' line): the case proves nothing");
+        }
+    }
+
+    private static final java.util.regex.Pattern WAITS = java.util.regex.Pattern.compile("trip onto (-?\\d+, -?\\d+, -?\\d+) waits for its way-out check");
+    private static final java.util.regex.Pattern VERDICT = java.util.regex.Pattern.compile("(?:no )?way out of (-?\\d+, -?\\d+, -?\\d+)[: ]");
+
+    /** Makes way-out searches slow (on) or puts them back (off); the hook's name, or null when the jar has none. */
+    private static String slowExitHook(boolean on) {
+        try {
+            ModUnderTest.staticCall(AUTO, "exitDelayMsForTest", new Class<?>[]{long.class}, new Object[]{on ? 200L : 0L});
+            return "searches held back 200 ms";
+        } catch (AssertionError e) {
+            try {
+                ModUnderTest.staticCall(AUTO, "exitSliceNsForTest", new Class<?>[]{long.class},
+                        new Object[]{on ? 200_000L : 2_000_000L});
+                return "0.2 ms slices";
+            } catch (AssertionError e2) {
+                return null;
+            }
         }
     }
 
