@@ -10,6 +10,9 @@ import com.mojang.blaze3d.platform.InputConstants;
  */
 public final class McKeys {
 
+    /** Control in a KeyEvent's modifiers (GLFW 2 on 26.2, SDL 192 on 26.3). */
+    public static final int CTRL = 2;
+
     private McKeys() {
     }
 

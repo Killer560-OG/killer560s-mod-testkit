@@ -210,6 +210,7 @@
 			"dev.testkit.gametest.SimArrowTrapMapTests",
 			"dev.testkit.gametest.SimTrapRoutes1121Tests",
 			"dev.testkit.gametest.SimTrapStart1122Tests",
+			"dev.testkit.gametest.SimEntranceFlash1127Tests",
 			"dev.testkit.gametest.SimTrapSecrets1123Tests",
 			"dev.testkit.gametest.SimTrapAddNodes1123Tests",
 			"dev.testkit.gametest.SimTrapEditNodes1123Tests",

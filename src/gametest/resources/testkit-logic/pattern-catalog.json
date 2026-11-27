@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T14:26:51",
- "modSource": "lane-autopilot-auto-enable-1127",
- "modGitSha": "2efa7fe413305319928b03d7535f619abc7a100d",
+ "generatedAt": "2026-11-27T16:31:59",
+ "modSource": "lane-painting-breaker-nodig-1127",
+ "modGitSha": "42da6e0ef9bc9b84aee8cf088e8b68f1efb850a8",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
