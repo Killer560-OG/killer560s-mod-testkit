@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T13:51:29",
- "modSource": "lane-autoroutes-breaker-fall-1127",
- "modGitSha": "b2becd60649e993410ea185f27267ddcf41415c7",
+ "generatedAt": "2026-11-27T14:00:17",
+ "modSource": "lane-autopilot-icefill-solver-off-1127",
+ "modGitSha": "ac1e73c2b3ec01fe1882282108cbd876a3b99e9e",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
