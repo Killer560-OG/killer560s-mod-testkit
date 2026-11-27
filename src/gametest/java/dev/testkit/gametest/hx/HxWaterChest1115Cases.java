@@ -19,14 +19,21 @@ import java.util.Locale;
  *       every tick / scroll 4-5 every tick / left click on the chest every other tick (survival) / a server teleport
  *       every 5 ticks. The server must take at least 8 use_block, both his action and the chest click must reach the wire
  *       (his use and scroll in the same server tick as a click, his dig apart from it: ActionGate holds the click there; his teleport accept on either side of it) and GrimAC stay silent (default and experimental checks).</li>
- *   <li>1115-same-waterchest-locked: signal forced FALSE for 140 ticks with his right click every tick: 1 to 5 probes in
- *       all (the old rate sent 35), each taken by the server, GrimAC silent.</li>
+ *   <li>1115-same-waterchest-locked (waterboard-chest-timed-click-1126): signal forced FALSE for 140 ticks with his right
+ *       click every tick: NO click while it reads locked (the old step sent 1 to 5 probes), then the signal flips TRUE and
+ *       the click it releases at once must share a server tick with his use, GrimAC silent.</li>
+ *   <li>1126-same-waterchest-twice: as -use, with the chest step ticked TWICE in every client tick (a second run of the
+ *       feature in its own tick): never two chest clicks in one client tick on the wire.</li>
  * </ul>
  */
 final class HxWaterChest1115Cases {
 
     private static final String WATER = "autopuzzles.AutoWater";
     private static volatile boolean driving;
+    private static volatile boolean twice;
+    /** Client ticks the hook has run, and per chest click on the wire the tick it left in (-twice). */
+    private static volatile int tickNo;
+    private static final java.util.List<Integer> CLICK_TICKS = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
     private static boolean hooked;
     /** TP case: wall-clock stamps {kind, ms} of his tp commands (0), the chest clicks (1) and his teleport accepts (2). */
     private static final java.util.List<long[]> STAMPS = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
@@ -40,6 +47,14 @@ final class HxWaterChest1115Cases {
         s.test("1115-same-waterchest-dig", c -> same(c, SameTick.Act.DIG, true));
         s.test("1115-same-waterchest-tp", c -> same(c, SameTick.Act.TP, true));
         s.test("1115-same-waterchest-locked", c -> same(c, SameTick.Act.USE, false));
+        s.test("1126-same-waterchest-twice", c -> {
+            twice = true;
+            try {
+                same(c, SameTick.Act.USE, true);
+            } finally {
+                twice = false;
+            }
+        });
     }
 
     private static void forceUnlock(Boolean v) {
@@ -55,8 +70,12 @@ final class HxWaterChest1115Cases {
         if (!hooked) {
             hooked = true;
             ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+                tickNo++;
                 if (driving && mc.player != null) {
                     Mod.staticCall(WATER, "chestTickForTest");
+                    if (twice) {
+                        Mod.staticCall(WATER, "chestTickForTest");
+                    }
                 }
             });
         }
@@ -95,6 +114,17 @@ final class HxWaterChest1115Cases {
                         p -> p instanceof ServerboundUseItemOnPacket, // his own act never sends one (use_item, swap, dig, accept)
                         4, 5);
             });
+            if (twice) {
+                CLICK_TICKS.clear();
+                c.onClient(mc -> {
+                    java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> prev = dev.testkit.harness.PacketTrace.tap;
+                    dev.testkit.harness.PacketTrace.tap = p -> {
+                        if (prev != null) prev.accept(p);
+                        if (p instanceof ServerboundUseItemOnPacket) CLICK_TICKS.add(tickNo);
+                    };
+                    return null;
+                });
+            }
             if (act == SameTick.Act.TP) {
                 c.onClient(mc -> {
                     java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> prev = dev.testkit.harness.PacketTrace.tap;
@@ -187,9 +217,30 @@ final class HxWaterChest1115Cases {
             } else if (unlocked) {
                 c.check(clicks >= 8 && served >= 8, "the chest step clicked " + clicks + " time(s), the server saw " + served);
             } else {
-                c.check(clicks >= 1 && clicks <= 5, clicks + " click(s) on the locked chest in " + ticks
-                        + " ticks (want 1-5; the old 4-tick rate sent " + ticks / 4 + ")");
-                c.check(served >= clicks, "the server saw " + served + " of " + clicks + " probe(s)");
+                // waterboard-chest-timed-click-1126: nothing while it reads locked, then the click the tick it unlocks.
+                c.check(clicks == 0 && served == 0, clicks + " click(s) on the locked chest in " + ticks
+                        + " ticks, the server saw " + served + " (want 0; the old step probed 1-5 times)");
+                long unlockAt = c.hx().head();
+                c.onClient(mc -> {
+                    forceUnlock(Boolean.TRUE);
+                    return null;
+                });
+                c.ctx().waitTicks(20);
+                int after = c.onClient(mc -> (Integer) Mod.staticCall(WATER, "chestClicksForTest"));
+                int servedAfter = c.hx().events(unlockAt, "use_block").size();
+                c.note("after the unlock: " + after + " click(s), server use_block " + servedAfter);
+                c.check(after >= 1 && servedAfter >= 1, "no chest click reached the server in 20 ticks after the signal"
+                        + " flipped TRUE (" + after + " click(s), " + servedAfter + " use_block)");
+            }
+            if (twice) {
+                java.util.List<Integer> ct;
+                synchronized (CLICK_TICKS) {
+                    ct = new java.util.ArrayList<>(CLICK_TICKS);
+                }
+                long dup = ct.stream().distinct().count();
+                c.note("twice: " + ct.size() + " chest click(s) on the wire in " + dup + " distinct client tick(s)");
+                c.check(ct.size() >= 8 && dup == ct.size(), "two chest clicks left in one client tick (or too few to"
+                        + " judge): " + ct);
             }
             // His use and scroll share the chest click's server tick (his use_item after the click, his slot inside the
             // click's useItemOn ahead of it). ActionGate holds the click in a tick his left click is queued (a use after a
