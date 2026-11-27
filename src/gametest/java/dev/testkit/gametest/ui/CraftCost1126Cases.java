@@ -445,7 +445,7 @@ final class CraftCost1126Cases {
                 }
                 m.getSlot(23).set(new ItemStack(Items.CRAFTING_TABLE));
                 for (int i : new int[]{14, 15, 16, 22, 24}) {
-                    m.getSlot(i).set(new ItemStack(Items.BLACK_STAINED_GLASS_PANE));
+                    m.getSlot(i).set(new ItemStack(Items.STICK));
                 }
                 return null;
             });
