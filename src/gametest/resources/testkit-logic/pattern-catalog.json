@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T13:40:34",
- "modSource": "lane-strand-cages-1127b",
- "modGitSha": "f96305c77d876fb56457472509cdc928b8e78b4e",
+ "generatedAt": "2026-11-27T13:51:29",
+ "modSource": "lane-autoroutes-breaker-fall-1127",
+ "modGitSha": "b2becd60649e993410ea185f27267ddcf41415c7",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
