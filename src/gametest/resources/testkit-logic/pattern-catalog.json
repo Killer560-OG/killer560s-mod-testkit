@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T12:34:13",
- "modSource": "lane-score-puzzle-chatdone-1126",
- "modGitSha": "425369b3ce47cff4a361c314aa5d634f31180eca",
+ "generatedAt": "2026-11-27T03:32:50",
+ "modSource": "lane-autopilot-instaclear-oldcase-1126",
+ "modGitSha": "3c8b9df3398ce66dee209374af5249148f4ba541",
  "modSourceDirty": false,
- "count": 997,
+ "count": 1001,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 877,
+  "field": 881,
   "local": 46
  },
  "unresolved": 161,
@@ -2688,6 +2688,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^PERSONAL_DELETOR_(\\\\d{1,5})$\""
+  },
+  {
+   "id": "craftcost.CraftCost#CRAFTS",
+   "cls": "craftcost.CraftCost",
+   "field": "CRAFTS",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/craftcost/CraftCost.java",
+   "line": 55,
+   "regex": "\\((\\d+)x crafts?\\)",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\((\\\\d+)x crafts?\\\\)\""
+  },
+  {
+   "id": "craftcost.CraftCost#NEED",
+   "cls": "craftcost.CraftCost",
+   "field": "NEED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/craftcost/CraftCost.java",
+   "line": 56,
+   "regex": "\\d+/(\\d+) (.+)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\d+/(\\\\d+) (.+)$\""
   },
   {
    "id": "crashreport.CrashReportFeature#SERVER_ARG",
@@ -10920,6 +10944,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^PUZZLE SOLVED! (?:\\\\[[^\\\\]]{1,20}\\\\] )?[A-Za-z0-9_]{1,16} ([^!]{1,80})! Good job!$\""
+  },
+  {
+   "id": "scorecalc.ScoreCalculatorFeature#TTT_WORD",
+   "cls": "scorecalc.ScoreCalculatorFeature",
+   "field": "TTT_WORD",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
+   "line": 164,
+   "regex": "\\bttt\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\bttt\\\\b\""
+  },
+  {
+   "id": "scorecalc.ScoreCalculatorFeature#BLAZE_DONE_WORD",
+   "cls": "scorecalc.ScoreCalculatorFeature",
+   "field": "BLAZE_DONE_WORD",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
+   "line": 165,
+   "regex": "solved|done|complete|finished",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"solved|done|complete|finished\""
   },
   {
    "id": "secrets.DungeonRun#SERVER",

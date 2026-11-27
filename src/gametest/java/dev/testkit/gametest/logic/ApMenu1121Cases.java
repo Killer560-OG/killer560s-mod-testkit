@@ -66,13 +66,12 @@ final class ApMenu1121Cases {
             Mod.call(cfg, "setBloodRush", Mod.enumValue(AS + "$BloodRush", "CLEAR"));
             Mod.call(cfg, "setRoomBeforeBlood", Mod.enumValue(AS + "$RoomBeforeBlood", "SKIP"));
             Mod.call(cfg, "setDisableAfterBloodRush", true);
-            Mod.call(cfg, "setClearFirst", true);
             Mod.call(cfg, "setClearBeforeSecret", true);
             Mod.call(cfg, "save");
             Mod.staticCall(AS, "load");
-            c.eq("saved settings", "SECRET_THEN_CLEAR CLEAR SKIP true true true", Mod.get(AS, "getMode") + " "
+            c.eq("saved settings", "SECRET_THEN_CLEAR CLEAR SKIP true true", Mod.get(AS, "getMode") + " "
                     + Mod.get(AS, "getBloodRush") + " " + Mod.get(AS, "getRoomBeforeBlood") + " "
-                    + Mod.get(AS, "isDisableAfterBloodRush") + " " + Mod.get(AS, "isClearFirst") + " "
+                    + Mod.get(AS, "isDisableAfterBloodRush") + " "
                     + Mod.get(AS, "isClearBeforeSecret"));
         } finally {
             if (saved != null) {

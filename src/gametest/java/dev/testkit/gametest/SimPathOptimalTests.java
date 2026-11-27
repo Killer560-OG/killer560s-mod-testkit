@@ -260,7 +260,11 @@ public class SimPathOptimalTests implements FabricClientGameTest {
         if (p.warps != 1) {
             f.add("the planner took " + p.warps + " warp(s) where one does it");
         }
-        if (p.graphWarps < 2) {
+        // Mod pathfind-bench-1126: WarpGraph.plan re-aims its own stops with exact aims (the shortcut), so the graph now
+        // finds this lip itself; 1126-logic-pathfind-shortcut pins the 18-point miss with the shortcut off.
+        boolean shortcut = java.util.Arrays.stream(Mod.cls("livemap.autoclear.WarpGraph").getFields())
+                .anyMatch(x -> x.getName().equals("shortcut"));
+        if (p.graphWarps < 2 && !shortcut) {
             f.add("the floor graph alone found " + p.graphWarps + " warp(s) - this arena no longer shows the miss"
                     + " (the case proves nothing about the exact search)");
         }
