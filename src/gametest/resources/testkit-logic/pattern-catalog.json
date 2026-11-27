@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T22:29:07",
- "modSource": "lane-waterboard-chest-timed-click-1126",
- "modGitSha": "314e1d54e8766112c30b8b4422d2ca27f6902e49",
+ "generatedAt": "2026-11-27T01:05:44",
+ "modSource": "lane-autopilot-instaclear-roomcost-1126",
+ "modGitSha": "eb19f428c72a77c080418df0ad3ab23e052ba51d",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
