@@ -49,6 +49,11 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
      *  left from (-70,-24,-181). The pocket's block -63,-23,-175 (barrier blocks and walls, a one-block slit) has no warp, walk
      *  or warp chain out: Auto Clear must weigh it and never land there. The origin jar lands him in it. */
     private static final String POCKET = "1123-sim-ac-pocket";
+    /** autopilot-menu-1126 (killer560 2026-11-26: "it should always open quiz before icefill if both are on"): two F7s with
+     *  Ice Fill pinned next to the Entrance and the Quiz in the far corner (Quiz First off with Fastest Time, then on with
+     *  Edges In; Ice Fill First on in both): Oruo's first question opened before he first stood in Ice Fill, and both
+     *  puzzles ended solved (the Quiz done, the sim's "fill crossed"). */
+    private static final String QUIZ_ICE = "1126-sim-acquiz-before-icefill";
     private static final java.util.Map<String, String> PINS = java.util.Map.of(
             PIN_PARTY, "MC2:CxcEUXVpeghFbnRyYW5jZQlTdXBlcnRhbGwFRmxhZ3MJTG9uZyBIYWxsDlJlZHN0b25lIENyeXB0BUZhaXJ5C0JsdWUgU2t1bGxzBUNyeXB0BUJsb29kBldpemFyZA1DcmVlcGVyIEJlYW1zBk11c2V1bQlPdmVyZ3Jvd24ITmV3IFRyYXAMR29sZGVuIE9hc2lzB1RvbWlva2EMUHVycGxlIEZsYWdzA0RpcA9TbWFsbCBXYXRlcmZhbGwGS25pZ2h0BkRyYWdvbg5SYXJlIE92ZXJncm93bgASAgAAAAACAAQAAAADAgADAgADAgAAAAAWAAEAAAAUAQASAgAAAAAAAAAAAAADAgADAgADAgAAAAAAAAAAAAEAAAASAgAAAAARAQAAAAADAgADAgADAgEAAAAEAQAEAQAEAQEAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAEAQAEAQAEAQAQAgEAAAAOAAAAAAABAwAAAAALAwEAAAAEAQAEAQAEAQAAAAAAAAEAAAAAAAEAAAAAAAALAwAAAAEAAAAAAAAAAAAPAQEAAAANAAANAAANAAEAAAALAwAAAAAFAAEAAAAGAgAAAAAAAAANAAANAAANAAAAAAALAwAAAAAAAAAAAAEAAAAXAQAAAAANAAANAAANAAAAAAALAwEAAAAMAwAAAAAHAAEAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAVAAEAAAATAwAAAAAKAgMAAAAJAAAJAAAJAAEAAAAIAQ",
             PIN_RETURN, "MC2:CxcEUXVpeghFbnRyYW5jZQlXYXRlcmZhbGwHQnV0dG9ucwVGYWlyeQVDYWdlcwVXYXRlcgVNb3NzeQVTbG90aAVCbG9vZAhPbGQgVHJhcANQaXQLV2F0ZXIgQm9hcmQLUHJpc29uIENlbGwETWFnZQNFbmQFQWRtaW4GS25pZ2h0DFNtYWxsIFN0YWlycwZUZW1wbGUKQmxhY2sgRmxhZwRDZWxsBENhZ2UAFgEAAAAADQIAAAAADgABAAAAEAIBAAAAEQABAAAAEgIBAAAAAAABAAAAAAABAAAAAAAAAAAAAAAAAAAAAAABAAAACAMBAAAADAIADAIADAIADAIADAIADAIADAIAAAAAEwEACAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAACAMBAAAACwIAAAAAAQIBAAAADwIAAAAAFQIBAAAAFAEACAMAAAAAAAAAAAAAAAAAAAAADwIAAAAAAAAAAAAAAAAACAMBAAAACQADAAAACgAAAAAADwIBAAAABAIABAIABAIACAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAIABAIABAIACAMBAAAABwABAAAABgABAAAABQEBAAAABAIABAIABAIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAFwAAAAAAAgAEAAAAAwIAAwIAAwIAAwIAAwIAAwIAAwI");
@@ -86,7 +91,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         boolean pinParty = !Scenario.skip(PIN_PARTY);
         boolean pinRet = !Scenario.skip(PIN_RETURN);
         boolean pocket = !Scenario.skip(POCKET);
-        if (!gap && !wait && !secret && !routes && !ret && !retParty && !pinParty && !pinRet && !pocket) {
+        boolean quizIce = !Scenario.skip(QUIZ_ICE);
+        if (!gap && !wait && !secret && !routes && !ret && !retParty && !pinParty && !pinRet && !pocket && !quizIce) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
@@ -99,6 +105,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (pinParty) Scenario.skipped(PIN_PARTY, "Auto Clear is cheat build only");
             if (pinRet) Scenario.skipped(PIN_RETURN, "Auto Clear is cheat build only");
             if (pocket) Scenario.skipped(POCKET, "Auto Clear is cheat build only");
+            if (quizIce) Scenario.skipped(QUIZ_ICE, "Auto Clear is cheat build only");
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -115,6 +122,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (pinParty) Scenario.skipped(PIN_PARTY, "needs real room captures and room database");
             if (pinRet) Scenario.skipped(PIN_RETURN, "needs real room captures and room database");
             if (pocket) Scenario.skipped(POCKET, "needs real room captures and room database");
+            if (quizIce) Scenario.skipped(QUIZ_ICE, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -150,6 +158,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
             if (pocket) {
                 one(ctx, POCKET, true, failures);
+            }
+            if (quizIce) {
+                quizIce(ctx, failures);
             }
         } finally {
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
@@ -203,6 +214,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
                     ModUnderTest.set(auto, "setAutoQuizEnabled", false);
                     ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
+                    ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig"), "setEnabled", false);
                 } catch (Throwable ignored) {
                     // cleanup must not replace the verdict
                 }
@@ -220,6 +232,151 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         }
     }
 
+    /** 1126-sim-acquiz-before-icefill: {Entrance cell, Ice Fill cell, Quiz cell, Room Order, Quiz First}. */
+    private static final String[][] QUIZ_ICE_FLOORS = {{"0", "1", "35", "LEAST_ETHERWARPS", "false"},
+            {"5", "4", "30", "EDGES_IN", "true"}};
+
+    private static void quizIce(ClientGameTestContext ctx, List<String> allFailures) {
+        List<String> failures = new ArrayList<>();
+        String before = System.getProperty("testkit.mobfloorCode", "");
+        int judged = 0;
+        for (String[] v : QUIZ_ICE_FLOORS) {
+            String tag = "floor E" + v[0] + " I" + v[1] + " Q" + v[2] + " " + v[3] + " quizFirst=" + v[4];
+            String code = null;
+            for (int i = 0; i < 8 && code == null; i++) {
+                code = ctx.computeOnClient(mc -> planPinned(Integer.parseInt(v[0]), Integer.parseInt(v[1]),
+                        Integer.parseInt(v[2])));
+            }
+            if (code == null) {
+                failures.add(tag + ": no F7 kept all three pins");
+                continue;
+            }
+            System.setProperty("testkit.mobfloorCode", code);
+            try {
+                List<String> problems = new ArrayList<>();
+                SimMobFloorTests.buildMobFloor(ctx, problems, new ArrayList<>());
+                if (ctx.computeOnClient(mc -> mc.level == null)) {
+                    failures.add(tag + ": the floor did not load: " + problems);
+                    continue;
+                }
+                ctx.runOnClient(mc -> {
+                    Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
+                    ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", true);
+                    ModUnderTest.set(auto, "setEtherwarpReposition", true);
+                    ModUnderTest.set(auto, "setAutoPuzzlePathingEnabled", true);
+                    ModUnderTest.set(auto, "setAutoQuizEnabled", true);
+                    ModUnderTest.set(auto, "setAutoIceFillEnabled", true);
+                    ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", true);
+                    Object as = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
+                    ModUnderTest.set(as, "setQuizFirst", Boolean.parseBoolean(v[4]));
+                    ModUnderTest.set(as, "setIceFillFirst", true);
+                    ModUnderTest.set(as, "setDoPuzzles", true);
+                    ModUnderTest.set(as, "setBloodFirst", false);
+                    Object mode = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$Mode", "SOLO_300");
+                    ModUnderTest.call(as, "setMode", new Class<?>[]{mode.getClass()}, new Object[]{mode});
+                    Object order = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$SecretOrder", v[3]);
+                    ModUnderTest.call(as, "setSecretOrder", new Class<?>[]{order.getClass()}, new Object[]{order});
+                    ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", true);
+                });
+                SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
+                ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 400);
+                long mark = LogTap.mark();
+                if (!Boolean.TRUE.equals(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "startAutopilot")))) {
+                    failures.add(tag + ": the Autopilot refused to start");
+                    continue;
+                }
+                int quizAt = -1;
+                int iceAt = -1;
+                boolean quizDone = false;
+                boolean iceDone = false;
+                int t = 0;
+                for (; t < 7 * 1200 && !(quizDone && iceDone); t += 2) {
+                    ctx.waitTicks(2);
+                    if (ctx.computeOnClient(mc -> mc.level == null || mc.player == null)) {
+                        break;
+                    }
+                    if (quizAt < 0 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "started"))) {
+                        quizAt = t;
+                    }
+                    if (iceAt < 0 && "Ice Fill".equals(ctx.computeOnClient(mc -> {
+                        Object layout = ModUnderTest.staticCall("com.killer560.hub.livemap.DungeonLayout", "capture");
+                        int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
+                        return here < 0 ? null : (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class},
+                                new Object[]{here});
+                    }))) {
+                        iceAt = t;
+                    }
+                    quizDone |= ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "done"));
+                    if (!iceDone) {
+                        iceDone = LogTap.since(mark).stream().anyMatch(l -> l.contains("Sim ice fill: fill crossed"));
+                    }
+                }
+                String held = LogTap.since(mark).stream().filter(l -> l.contains("Ice Fill waits: the Quiz is started first"))
+                        .findFirst().map(l -> "; held: yes").orElse("; held: no line");
+                String result = String.format(Locale.US, "%s: Quiz opened at %.1f s, first in Ice Fill at %.1f s, Quiz %s, Ice"
+                        + " Fill %s, %.1f s%s", tag, quizAt / 20.0, iceAt / 20.0, quizDone ? "done" : "NOT done",
+                        iceDone ? "solved" : "NOT solved", t / 20.0, held);
+                println(QUIZ_ICE, result);
+                judged++;
+                if (quizAt < 0 || iceAt < 0 || quizAt >= iceAt || !quizDone || !iceDone) {
+                    failures.add(result);
+                }
+            } finally {
+                ctx.runOnClient(mc -> {
+                    try {
+                        ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
+                                new Object[]{"test over", true});
+                        Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
+                        ModUnderTest.set(auto, "setAutoQuizEnabled", false);
+                        ModUnderTest.set(auto, "setAutoIceFillEnabled", false);
+                        ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
+                    } catch (Throwable ignored) {
+                        // cleanup must not replace the verdict
+                    }
+                });
+                SimMobFloorTests.leave(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_FLOOR, "setEnabled", new Class<?>[]{boolean.class},
+                        new Object[]{false}));
+                if (before.isBlank()) {
+                    System.clearProperty("testkit.mobfloorCode");
+                } else {
+                    System.setProperty("testkit.mobfloorCode", before);
+                }
+            }
+        }
+        if (judged < 2) {
+            failures.add("only " + judged + " of 2 floors ran (the case needs both)");
+        }
+        for (String f : failures) {
+            println(QUIZ_ICE, "FAIL: " + f);
+        }
+        println(QUIZ_ICE, failures.isEmpty() ? "PASS" : "FAIL (" + failures.size() + ")");
+        for (String f : failures) {
+            allFailures.add(QUIZ_ICE + ": " + f);
+        }
+    }
+
+    /** An F7 with the Entrance, Ice Fill and the Quiz pinned at those cells; its code, or null unless all three were kept. */
+    private static String planPinned(int entrance, int ice, int quiz) {
+        Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+        Map<Integer, String> pins = new HashMap<>();
+        pins.put(entrance, "Entrance");
+        pins.put(ice, "Ice Fill");
+        pins.put(quiz, "Quiz");
+        Object planned = ModUnderTest.staticCall(FLOOR_GEN, "plan", new Class<?>[]{floor.getClass(), int.class, int.class,
+                Map.class}, new Object[]{floor, 2, 6, pins});
+        if (planned == null) {
+            return null;
+        }
+        @SuppressWarnings("unchecked")
+        List<String> kept = (List<String>) ModUnderTest.call(planned, "keptPins", new Class<?>[0], new Object[0]);
+        println(QUIZ_ICE, "planned an F7, pins kept: " + kept);
+        if (kept == null || kept.size() < 3) {
+            return null;
+        }
+        return (String) ModUnderTest.call(planned, "code", new Class<?>[0], new Object[0]);
+    }
+
     private static void body(ClientGameTestContext ctx, String name, boolean withMobs, List<String> failures) {
         ctx.runOnClient(mc -> {
             Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
@@ -233,6 +390,13 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", true);
             if (name.equals(SECRET) || name.equals(ROUTES) || isReturn(name)) {
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setAutoClearRooms", true);
+            }
+            if (name.equals(ROUTES) || isReturn(name)) {
+                // Run alone nothing else switches Auto Routes on ("Auto Routes is off - no secret routes this run"): as 1017.
+                Object ar = ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig");
+                ModUnderTest.set(ar, "setEnabled", true);
+                ModUnderTest.set(ar, "setLegitMode", false);
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
             }
             if (isReturn(name)) {
                 // The goal: Solo 300 or Party Secrets (the Mode setting since apmenu-1121, the Run Mode before it).
@@ -417,6 +581,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         }
         List<String> log = quizLog != null ? quizLog : LogTap.since(mark);
         int lastAnswer = -1;
+        int trips = 0;
         List<Integer> clears = new ArrayList<>();
         List<String> late = new ArrayList<>();
         List<Long> lateTicks = new ArrayList<>();
@@ -437,6 +602,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 }
             }
             if (isReturn(name) && l.contains("round trips (there + route + back)") && !l.contains("none fits")) {
+                trips++;
                 gaps++;   // a secret route taken in a countdown
                 println(name, "  " + l.substring(l.indexOf("[AutoSecret]")));
             }
@@ -446,6 +612,15 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 long by = Long.parseLong(m.group(2)) - Long.parseLong(m.group(3));
                 lateTicks.add(by);
                 late.add("Q" + m.group(1) + " +" + by);
+            }
+        }
+        if (secret && !baseline && (name.equals(ROUTES) || isReturn(name))) {
+            // The route feature must have acted before anything else is judged (a run with Auto Routes off tests nothing route-related).
+            if (LogTap.since(mark).stream().anyMatch(l -> l.contains("Auto Routes is off - no secret routes"))) {
+                failures.add("Auto Routes was off: no route could run");
+            }
+            if (name.equals(ROUTES) ? routedGaps < 1 : trips < 1) {
+                failures.add("Auto Routes never acted (" + (name.equals(ROUTES) ? "no countdown filled with a routed room" : "no round trip there + route + back was planned") + "): nothing below proves the route behavior");
             }
         }
         int between = 0;

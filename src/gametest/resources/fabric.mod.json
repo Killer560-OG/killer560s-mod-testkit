@@ -252,6 +252,8 @@
 			"dev.testkit.gametest.SimChestStallTests$IceFillChestAutoClose",
 			"dev.testkit.gametest.SimChestStallTests$WaterBoardChestAutoClose",
 			"dev.testkit.gametest.SimChestStallTests$WaterBoardChestLocked",
+			"dev.testkit.gametest.SimChestStallTests$WaterBoardChestGate",
+			"dev.testkit.gametest.SimChestStallTests$WaterBoardChestRetry",
 			"dev.testkit.gametest.SimChestStallTests$BoulderChestUnsolved",
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillClaim",
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillShots",

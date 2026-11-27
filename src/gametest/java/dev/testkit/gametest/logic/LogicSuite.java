@@ -98,6 +98,9 @@ public class LogicSuite implements FabricClientGameTest {
         ModBoardsCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1120-logic-modboards", ModBoardsCases::boards);
         LogicCase.runOffClient(ctx, "1123-logic-p3board", ModBoardsCases::p3Board);
+        LogicCase.runOffClient(ctx, "1126-logic-share-fields", ModBoardsCases::fields);
+        LogicCase.runOffClient(ctx, "1126-logic-share-sim", ModBoardsCases::sim);
+        LogicCase.runOffClient(ctx, "1126-logic-p3-resync", ModBoardsCases::p3Resync);
         // ---- end Auto Crash Reports
         // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
         AutoUpdateCases.ctx = ctx;
@@ -153,6 +156,10 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "1104-logic-themedl-delete", ThemeAssetsCases::delete);
         LogicCase.runOffClient(ctx, "1119-logic-translit", TranslitCases::translit);
         LogicCase.runOffClient(ctx, "1121-apmenu-logic-migrate", ApMenu1121Cases::migrate);
+        LogicCase.runOffClient(ctx, "1126-logic-autopilot-roomorder", Autopilot1126Cases::roomOrder);
+        LogicCase.runOffClient(ctx, "1126-logic-autopilot-instaclear", Autopilot1126Cases::instaClear);
+        LogicCase.runOffClient(ctx, "1126-logic-autopilot-skipplan", Autopilot1126Cases::skipPlan);
+        LogicCase.runOffClient(ctx, "1126-logic-roomcost", InstaCost1126Cases::roomCost);
         LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
         LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
         LogicCase.run(ctx, "1105-logic-mapinfer-pit", MapInfer1105Cases::pit);
