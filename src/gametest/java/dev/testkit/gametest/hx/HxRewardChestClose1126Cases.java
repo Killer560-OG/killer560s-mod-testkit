@@ -164,7 +164,7 @@ final class HxRewardChestClose1126Cases {
                 + ") with a screen of his open");
         c.check(still && active(c), "his screen was closed or the step gave up while it was open");
         c.onClient(mc -> {
-            dev.testkit.compat.McCompat.setScreen(mc, null);
+            mc.player.closeContainer(); // as Escape does: a bare setScreen(null) leaves the menu open (the ActionGate holds on a headless container)
             return null;
         });
         boolean seen = false;
