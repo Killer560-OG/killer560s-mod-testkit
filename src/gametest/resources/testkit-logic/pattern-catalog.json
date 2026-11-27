@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T13:51:29",
- "modSource": "lane-autoroutes-breaker-fall-1127",
- "modGitSha": "b2becd60649e993410ea185f27267ddcf41415c7",
+ "generatedAt": "2026-11-27T14:26:51",
+ "modSource": "lane-autopilot-auto-enable-1127",
+ "modGitSha": "2efa7fe413305319928b03d7535f619abc7a100d",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
