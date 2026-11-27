@@ -494,10 +494,15 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             return;
         }
         System.out.println("[" + INSTA + "] seeded " + seeded[0] + " key " + seeded[1] + " from " + seeded[2]);
-        boolean[] was = new boolean[1];
+        boolean[] was = new boolean[2];
         ctx.runOnClient(mc -> {
             Object as = ModUnderTest.config(AS_CONFIG);
             was[0] = ModUnderTest.getBoolean(as, "isInstaClear");
+            // Plain Auto Secret refuses to start with Auto Routes off ("Turn Auto Routes on first", since 2026-10-06); the
+            // case never turned it on and passed only while an earlier case left it on.
+            Object ar = ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig");
+            was[1] = ModUnderTest.getBoolean(ar, "isEnabled");
+            ModUnderTest.set(ar, "setEnabled", true);
             ModUnderTest.set(as, "setInstaClear", true);
             ModUnderTest.set(as, "setBloodFirst", false);
             ModUnderTest.set(as, "setChatFeedback", true);
@@ -506,8 +511,10 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         long mark = LogTap.mark();
         String took = null;
         String miss = null;
+        boolean[] started0 = new boolean[1];
         try {
             Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+            started0[0] = Boolean.TRUE.equals(started);
             for (int t = 0; t < 400 && took == null && Boolean.TRUE.equals(started); t++) {
                 ctx.waitTicks(1);
                 for (String l : LogTap.since(mark)) {
@@ -522,12 +529,13 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             stop(ctx);
             ctx.runOnClient(mc -> {
                 ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setInstaClear", was[0]);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig"), "setEnabled", was[1]);
                 ModUnderTest.staticCall(INSTA_TRACKER, "testUseFile", new Class<?>[]{String.class}, new Object[]{null});
             });
         }
         // Acted: the run chose the seeded entry, warping in from the neighbor across the wall.
         row(INSTA, took != null, took != null ? "took " + seeded[0] + " from " + seeded[2]
-                : "never took the entry" + (miss != null ? "; said: " + miss.substring(miss.indexOf("[AutoSecret]")) : ""));
+                : (started0[0] ? "" : "Auto Secret refused to start; ") + "never took the entry" + (miss != null ? "; said: " + miss.substring(miss.indexOf("[AutoSecret]")) : ""));
     }
 
     /** Client thread: a reachable target room with a reachable neighbor (tiles side by side) that the door map does not

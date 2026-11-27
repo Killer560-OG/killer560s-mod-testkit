@@ -203,6 +203,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
                     ModUnderTest.set(auto, "setAutoQuizEnabled", false);
                     ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
+                    ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig"), "setEnabled", false);
                 } catch (Throwable ignored) {
                     // cleanup must not replace the verdict
                 }
@@ -233,6 +234,13 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", true);
             if (name.equals(SECRET) || name.equals(ROUTES) || isReturn(name)) {
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setAutoClearRooms", true);
+            }
+            if (name.equals(ROUTES) || isReturn(name)) {
+                // Run alone nothing else switches Auto Routes on ("Auto Routes is off - no secret routes this run"): as 1017.
+                Object ar = ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig");
+                ModUnderTest.set(ar, "setEnabled", true);
+                ModUnderTest.set(ar, "setLegitMode", false);
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
             }
             if (isReturn(name)) {
                 // The goal: Solo 300 or Party Secrets (the Mode setting since apmenu-1121, the Run Mode before it).
@@ -417,6 +425,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         }
         List<String> log = quizLog != null ? quizLog : LogTap.since(mark);
         int lastAnswer = -1;
+        int trips = 0;
         List<Integer> clears = new ArrayList<>();
         List<String> late = new ArrayList<>();
         List<Long> lateTicks = new ArrayList<>();
@@ -437,6 +446,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 }
             }
             if (isReturn(name) && l.contains("round trips (there + route + back)") && !l.contains("none fits")) {
+                trips++;
                 gaps++;   // a secret route taken in a countdown
                 println(name, "  " + l.substring(l.indexOf("[AutoSecret]")));
             }
@@ -446,6 +456,15 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 long by = Long.parseLong(m.group(2)) - Long.parseLong(m.group(3));
                 lateTicks.add(by);
                 late.add("Q" + m.group(1) + " +" + by);
+            }
+        }
+        if (secret && !baseline && (name.equals(ROUTES) || isReturn(name))) {
+            // The route feature must have acted before anything else is judged (a run with Auto Routes off tests nothing route-related).
+            if (LogTap.since(mark).stream().anyMatch(l -> l.contains("Auto Routes is off - no secret routes"))) {
+                failures.add("Auto Routes was off: no route could run");
+            }
+            if (name.equals(ROUTES) ? routedGaps < 1 : trips < 1) {
+                failures.add("Auto Routes never acted (" + (name.equals(ROUTES) ? "no countdown filled with a routed room" : "no round trip there + route + back was planned") + "): nothing below proves the route behavior");
             }
         }
         int between = 0;

@@ -526,6 +526,7 @@ final class TerminalCases {
                 boolean edge = target == 1 || target == 5;
                 int before = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
                 int droppedBefore = c.onClient(mc -> lookaheadDropped());
+                int queuedBefore = c.onClient(mc -> lookaheadQueued());
                 int clickHead = c.events("terminal.click").size();
                 int solvedHead = c.events("terminal.solved").size();
                 JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 60 + target, "interval", 6,
@@ -535,6 +536,8 @@ final class TerminalCases {
                 MenuKit.awaitNoScreen(c, 40);
                 int fired = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired")) - before;
                 int dropped = c.onClient(mc -> lookaheadDropped()) - droppedBefore;
+                int queuedNow = c.onClient(mc -> lookaheadQueued());
+                int queued = queuedNow < 0 ? 2 : queuedNow - queuedBefore;
                 List<JsonObject> all = c.events("terminal.click");
                 List<JsonObject> clicks = all.subList(clickHead, all.size());
                 Map<Integer, Integer> per = new java.util.TreeMap<>();
@@ -557,9 +560,12 @@ final class TerminalCases {
                 if (edge) {
                     // Since mod ownerq-1102 6168d1736+ a lookahead click that would reach the server after its pane
                     // stepped is DROPPED (a sure wrong click; the Stream Safe hand can be that slow) and live play takes
-                    // the row: the burst queues 2, and each is sent or dropped.
-                    c.check(fired + dropped == 2, "target " + target + " is an edge slot: lookahead 2 should queue 2 extra"
-                            + " clicks after row 1's proper click, sent " + fired + " and dropped " + dropped);
+                    // the row: the burst queues 2, and each is sent or dropped. A row played live after a dropped burst bursts
+                    // again from its own edge match (target 1, where the pane opens: melody-edges-missed-1126c dates that
+                    // opening stay from the open, so its burst is often dropped), so judge every queued click.
+                    c.check(queued >= 2 && fired + dropped == queued, "target " + target + " is an edge slot: lookahead 2"
+                            + " should queue 2 extra clicks after row 1's proper click and send or drop each: queued " + queued
+                            + ", sent " + fired + " and dropped " + dropped);
                     edgeFired += fired;
                 } else {
                     // Played normally: no lookahead click, and every row's click was correct on the server, which only
@@ -573,6 +579,15 @@ final class TerminalCases {
             c.check(edgeFired > 0, "no lookahead click was sent on either edge board - the burst was never proved");
         } finally {
             MenuKit.reset(c);
+        }
+    }
+
+    /** TerminalSolverFeature.melodyLookaheadQueued, -1 on a jar without it. */
+    static int lookaheadQueued() {
+        try {
+            return (Integer) Mod.field(FEATURE, "melodyLookaheadQueued");
+        } catch (AssertionError | RuntimeException e) {
+            return -1;
         }
     }
 

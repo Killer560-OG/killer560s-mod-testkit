@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-26T14:56:11",
- "modSource": "lane-acoptimal-1126b",
- "modGitSha": "ee356f0570143185990a5fa7a8f17b0f21168465",
+ "generatedAt": "2026-11-26T22:04:33",
+ "modSource": "lane-acquiz-autoroutes-on-1126",
+ "modGitSha": "33db70ffaf0a1ace0497bb57a259d1c28b986f74",
  "modSourceDirty": false,
- "count": 999,
+ "count": 1001,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 879,
+  "field": 881,
   "local": 46
  },
  "unresolved": 161,
@@ -2688,6 +2688,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^PERSONAL_DELETOR_(\\\\d{1,5})$\""
+  },
+  {
+   "id": "craftcost.CraftCost#CRAFTS",
+   "cls": "craftcost.CraftCost",
+   "field": "CRAFTS",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/craftcost/CraftCost.java",
+   "line": 55,
+   "regex": "\\((\\d+)x crafts?\\)",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\((\\\\d+)x crafts?\\\\)\""
+  },
+  {
+   "id": "craftcost.CraftCost#NEED",
+   "cls": "craftcost.CraftCost",
+   "field": "NEED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/craftcost/CraftCost.java",
+   "line": 56,
+   "regex": "\\d+/(\\d+) (.+)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\d+/(\\\\d+) (.+)$\""
   },
   {
    "id": "crashreport.CrashReportFeature#SERVER_ARG",

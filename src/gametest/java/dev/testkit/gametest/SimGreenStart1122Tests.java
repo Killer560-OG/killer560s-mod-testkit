@@ -68,9 +68,10 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     private static final String NOETHER_CASE = "1126-sim-ac-greenwarp-noether";
     private static final String REPLAN_CASE = "1126-sim-ac-greenstart-replan";
     private static final String NOBACK_CASE = "1126-sim-ap-noback-trap";
+    private static final String TAKING_CASE = "1126-sim-ap-noback-taking";
     /** The walk case's exit tick after GO on this floor (-1 when it did not run): the warp case compares with it. */
     private static int walkOut = -1;
-    private enum Mode { WALK, KEYS, WARP, NOETHER, REPLAN, NOBACK }
+    private enum Mode { WALK, KEYS, WARP, NOETHER, REPLAN, NOBACK, TAKING }
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -94,12 +95,13 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         boolean noether = !Scenario.skip(NOETHER_CASE);
         boolean replan = !Scenario.skip(REPLAN_CASE);
         boolean noback = !Scenario.skip(NOBACK_CASE);
-        if (!walk && !keys && !warp && !noether && !replan && !noback) {
+        boolean taking = !Scenario.skip(TAKING_CASE);
+        if (!walk && !keys && !warp && !noether && !replan && !noback && !taking) {
             return;
         }
         ModUnderTest.require("killer560smod");
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
-            for (String n : new String[]{WARP_CASE, NOETHER_CASE, REPLAN_CASE, NOBACK_CASE}) {
+            for (String n : new String[]{WARP_CASE, NOETHER_CASE, REPLAN_CASE, NOBACK_CASE, TAKING_CASE}) {
                 if (!Scenario.skip(n)) {
                     legitRow(ctx, n);
                 }
@@ -116,7 +118,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            for (String n : new String[]{WALK_CASE, KEYS_CASE, WARP_CASE, NOETHER_CASE, REPLAN_CASE, NOBACK_CASE}) {
+            for (String n : new String[]{WALK_CASE, KEYS_CASE, WARP_CASE, NOETHER_CASE, REPLAN_CASE, NOBACK_CASE, TAKING_CASE}) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "needs real room captures and room database");
                 }
@@ -158,6 +160,9 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
         if (noback) {
             run(ctx, NOBACK_CASE, Mode.NOBACK, failed);
+        }
+        if (taking) {
+            run(ctx, TAKING_CASE, Mode.TAKING, failed);
         }
         setWarp(ctx, true);
         ctx.runOnClient(mc -> {
@@ -213,7 +218,8 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
                 case WARP -> warpCase(ctx, f);
                 case NOETHER -> noEtherCase(ctx, f);
                 case REPLAN -> replanCase(ctx, f);
-                case NOBACK -> noBackCase(ctx, f);
+                case NOBACK -> noBackCase(ctx, f, false);
+                case TAKING -> noBackCase(ctx, f, true);
             };
         } catch (Throwable t) {
             t.printStackTrace(System.out);
@@ -686,7 +692,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     }
 
     /** Auto Secret's endgame go-back for missed secrets, asked with one room at a time (no run of its own). */
-    private static String noBackCase(ClientGameTestContext ctx, List<String> f) {
+    private static String noBackCase(ClientGameTestContext ctx, List<String> f, boolean taking) {
         BlockPos door = stage(ctx, f);
         if (door == null) {
             return "";
@@ -726,6 +732,17 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         }
         String trap = names[0];
         String other = names[1];
+        if (taking) {
+            // acrun-1126-pm (Deathmite, Staircase, Melon): the route ended one secret short while that secret was still
+            // being taken where he stood (the last-node wait, leaveWaitRoom), and the endgame of the same tick ran the
+            // whole route again for it. Never while it is being taken; the same call with no wait must still go back.
+            boolean free = goesBack(ctx, other, null, null);
+            boolean held = goesBack(ctx, other, null, other);
+            f.add(free ? null : "it did not go back to " + other + " with nothing being taken: the check proved nothing");
+            f.add(!held ? null : "it went back to " + other + " while its last secret was still being taken there");
+            f.removeIf(java.util.Objects::isNull);
+            return "go back while " + other + "'s last secret is being taken: " + held + ", with none being taken: " + free;
+        }
         boolean live = goesBack(ctx, other, null);
         boolean toTrap = goesBack(ctx, trap, null);
         Boolean noItem = goesBack(ctx, other, "BAT_WAND");
@@ -745,9 +762,18 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
      * stopped for that item): whether it logged going back there. Null when the jar has no missing-item rule.
      */
     private static Boolean goesBack(ClientGameTestContext ctx, String room, String missing) {
+        return goesBack(ctx, room, missing, null);
+    }
+
+    /** {@link #goesBack} with {@code taking} as the room whose last-node wait is on (its last secret still being taken). */
+    private static Boolean goesBack(ClientGameTestContext ctx, String room, String missing, String taking) {
         return ctx.computeOnClient(mc -> {
+            java.lang.reflect.Field lw = null;
             try {
                 Class<?> as = Class.forName(AS);
+                lw = as.getDeclaredField("leaveWaitRoom");
+                lw.setAccessible(true);
+                lw.set(null, taking);
                 java.lang.reflect.Field sf = as.getDeclaredField("secreted");
                 java.lang.reflect.Field rf = as.getDeclaredField("revisited");
                 sf.setAccessible(true);
@@ -794,6 +820,9 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
                 throw new AssertionError("goBackForMissed: " + e, e);
             } finally {
                 try {
+                    if (lw != null) {
+                        lw.set(null, null);
+                    }
                     ModUnderTest.staticCall(AUTO_CLEAR, "cancel");
                     ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.ClearExecutor", "cancel");
                     if ((Boolean) ModUnderTest.staticCall(AS, "isRunning")) {
