@@ -3654,13 +3654,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
             if (act != null) {
                 st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act,
-                        act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
+                        act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3
+                                : act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK ? 5 : 1,
                         p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
                 if (act == dev.testkit.gametest.SameTick.Act.USE) {
                     st.allow(4);   // his use with the AOTV in hand is his own warp: a few among the chain's
                 }
             }
-            String third = path ? "PATH acted" : "ETHERWARP acted";
+            String third = path ? "(path warp " : "ETHERWARP acted";
             if (tp || twist != null) {
                 check(waitFor(ctx, 200, () -> LogTap.since(m).stream().filter(l -> l.contains(third)).count() >= 3),
                         tag + ": premise: the route never sent its third warp");
@@ -3744,13 +3745,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(logHasAll(m, "[CHAT]", "Server correction:"), tag + ": no chat line for the correction");
             }
             if (s2 != null) {
-                check(s2.done() > 0 && s2.featureWindows() > 0 && s2.playerWindows() > 0, tag + ": his action or the route's "
-                        + "warps never reached the wire - nothing tested (" + s2.report() + ")");
+                // His left click is the route's while it warps (held for the next await): an attack never reaches the wire.
+                check(s2.done() > 0 && s2.featureWindows() > 0 && (act == dev.testkit.gametest.SameTick.Act.ATTACK
+                        || s2.playerWindows() > 0), tag + ": his action or the route's warps never reached the wire - "
+                        + "nothing tested (" + s2.report() + ")");
                 if (act == dev.testkit.gametest.SameTick.Act.SWAP) {
                     check(s2.playerAfterFeature() == 0, tag + ": his slot went out after a route warp in one tick ("
                             + s2.report() + ")");
                 } else if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
-                    // A queued attack holds the warp for its tick (the body faces his view), so those two never share one.
                     check(s2.both() > 0, tag + ": no server tick carried both a chain warp and his " + act + " ("
                             + s2.report() + ")");
                 }
