@@ -171,6 +171,7 @@
 			"dev.testkit.gametest.SimAcKillPlanTests",
 			"dev.testkit.gametest.SimAcPreSneakTests",
 			"dev.testkit.gametest.SimTripFirstUseTests",
+			"dev.testkit.gametest.SimSneakAfter1127Tests",
 			"dev.testkit.gametest.SimMobFloorTests",
 			"dev.testkit.gametest.SimAcQuiz1117Tests",
 			"dev.testkit.gametest.SimApAutoEnable1126Tests",

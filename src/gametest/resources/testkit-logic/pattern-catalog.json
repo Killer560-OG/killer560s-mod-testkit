@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T06:16:59",
- "modSource": "lane-sceptre-onetap-seen-bat-1127",
- "modGitSha": "0a32367db7bb7dbf48104c4c0b2e873a27ea1005",
+ "generatedAt": "2026-11-28T06:47:12",
+ "modSource": "lane-tl1127-sneak-after-impact-b",
+ "modGitSha": "0de0c91e3446131cf66dac071560237e0d2b9e14",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {

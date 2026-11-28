@@ -49,7 +49,7 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final int HOLD = 20 * 120;
     /** SimGreenStart1122Tests' seed: its first attempt (+1) twice, then two more. */
-    private static final long SEED = 1122_2026_0950L;
+    static final long SEED = 1122_2026_0950L;
     private static final long[] SEEDS = {SEED + 1, SEED + 1, SEED + 2, SEED + 3};
     private static final Pattern TRIP = Pattern.compile("trip to wither door (\\d+) \\(approach (-?\\d+), -?\\d+, (-?\\d+),"
             + " standing on (-?\\d+), -?\\d+, (-?\\d+)\\)");
@@ -253,7 +253,7 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
     }
 
     /** The floor built from {@code seed}, its countdown held; the entrance door, or null (with a failure). */
-    private static BlockPos stage(ClientGameTestContext ctx, long seed, List<String> f) {
+    static BlockPos stage(ClientGameTestContext ctx, long seed, List<String> f) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                 new Object[]{"gametest"}));
         for (String cls : new String[]{"roomsim.SimFloorGen", "roomsim.SimGenerator", "roomsim.SimMimic"}) {
@@ -295,7 +295,7 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
         return door;
     }
 
-    private static void setTicksLeft(int ticks) {
+    static void setTicksLeft(int ticks) {
         try {
             java.lang.reflect.Field fl = Class.forName(SIM_RUN).getDeclaredField("ticksLeft");
             fl.setAccessible(true);
@@ -340,7 +340,7 @@ public class SimEntranceExit1126Tests implements FabricClientGameTest {
         return Math.abs(dx) >= Math.abs(dz) ? new int[]{(int) Math.signum(dx), 0} : new int[]{0, (int) Math.signum(dz)};
     }
 
-    private static void leave(ClientGameTestContext ctx) {
+    static void leave(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_RUN, "reset");
