@@ -490,6 +490,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1127-same-latesearch-swap", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
                 s.test("62-argrim-1127-same-latesearch-tp", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.TP, false));
                 s.test("62-argrim-1127-same-latesearch-second", c -> caseLateSearch(c, null, true));
+                // tl1127-sneak-after-impact: the room's last cast in place holds the sneak for the trip out (and the next
+                // decision is made in the END that ended Auto Secret's step); his action lands in those ticks.
+                s.test("62-argrim-1127-same-lastcast-openclick", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false));
+                s.test("62-argrim-1127-same-lastcast-attack", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.ATTACK, false));
+                s.test("62-argrim-1127-same-lastcast-swap", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
+                s.test("62-argrim-1127-same-lastcast-tp", c -> caseLastCast(c, dev.testkit.gametest.SameTick.Act.TP, false));
+                s.test("62-argrim-1127-same-lastcast-second", c -> caseLastCast(c, null, true));
+                s.test("62-argrim-1127-same-decide-use", c -> caseDecideTick(c, dev.testkit.gametest.SameTick.Act.USE_CLICK, false));
+                s.test("62-argrim-1127-same-decide-swap", c -> caseDecideTick(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
+                s.test("62-argrim-1127-same-decide-tp", c -> caseDecideTick(c, dev.testkit.gametest.SameTick.Act.TP, false));
+                s.test("62-argrim-1127-same-decide-second", c -> caseDecideTick(c, null, true));
                 // His container click while Auto Clear WALKS (every etherwarp trip priced out, as after failed trips): the
                 // server must not hear the walk's keys or sprint with the click (MultiActionsC; lane1125-0321 drew it on the
                 // trip row's walks after two failed trips, acoptimal-next2-1125b).
@@ -6097,6 +6108,50 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(late > 0, "no searched trip went from the START after its late hand-back (the late start was not tested)");
     }
 
+    /**
+     * 62-argrim-1127-same-lastcast-*: the trip row (hops off, so casts go in place; with hops on every cast is a room plan
+     * hop and nothing primes, 2026-11-27 run grimdef1); the room's last cast in place must hold the sneak. The way-out
+     * wait primes of the same trips are printed.
+     */
+    private static void caseLastCast(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        int p0 = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedLastCastTicks"));
+        int w0 = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedWaitTicks"));
+        caseAutoClearHype(c, act, second, false, true, "[AutoClear] etherwarp toward");
+        int primed = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedLastCastTicks")) - p0;
+        int waits = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "primedWaitTicks")) - w0;
+        c.note("ticks the room's last cast held the sneak: " + primed + ", ticks a way-out wait or roam held it: " + waits);
+        if (act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK) {
+            // Under his open container the prime is refused (ClearExecutor.primeSneak, MultiActionsC): that is the test.
+            check(primed == 0 && waits == 0, "the sneak was primed under his open container");
+            return;
+        }
+        check(primed > 0, "the room's last cast in place never held the sneak (the prime was not tested)");
+    }
+
+    /** His action for 62-argrim-1127-same-decide-* in {@link #caseClearHere}, armed by the route's end; null = none. */
+    private static dev.testkit.gametest.SameTick.Act decideAct;
+    private static boolean decideSecond;
+
+    /** 62-argrim-1127-same-decide-*: the clear-here row; Auto Secret must decide in the END that ended a step. */
+    private static void caseDecideTick(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
+        String as = "com.killer560.hub.autosecret.AutoSecretFeature";
+        int d0 = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(as, "sameTickDecides"));
+        decideAct = act;
+        decideSecond = second;
+        try {
+            caseClearHere(c);
+        } finally {
+            decideAct = null;
+            decideSecond = false;
+        }
+        int d = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(as, "sameTickDecides")) - d0;
+        c.note("Auto Secret decisions made in the END that ended the step: " + d + ", Auto Clear sneak primes (last cast/wait) "
+                + c.ctx().computeOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearFeature", "primedLastCastTicks")
+                + "/" + ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearFeature", "primedWaitTicks")));
+        check(d > 0, "Auto Secret never decided in the END that ended its step (nothing tested)");
+    }
+
     /** Trip price every plan row starts from (0 = none learned); the walk row prices every etherwarp trip out. */
     private static double acTripPrice;
     /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
@@ -7402,10 +7457,26 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             JsonObject before = stats();
             long m = LogTap.mark();
             startSampling(ctx);
+            dev.testkit.gametest.SameTick dst = decideAct == null ? null : ctx.computeOnClient(mc ->
+                    dev.testkit.gametest.SameTick.start(decideAct, 3,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
+                            .armedBy(() -> logHas(m, "[AutoSecret] clear ")));
+            // The arena has no Mort: before the run a start is only ARMED (ArmedStart) and start() answers false.
+            ctx.runOnClient(mc -> runStartedForTest(true));
             Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as, "start"));
             check(Boolean.TRUE.equals(started), "Auto Secret refused to start");
-            boolean stopped = waitFor(ctx, 1200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
-                    "isRunning")));
+            boolean[] again = {false};
+            boolean stopped = waitFor(ctx, 1200, () -> {
+                if (decideSecond && !again[0] && logHas(m, "[AutoSecret] clear ")) {
+                    again[0] = true;   // a second start in the ticks the clear hands back and the next decision is made
+                    ctx.runOnClient(mc -> ModUnderTest.staticCall(as, "start"));
+                }
+                return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as, "isRunning"));
+            });
+            if (dst != null) {
+                dev.testkit.gametest.SameTick.judge(c, dst, "asdecide " + decideAct, dev.testkit.gametest.SameTick.Expect.ACTED);
+            }
             ctx.waitTicks(10);
             s = stopSampling(ctx);
             printTrace("clearhere", s);
@@ -7445,6 +7516,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             noteFlags(c, s);
         } finally {
             ctx.runOnClient(mc -> {
+                runStartedForTest(false);
                 if ((Boolean) ModUnderTest.staticCall(as, "isRunning")) {
                     ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
                             new Object[]{"test over", true});
