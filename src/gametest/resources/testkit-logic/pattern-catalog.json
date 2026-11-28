@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T05:32:03",
- "modSource": "lane-testjar-no-mining-foraging-1127b",
- "modGitSha": "21ec67d69917d6be6fdbd6455ac19521c158bfeb",
+ "generatedAt": "2026-11-28T06:16:59",
+ "modSource": "lane-sceptre-onetap-seen-bat-1127",
+ "modGitSha": "0a32367db7bb7dbf48104c4c0b2e873a27ea1005",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
