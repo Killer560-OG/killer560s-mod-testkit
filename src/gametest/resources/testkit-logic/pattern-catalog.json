@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T16:46:10",
- "modSource": "lane-autopilot-auto-enable-1127",
- "modGitSha": "33a1f801260c329394a8cf5de405551706b2569d",
+ "generatedAt": "2026-11-27T23:32:05",
+ "modSource": "lane-tl1127-trip-firstuse-b",
+ "modGitSha": "3dc3426d83f18f86768852556a77a30c0d6f4bd8",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
