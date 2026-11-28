@@ -243,6 +243,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1127-breakerfall-ping0", c -> caseBreakerFallLag(c, 0, 0));
             s.test("62-argrim-1127-breakerfall-ping50", c -> caseBreakerFallLag(c, 50, 0));
             s.test("62-argrim-1127-breakerfall-ping100", c -> caseBreakerFallLag(c, 100, 0));
+            // newtrap-fall-no-alert-1127: a correction in a breaker fall is logged with no chat line and no alarm; one on the
+            // floor after it alerts as always.
+            s.test("62-argrim-1127-fallquiet", GrimAutoRoutesTests::caseBreakerFallQuiet);
             // Multi Break at one a server tick (mod multibreak-1102): ten blocks round him, back to back; repeat with
             // -PmultiBreakRepeat=N (names "#k").
             for (int k = 1; k <= Integer.getInteger("testkit.multiBreakRepeat", 1); k++) {
@@ -495,6 +498,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // plan's: runs on a jar without the plan too (an origin jar shows whether a flag there is the plan's).
                 s.test("62-argrim-1122-trip-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
                         false, false, true, "[AutoClear] etherwarp toward"));
+                // tl1127-trip-firstuse: every search hands back late (ClearExecutor.testLateSearch), so each trip's sneak goes
+                // down while the planner works and its first warp goes from the next START with its swap; his action is armed
+                // by the trip's line so it lands in those ticks. Names written out whole for the train's preflight.
+                s.test("62-argrim-1127-same-latesearch-use", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.USE_CLICK, false));
+                s.test("62-argrim-1127-same-latesearch-openclick", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false));
+                s.test("62-argrim-1127-same-latesearch-attack", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.ATTACK, false));
+                s.test("62-argrim-1127-same-latesearch-swap", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
+                s.test("62-argrim-1127-same-latesearch-tp", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.TP, false));
+                s.test("62-argrim-1127-same-latesearch-second", c -> caseLateSearch(c, null, true));
                 // His container click while Auto Clear WALKS (every etherwarp trip priced out, as after failed trips): the
                 // server must not hear the walk's keys or sprint with the click (MultiActionsC; lane1125-0321 drew it on the
                 // trip row's walks after two failed trips, acoptimal-next2-1125b).
@@ -2452,6 +2464,115 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * acknowledged and stays silent). Asserted on the server: no tick with ground over server air, none inside a block the
      * server still has; on the wire: the digs went, the column broke, he landed below it; GrimAC silent.
      */
+    /**
+     * killer560, 2026-11-27 (the New Trap fall): "Just don't have it alert me of a flag." A breaker node digs the block under
+     * him and a column below, a far ROTATE node keeps the route running; the server moves him 0.4 up mid-fall (a correction
+     * in the fall: a log line, no chat line, no alarm), and again 0.3 sideways on the floor 3.5 s after he landed (outside
+     * the fall: chat line and alarm, the positive control).
+     */
+    private static void caseBreakerFallQuiet(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int stand = F + 12;
+        int colTop = F + 2;
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config("com.killer560.hub.util.CorrectionAlarmConfig"),
+                "setEnabled", true));
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int y = F; y <= stand; y++) {
+            boolean pillar = y <= colTop || y == stand;
+            put.put(new int[]{13, y, 12}, pillar ? "minecraft:stone_bricks" : "minecraft:air");
+            put.put(new int[]{13, y, 11}, "minecraft:stone");
+            if (pillar) {
+                blocks.add("13 " + y + " 12");
+            }
+        }
+        for (int y = stand + 1; y <= stand + 3; y++) {
+            put.put(new int[]{13, y, 12}, "minecraft:air");
+            put.put(new int[]{13, y, 11}, "minecraft:air");
+        }
+        setBlocks(ctx, put);
+        JsonObject br = node("DUNGEON_BREAKER", 13, 12, 0f, 0f);
+        br.addProperty("y", (double) (stand + 1));
+        br.add("blocks", blocks);
+        br.addProperty("start", true);
+        writeRoute(ctx, List.of(br, node("ROTATE", 2, 2, 90f, 0f)));
+        double[] p = ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, 13.5, (double) (stand + 1), 11.3});
+            float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(), float.class},
+                    new Object[]{frame, 0f});
+            return new double[]{v.x, v.y, v.z, yaw};
+        });
+        lookYaw = (float) p[3];
+        lookPitch = 30f;
+        c.server().command("effect give @a minecraft:resistance 40 4 true");
+        session.hx().call("dungeon.tp", "x", p[0], "y", p[1], "z", p[2], "yaw", (float) p[3], "pitch", 30f);
+        Vec3 target = new Vec3(p[0], p[1], p[2]);
+        waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(target) < 0.05));
+        ctx.waitTicks(20);
+        String sounds = "com.killer560.hub.util.ModSounds";
+        int alarms0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(sounds, "correctionAlarmsPlayed"));
+        long m = LogTap.mark();
+        ctx.getInput().holdKey(o -> o.keyUp);
+        try {
+            check(waitFor(ctx, 60, () -> {
+                Vec3 r = relPos(ctx);
+                return r.z >= 12.2 || r.y < stand + 0.5;
+            }), "he never got over the pillar (at " + relPos(ctx) + ")");
+        } finally {
+            ctx.getInput().releaseKey(o -> o.keyUp);
+        }
+        // Mid-fall: well below the stand, above the column.
+        boolean inFall = waitFor(ctx, 60, () -> {
+            Vec3 r = relPos(ctx);
+            return r.y < stand - 3 && r.y > colTop + 2;
+        });
+        boolean runningInFall = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        c.server().command("execute as @p at @s run tp @s ~ ~0.4 ~");
+        check(waitFor(ctx, 160, () -> {
+            for (int y = F; y <= colTop; y++) {
+                if (!blockAir(ctx, 13, y, 12)) {
+                    return false;
+                }
+            }
+            return relPos(ctx).y < F + 0.5;
+        }), "the column was not all broken, or he never landed below it (at " + relPos(ctx) + ")");
+        ctx.waitTicks(70); // past the fall's round-trip tail, the 2 s chat gap and the 3 s alarm gap
+        List<String> fall = LogTap.since(m);
+        int alarmsFall = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(sounds, "correctionAlarmsPlayed")) - alarms0;
+        long m2 = LogTap.mark();
+        boolean runningAfter = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        c.server().command("execute as @p at @s run tp @s ~0.3 ~ ~");
+        ctx.waitTicks(15);
+        List<String> after = LogTap.since(m2);
+        int alarmsAfter = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(sounds, "correctionAlarmsPlayed"))
+                - alarms0 - alarmsFall;
+        Map<int[], String> clear = new LinkedHashMap<>();
+        for (int y = F + 9; y <= stand + 3; y++) {
+            clear.put(new int[]{13, y, 12}, "minecraft:air");
+            clear.put(new int[]{13, y, 11}, "minecraft:air");
+        }
+        setBlocks(ctx, clear);
+        resetRoutes(ctx);
+        long quietLines = fall.stream().filter(l -> l.contains("[Correction] Auto Routes:") && l.contains("in a breaker fall")
+                && l.contains("(no chat line, no alarm)")).count();
+        boolean chatInFall = fall.stream().anyMatch(l -> l.contains("[CHAT]") && l.contains("Server correction:"));
+        long loudLines = after.stream().filter(l -> l.contains("[Correction] Auto Routes:")
+                && !l.contains("no chat line")).count();
+        boolean chatAfter = after.stream().anyMatch(l -> l.contains("[CHAT]") && l.contains("Server correction:"));
+        c.note(String.format(Locale.ROOT, "in the fall (%s, route running %s): %d quiet log line(s), chat line %s, alarms %d;"
+                        + " on the floor (route running %s): %d alerting log line(s), chat line %s, alarms %d", inFall,
+                runningInFall, quietLines, chatInFall, alarmsFall, runningAfter, loudLines, chatAfter, alarmsAfter));
+        check(inFall && runningInFall, "the correction did not go in mid-fall with the route running (nothing tested)");
+        check(quietLines >= 1, "the fall's correction was not logged as a quiet one");
+        check(!chatInFall && alarmsFall == 0, "the fall's correction alerted: chat line " + chatInFall + ", alarms " + alarmsFall);
+        check(runningAfter && loudLines >= 1 && chatAfter && alarmsAfter >= 1, "a correction on the floor after the fall did not"
+                + " alert as before: log " + loudLines + ", chat line " + chatAfter + ", alarms " + alarmsAfter);
+    }
+
     private static void caseBreakerFallLag(Session c, int ms, int stallMs) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
@@ -6169,6 +6290,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         caseAutoClearHype(c, act, second, chain, plan, null);
     }
 
+    /** 62-argrim-1127-same-latesearch-*: the trip row with every search handed back between ticks; the late start must act. */
+    private static void caseLateSearch(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
+        String ce = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+        // Every trip of this arena is one straight warp, which skips the planner: without testSearchEveryTrip no search
+        // ran, and only USE / OPEN_CLICK (whose replans search) ever reached the late start (lane1127-1425: swap, tp and
+        // second counted 0; their earlier 1s were a hand-back left over from the case before, now cleared by the switch).
+        int l0 = c.ctx().computeOnClient(mc -> {
+            ModUnderTest.staticCall(ce, "testSearchEveryTrip", new Class<?>[]{boolean.class}, new Object[]{true});
+            ModUnderTest.staticCall(ce, "testLateSearch", new Class<?>[]{boolean.class}, new Object[]{true});
+            return (Integer) ModUnderTest.staticCall(ce, "lateSearchStarts");
+        });
+        try {
+            caseAutoClearHype(c, act, second, false, true, "[AutoClear] etherwarp toward");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                ModUnderTest.staticCall(ce, "testLateSearch", new Class<?>[]{boolean.class}, new Object[]{false});
+                ModUnderTest.staticCall(ce, "testSearchEveryTrip", new Class<?>[]{boolean.class}, new Object[]{false});
+            });
+        }
+        int late = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(ce, "lateSearchStarts")) - l0;
+        c.note("trips searched late that went from the next START: " + late);
+        check(late > 0, "no searched trip went from the START after its late hand-back (the late start was not tested)");
+    }
+
     /** Trip price every plan row starts from (0 = none learned); the walk row prices every etherwarp trip out. */
     private static double acTripPrice;
     /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
@@ -6322,7 +6467,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (hits && armed) {
                 c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
             }
-            if (second && armed && !restarted[0] && logHas(m, chainLine)) {
+            if (second && armed && !restarted[0] && logHas(m, tripArm != null ? tripArm : chainLine)) {
                 restarted[0] = true;   // the second clearRoom starts in the chain's own tick
                 start.run();
             }
