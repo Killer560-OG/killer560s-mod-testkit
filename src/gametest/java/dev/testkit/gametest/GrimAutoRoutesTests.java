@@ -294,6 +294,23 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1105-same-chain-swap", c -> caseChainSame(c, dev.testkit.gametest.SameTick.Act.SWAP));
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1105-same-chain-dig", c -> caseChainSame(c, dev.testkit.gametest.SameTick.Act.DIG));
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1025-zpchain", GrimAutoRoutesTests::caseZeroPingChain); // mod blink-1025
+            // mod routes-chain-always-1127pm: warps chain a tick apart with Zero Ping Etherwarp OFF; his actions in their ticks.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                s.test("62-argrim-1127-chainalways-nodes", c -> caseChainAlways(c, false, 150, null, null));
+                s.test("62-argrim-1127-chainalways-path", c -> caseChainAlways(c, true, 150, null, null));
+                s.test("62-argrim-1127-chainalways-path-ping400", c -> caseChainAlways(c, true, 400, null, null));
+                s.test("62-argrim-1127-chainalways-path-spike", c -> caseChainAlways(c, true, 150, null, "spike"));
+                s.test("62-argrim-1127-chainalways-path-correction", c -> caseChainAlways(c, true, 150, null, "correction"));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(
+                        dev.testkit.gametest.SameTick.Act.USE, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
+                        dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP,
+                        dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1127-chainalways-path-same-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseChainAlways(c, true, 150, a, null));
+                }
+                s.test("62-argrim-1127-chainalways-nodes-same-swap", c -> caseChainAlways(c, false, 150,
+                        dev.testkit.gametest.SameTick.Act.SWAP, null));
+            }
             // mod blink-charge-1025. Expecting flags since mod blink-keep-1027 (owner, 2026-10-27): the 12 ticks the chain
             // does not spend stay banked through its 11 server teleports, and each kept teleport costs the GrimAC lines
             // docs/LESSONS-AUTOMATION.md lists. The case still fails on any other check, and waits for the leak.
@@ -3306,17 +3323,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         + " route etherwarps, the log says " + acted + " acted and the trace has " + chain.warps());
                 check(serverWarps == pts.length + 1, rate + "/s: the server made " + serverWarps + " etherwarps, expected "
                         + (pts.length + 1));
-                check(chain.usesBeforeLanding() == 0, rate + "/s: " + chain.usesBeforeLanding() + " warp(s) went out "
-                        + "before the previous landing was accepted");
-                if (rate == 20) {
-                    check(chain.firesOnLanding(), "20/s: a warp waited after its landing arrived: ticks from each landing "
-                            + "to the next use " + chain.landingToUse());
-                }
-                // At 20/s the pace is the server's answer time, not the route's: every warp went on its landing's tick
-                // (firesOnLanding), so a warp only waits for the landing. Judged against the round trip measured on
-                // this run: the client must add nothing to it (the same jar read 1.00 and 1.27 an hour apart on a busy
-                // machine, the slow runs' gaps exactly their round trips - fullclear-1016).
-                double want = rate == 20 ? Math.max(1.0, chain.meanRoundTrip()) : 20.0 / rate;
+                // Since routes-chain-always-1127pm a warp never waits for the landing before it: the pace is the rate
+                // setting alone, one warp a tick at 20/s whatever the round trip.
+                double want = 20.0 / rate;
                 check(Math.abs(chain.ticksPerWarp() - want) <= 0.3, String.format(Locale.ROOT, "%d/s: %.2f ticks per "
                         + "warp (gaps %s), expected %.2f", rate, chain.ticksPerWarp(), chain.gaps(), want));
             }
@@ -3537,18 +3546,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(serverWarps == pts.length + 1, label + ": the server made " + serverWarps + " etherwarps, expected "
                         + (pts.length + 1));
                 check(corrections == 0, label + ": " + corrections + " correction line(s) - a landing read as a correction");
-                if (!zp) {
-                    controlTpw = chain.ticksPerWarp();
-                    check(chained == 0, "control: Zero Ping Chain chained " + chained + " warp(s) while switched off");
-                } else {
-                    check(chained >= pts.length - 2, "zero ping: only " + chained + " warp(s) were chained");
-                    check(confirmed == chained && broken == 0, "zero ping: " + confirmed + " of " + chained
-                            + " predicted landings confirmed, " + broken + " broken");
-                    check(chain.usesBeforeLanding() > 0, "zero ping: no warp went out before the previous landing - "
-                            + "nothing was chained on the wire");
-                    check(chain.ticksPerWarp() < controlTpw - 0.5, String.format(Locale.ROOT, "zero ping: %.2f ticks per "
-                            + "warp is not faster than the control's %.2f", chain.ticksPerWarp(), controlTpw));
-                }
+                // Since routes-chain-always-1127pm the chain no longer follows Zero Ping Etherwarp: both passes chain.
+                check(chained >= pts.length - 2, label + ": only " + chained + " warp(s) were chained");
+                check(confirmed == chained && broken == 0, label + ": " + confirmed + " of " + chained
+                        + " predicted landings confirmed, " + broken + " broken");
+                check(chain.usesBeforeLanding() > 0, label + ": no warp went out before the previous landing - "
+                        + "nothing was chained on the wire");
+                check(chain.ticksPerWarp() <= 1.3, String.format(Locale.ROOT, "%s: %.2f ticks per warp, expected one",
+                        label, chain.ticksPerWarp()));
             }
         } finally {
             ctx.runOnClient(mc -> {
@@ -3558,6 +3563,216 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         c.note("zero ping chain: " + notes);
         noteFlags(c, all);
+    }
+
+    /** One saved hop of a hand-written path, (fx,fz) -> (tx,tz) on the arena floor, in RouteStore's hop format. */
+    private static String hop(int fx, int fz, int tx, int tz, boolean first) {
+        return String.format(Locale.US, "%.6f %.6f %.6f %.6f %.6f %d %d %d %.6f %.6f %.6f", fx + 0.5, F + (first ? 0 : 0.05),
+                fz + 0.5, relYawTo(fx, fz, tx, tz), pitchTo(fx, fz, tx, tz), tx, F - 1, tz, tx + 0.5, F + 0.05, tz + 0.5);
+    }
+
+    /** A PATH node at {@code pts[from]} whose saved hops fly the chain's points up to {@code to} (a point, or END). */
+    private static JsonObject pathSource(int[][] pts, int from, int[] to, int count, boolean start) {
+        JsonObject o = node("PATH", pts[from][0], pts[from][1], 0f, 0f);
+        o.addProperty("planFrom", String.format(Locale.US, "%.6f %.6f %.6f", pts[from][0] + 0.5, (double) F, pts[from][1] + 0.5));
+        o.addProperty("planTo", String.format(Locale.US, "%.6f %.6f %.6f", to[0] + 0.5, (double) F, to[1] + 0.5));
+        o.addProperty("planBreakers", 0);
+        JsonArray hops = new JsonArray();
+        for (int i = 0; i < count; i++) {
+            int[] a = pts[from + i];
+            int[] b = i + 1 < count ? pts[from + i + 1] : to;
+            hops.add(hop(a[0], a[1], b[0], b[1], i == 0));
+        }
+        o.add("hops", hops);
+        if (start) {
+            o.addProperty("start", true);
+        }
+        return o;
+    }
+
+    /**
+     * 62-argrim-1127-chainalways-* (mod routes-chain-always-1127pm; killer560 2026-11-27: "the etherwarp shoudnt rely on
+     * zero ping it should always be 1 tick"). Zero Ping Etherwarp is OFF and so is its Auto Routes switch. The twelve warps
+     * round the arena under {@code ms} of added latency, as twelve etherwarp nodes or ({@code path}) as two PATH pairs of
+     * six saved hops each, the second pair starting on the first's arrival (a second flight on the first's landing tick).
+     * Every warp but a chain's last must go ONE tick after the one before it, before that one's landing came back
+     * (PacketTrace ticks and WireCapture times); every prediction is confirmed by the server, none broken, no correction
+     * line, the server made every etherwarp, and GrimAC says nothing. On a jar before the change every gap is a round trip.
+     * <p>{@code act}: his own action in the chain's ticks (SameTick; TP = one server teleport to where he stands mid-chain,
+     * with every landing's own accept counted). {@code twist}: "spike" freezes the connection both ways for 400 ms after the
+     * third warp; "correction" has the server teleport him back to the second point mid-chain: it must be reported (chat
+     * line, alarm), the route must not stop, and it must still reach the end.
+     */
+    private static void caseChainAlways(Session c, boolean path, int ms, dev.testkit.gametest.SameTick.Act act, String twist) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        List<JsonObject> n = new ArrayList<>();
+        if (path) {
+            n.add(pathSource(pts, 0, pts[6], 6, true));
+            n.add(node("PATH", pts[6][0], pts[6][1], 0f, 0f));
+            n.add(pathSource(pts, 6, end, 6, false));
+            n.add(node("PATH", end[0], end[1], 0f, 0f));
+        } else {
+            for (int i = 0; i < pts.length; i++) {
+                int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+                n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
+            }
+        }
+        writeRoute(ctx, n);
+        String tag = (path ? "path" : "nodes") + " " + ms + " ms" + (act == null ? "" : " same-" + act)
+                + (twist == null ? "" : " " + twist);
+        boolean plain = act == null && twist == null;
+        boolean tp = act == dev.testkit.gametest.SameTick.Act.TP;
+        dev.testkit.gametest.SameTick st = null;
+        List<Sample> all = new ArrayList<>();
+        try {
+            ctx.runOnClient(mc -> {
+                arChain(false, false);   // the premise: Zero Ping Etherwarp off, not working for Auto Routes
+                dev.testkit.harness.Latency.install(ms);
+            });
+            ctx.waitTicks(40);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                // In his crosshair from the start node (he looks -z, 16 degrees down) until the first landing moves him.
+                Vec3 p = relFeet(ctx, pts[0][0] + 0.5, pts[0][1] - 2.0);
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f %.2f %.2f {NoGravity:1b,"
+                        + "Invulnerable:1b,Tags:[\"chainalwaysst\"]}", p.x, p.y, p.z));
+            }
+            int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
+            int confirmed0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingConfirmed"));
+            int broken0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingBroken"));
+            int reports0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports"));
+            int alarms0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SOUNDS, "correctionAlarmsPlayed"));
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            warpOnto(ctx, 6.5, 10.5, 6, 6);
+            // Armed once the route runs: his own hand warp onto the start node is not the route's.
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act,
+                        act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                    st.allow(4);   // his use with the AOTV in hand is his own warp: a few among the chain's
+                }
+            }
+            String third = path ? "PATH acted" : "ETHERWARP acted";
+            if (tp || twist != null) {
+                check(waitFor(ctx, 200, () -> LogTap.since(m).stream().filter(l -> l.contains(third)).count() >= 3),
+                        tag + ": premise: the route never sent its third warp");
+                if ("spike".equals(twist)) {
+                    ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.start(400L));
+                } else {
+                    // TP: where the client has him (the server is warps ahead); correction: back on the second point.
+                    Vec3 to = tp ? ctx.computeOnClient(mc -> mc.player.position()) : relFeet(ctx, pts[1][0] + 0.5, pts[1][1] + 0.5);
+                    session.hx().call("dungeon.tp", "x", to.x, "y", to.y, "z", to.z, "yaw", lookYaw, "pitch", lookPitch);
+                }
+            }
+            boolean ownWarps = act == dev.testkit.gametest.SameTick.Act.USE;
+            Vec3 landed = waitLanded(ctx, end[0], end[1], 600);
+            ctx.waitTicks(20);
+            dev.testkit.gametest.SameTick s2 = st;
+            st = null;
+            if (s2 != null) {
+                ctx.runOnClient(mc -> s2.close());
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            List<Sample> smp = stopSampling(ctx);
+            all.addAll(smp);
+            ArChainMeasure.Chain chain = ArChainMeasure.chain(1);
+            long[] useAt = dev.testkit.harness.WireCapture.snapshot().stream().filter(x -> x.type().equals("minecraft:use_item"))
+                    .mapToLong(dev.testkit.harness.WireCapture.Sent::nanos).toArray();
+            int wireFast = 0;
+            for (int i = 1; i < useAt.length; i++) {
+                wireFast += (useAt[i] - useAt[i - 1]) / 1_000_000L <= 75 ? 1 : 0;
+            }
+            int acted = 0;
+            int corrections = 0;
+            boolean stopLine = false;
+            for (String l : LogTap.since(m)) {
+                acted += l.contains(third) ? 1 : 0;
+                corrections += l.contains("[Correction] Auto Routes") ? 1 : 0;
+                stopLine |= l.contains("[AutoRoutes] Stopped: ") && !l.contains("[AutoRoutes] Stopped: null");
+            }
+            int oneTick = (int) chain.gaps().stream().filter(g -> g == 1).count();
+            int serverWarps = delta(before, "etherwarps");
+            int chained = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained")) - chained0;
+            int confirmed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingConfirmed")) - confirmed0;
+            int broken = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingBroken")) - broken0;
+            int reports = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports")) - reports0;
+            int alarms = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SOUNDS, "correctionAlarmsPlayed")) - alarms0;
+            String line = String.format(Locale.ROOT, "chain always %s: %s; %d of %d gap(s) one tick; wire: %d use(s), %d within "
+                            + "75 ms of the one before; server made %d etherwarp(s); %d acted; chained %d, confirmed %d, broken %d; "
+                            + "%d correction line(s), %d report(s), %d alarm(s); stop line %s; landed %s%s", tag, chain.describe(),
+                    oneTick, chain.gaps().size(), useAt.length, wireFast, serverWarps, acted, chained, confirmed, broken,
+                    corrections, reports, alarms, stopLine, landed != null, s2 == null ? "" : "; same-tick " + s2.report());
+            println(line);
+            c.note(line);
+            // A pair's last hop and the chain's last node wait for their landing: 10 chainable gaps of 11 as a path, 11 as nodes.
+            int chainable = path ? pts.length - 2 : pts.length - 1;
+            check(chained > 0 && chain.usesBeforeLanding() > 0, tag + ": no warp went out before the previous landing - "
+                    + "nothing was chained (chained " + chained + ", gaps " + chain.gaps() + ")");
+            check(!stopLine, tag + ": the route logged a stop");
+            check(ownWarps || landed != null, tag + ": the chain did not reach its end at " + end[0] + "," + end[1] + " (at "
+                    + relPos(ctx) + ")");
+            if (plain) {
+                check(acted == pts.length && chain.warps() == pts.length, tag + ": expected " + pts.length
+                        + " route etherwarps, the log says " + acted + " acted and the trace has " + chain.warps());
+                check(serverWarps == pts.length + 1, tag + ": the server made " + serverWarps + " etherwarps, expected "
+                        + (pts.length + 1));
+                check(oneTick >= chainable - 1, tag + ": only " + oneTick + " of " + chainable + " chainable gaps were one "
+                        + "tick (gaps " + chain.gaps() + ")");
+                check(wireFast >= chainable - 1, tag + ": only " + wireFast + " use(s) left within 75 ms of the one before");
+                check(chained >= chainable - 1 && confirmed == chained && broken == 0, tag + ": chained " + chained
+                        + ", confirmed " + confirmed + ", broken " + broken);
+                check(corrections == 0 && reports == 0, tag + ": " + corrections + " correction line(s) - a landing read "
+                        + "as a correction");
+            }
+            if ("spike".equals(twist)) {
+                check(dev.testkit.harness.LagSpike.held() >= 0 && dev.testkit.harness.LagSpike.releasedAt() > 0,
+                        tag + ": the lag spike never ran");
+                check(serverWarps >= pts.length + 1, tag + ": the server made " + serverWarps + " etherwarps");
+            }
+            if ("correction".equals(twist)) {
+                check(broken >= 1 && reports >= 1 && corrections >= 1 && alarms >= 1, tag + ": the server's teleport mid-chain "
+                        + "was not reported (broken " + broken + ", reports " + reports + ", lines " + corrections + ", alarms "
+                        + alarms + ")");
+                check(logHasAll(m, "[CHAT]", "Server correction:"), tag + ": no chat line for the correction");
+            }
+            if (s2 != null) {
+                check(s2.done() > 0 && s2.featureWindows() > 0 && s2.playerWindows() > 0, tag + ": his action or the route's "
+                        + "warps never reached the wire - nothing tested (" + s2.report() + ")");
+                if (act == dev.testkit.gametest.SameTick.Act.SWAP) {
+                    check(s2.playerAfterFeature() == 0, tag + ": his slot went out after a route warp in one tick ("
+                            + s2.report() + ")");
+                } else if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // A queued attack holds the warp for its tick (the body faces his view), so those two never share one.
+                    check(s2.both() > 0, tag + ": no server tick carried both a chain warp and his " + act + " ("
+                            + s2.report() + ")");
+                }
+            }
+            noteFlags(c, all);
+            check(c.scenario().flags().isEmpty(), tag + ": GrimAC flagged: " + c.scenario().flags());
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                McCompat.setScreen(mc, null);
+                dev.testkit.harness.WireCapture.stop();
+                dev.testkit.harness.Latency.remove();
+                mc.player.getInventory().setSelectedSlot(3);
+            });
+            c.server().command("kill @e[tag=chainalwaysst]");
+            ensureInRoom(ctx);
+            ctx.waitTicks(5);
+        }
     }
 
     /**
