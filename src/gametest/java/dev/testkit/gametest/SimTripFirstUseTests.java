@@ -174,6 +174,23 @@ public class SimTripFirstUseTests implements FabricClientGameTest {
             problems.add(lg[2] + " late-searched trip(s) waited 2 or more ticks after the result was taken before the first warp"
                     + " (0:" + lg[0] + " 1:" + lg[1] + ")");
         }
+        // A plan searched from the air while he came down and handed back ticks late is planned again at once
+        // (ClearExecutor.fellReplans; -1 on a jar without it), never left standing off its first spot.
+        int fell = ctx.computeOnClient(mc -> {
+            try {
+                return (Integer) ModUnderTest.staticCall(EXEC, "fellReplans");
+            } catch (RuntimeException | Error e) {
+                return -1;
+            }
+        });
+        int offSpot = ctx.computeOnClient(mc -> WHY.entrySet().stream()
+                .filter(e -> e.getKey().contains("not on the path's first spot") && e.getKey().matches("t\\+[3-9] .*"))
+                .mapToInt(Map.Entry::getValue).sum());
+        println("RESULT plans thrown away because he came down while they were searched " + fell
+                + ", ticks a trip stood off its first spot past its second tick " + offSpot);
+        if (offSpot > 0) {
+            problems.add(offSpot + " tick(s) a trip stood off its path's first spot past its second tick");
+        }
         if (!problems.isEmpty()) {
             throw new AssertionError(problems.size() + " problem(s): " + String.join("; ", problems));
         }

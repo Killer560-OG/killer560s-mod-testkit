@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T04:16:18",
- "modSource": "lane-lessons-union-merge-1127",
- "modGitSha": "29447686b16cccb2a5bfe1aa166d10671dd2ba32",
+ "generatedAt": "2026-11-28T07:12:20",
+ "modSource": "lane-sceptre-onetap-seen-bat-1127",
+ "modGitSha": "8f69272c724a4cfa3aed8d94b413eae78540223c",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
