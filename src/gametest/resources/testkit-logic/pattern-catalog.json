@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T07:22:27",
- "modSource": "lane-lessons-union-merge-1127",
- "modGitSha": "4e7d4c044cf60228983cadf83ed4ddce253df442",
+ "generatedAt": "2026-11-28T07:40:28",
+ "modSource": "lane-icefill1127-fix-instacost",
+ "modGitSha": "96b3e5bcdf4262c8b1091ee782deb546b7df78d1",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
