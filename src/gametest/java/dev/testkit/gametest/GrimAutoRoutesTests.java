@@ -3873,7 +3873,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 if (act == dev.testkit.gametest.SameTick.Act.SWAP) {
                     check(s2.playerAfterFeature() == 0, tag + ": his slot went out after a route warp in one tick ("
                             + s2.report() + ")");
-                } else if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                } else if (act != dev.testkit.gametest.SameTick.Act.ATTACK
+                        && act != dev.testkit.gametest.SameTick.Act.OPEN_CLICK) {
+                    // An opened inventory lets go of sneak, so no etherwarp can share that tick: the route sneaks again
+                    // and warps in the ticks between his clicks (its landing still chained), and must reach the end.
                     check(s2.both() > 0, tag + ": no server tick carried both a chain warp and his " + act + " ("
                             + s2.report() + ")");
                 }
