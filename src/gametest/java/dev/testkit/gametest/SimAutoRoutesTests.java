@@ -1587,13 +1587,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         + relPos(ctx) + ")");
                 check(acted == pts.length && chain.warps() == pts.length, rate + "/s: expected " + pts.length
                         + " etherwarps, the log says " + acted + " acted and the trace has " + chain.warps() + " use(s)");
-                check(chain.usesBeforeLanding() == 0, rate + "/s: " + chain.usesBeforeLanding() + " warp(s) went out "
-                        + "before the previous landing was accepted");
-                double want = Math.max(2.0, 20.0 / rate);
-                if (rate == 20) {
-                    check(chain.firesOnLanding(), "20/s: a warp waited after its landing arrived: ticks from each landing "
-                            + "to the next use " + chain.landingToUse());
-                }
+                // Since routes-chain-always-1127pm a warp never waits for the landing before it: the rate alone paces.
+                double want = 20.0 / rate;
                 check(Math.abs(chain.ticksPerWarp() - want) <= 0.3, String.format(Locale.ROOT, "%d/s: %.2f ticks per "
                         + "warp (gaps %s), expected %.2f", rate, chain.ticksPerWarp(), chain.gaps(), want));
             }
