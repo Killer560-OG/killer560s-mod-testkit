@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T01:23:14",
- "modSource": "lane-newtrap-fall-no-alert-1127",
- "modGitSha": "2eb8255f509c16dbb6c2574ee9dd5228bfd383ef",
+ "generatedAt": "2026-11-28T04:16:18",
+ "modSource": "lane-tickledger-1127",
+ "modGitSha": "fdb8c776e7c9ec3686f610ffc11802333e42a0ef",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
