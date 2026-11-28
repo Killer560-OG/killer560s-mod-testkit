@@ -210,6 +210,7 @@ final class MenuLayoutCases {
 
     static void structure(UiCase c) throws Exception {
         String variant = Mod.isCheat() ? "cheat" : "legit";
+        boolean testingJar = JarIndex.peek(JarIndex.ROOT + "testing.TestedFeatures") != null;
         try (AutoCloseable all = allTested(c)) {
             ModScreenDriver d = driver(c);
             List<ModScreenDriver.Node> tree = c.onClient(mc -> d.tree());
@@ -238,7 +239,8 @@ final class MenuLayoutCases {
 
             // The Option A categories (mod menu-a, 2026-10-12): Favorites is a sidebar entry, not a category. Mining since
             // mod doc-mining-1101 (the pre-2.0 mining features).
-            c.check(top.equals(List.of("Home", "Dungeons", "Mining", "Foraging", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
+            c.check(top.equals(testingJar ? List.of("Home", "Dungeons", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")
+                            : List.of("Home", "Dungeons", "Mining", "Foraging", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
                     "the categories are " + top);
             // (a) Crosshair: not top level, a card of HUD (General until the 2026-10-12 regroup), and its rows build there.
             for (String t : top) {
@@ -300,10 +302,16 @@ final class MenuLayoutCases {
                 }
             }
             JsonObject newLeaves = merged.getAsJsonObject("newLeaves").deepCopy();
+            // A testing jar has no Mining or Foraging (mod RemoveFor20, killer560 2026-11-26): those tabs are not expected.
+            if (testingJar) {
+                newLeaves.entrySet().removeIf(g -> removedForTesting(g.getValue().getAsString()));
+                c.check(top.stream().noneMatch(t -> t.equals("Mining") || t.equals("Foraging")),
+                        "a testing jar still has a Mining or Foraging category: " + top);
+            }
             // New tabs only the cheat jar builds (Swap To Drill On Pigeon, 2026-11-04): expected on cheat, absent on legit.
             if (merged.has("newCheatLeaves")) {
                 for (Map.Entry<String, com.google.gson.JsonElement> g : merged.getAsJsonObject("newCheatLeaves").entrySet()) {
-                    if (variant.equals("cheat")) {
+                    if (variant.equals("cheat") && !(testingJar && removedForTesting(g.getValue().getAsString()))) {
                         newLeaves.add(g.getKey(), g.getValue());
                     } else {
                         c.check(!leaves.containsKey(g.getKey()), g.getKey() + " is cheat-only but is in the legit menu at "
@@ -364,6 +372,11 @@ final class MenuLayoutCases {
             c.check(kept == before.size() && kept > 100, "only " + kept + " of " + before.size() + " tabs found once");
             close(c, d);
         }
+    }
+
+    /** True for a tab path in the Mining or Foraging category: absent from every testing jar. */
+    static boolean removedForTesting(String path) {
+        return path.startsWith("Mining") || path.startsWith("Foraging");
     }
 
     // ---- 512 ------------------------------------------------------------------------------------------------------
