@@ -478,6 +478,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // plan's: runs on a jar without the plan too (an origin jar shows whether a flag there is the plan's).
                 s.test("62-argrim-1122-trip-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
                         false, false, true, "[AutoClear] etherwarp toward"));
+                // tl1127-trip-firstuse: every search hands back late (ClearExecutor.testLateSearch), so each trip's sneak goes
+                // down while the planner works and its first warp goes from the next START with its swap; his action is armed
+                // by the trip's line so it lands in those ticks. Names written out whole for the train's preflight.
+                s.test("62-argrim-1127-same-latesearch-use", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.USE_CLICK, false));
+                s.test("62-argrim-1127-same-latesearch-openclick", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false));
+                s.test("62-argrim-1127-same-latesearch-attack", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.ATTACK, false));
+                s.test("62-argrim-1127-same-latesearch-swap", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
+                s.test("62-argrim-1127-same-latesearch-tp", c -> caseLateSearch(c, dev.testkit.gametest.SameTick.Act.TP, false));
+                s.test("62-argrim-1127-same-latesearch-second", c -> caseLateSearch(c, null, true));
                 // His container click while Auto Clear WALKS (every etherwarp trip priced out, as after failed trips): the
                 // server must not hear the walk's keys or sprint with the click (MultiActionsC; lane1125-0321 drew it on the
                 // trip row's walks after two failed trips, acoptimal-next2-1125b).
@@ -5952,6 +5961,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         caseAutoClearHype(c, act, second, chain, plan, null);
     }
 
+    /** 62-argrim-1127-same-latesearch-*: the trip row with every search handed back between ticks; the late start must act. */
+    private static void caseLateSearch(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
+        String ce = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+        // Every trip of this arena is one straight warp, which skips the planner: without testSearchEveryTrip no search
+        // ran, and only USE / OPEN_CLICK (whose replans search) ever reached the late start (lane1127-1425: swap, tp and
+        // second counted 0; their earlier 1s were a hand-back left over from the case before, now cleared by the switch).
+        int l0 = c.ctx().computeOnClient(mc -> {
+            ModUnderTest.staticCall(ce, "testSearchEveryTrip", new Class<?>[]{boolean.class}, new Object[]{true});
+            ModUnderTest.staticCall(ce, "testLateSearch", new Class<?>[]{boolean.class}, new Object[]{true});
+            return (Integer) ModUnderTest.staticCall(ce, "lateSearchStarts");
+        });
+        try {
+            caseAutoClearHype(c, act, second, false, true, "[AutoClear] etherwarp toward");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                ModUnderTest.staticCall(ce, "testLateSearch", new Class<?>[]{boolean.class}, new Object[]{false});
+                ModUnderTest.staticCall(ce, "testSearchEveryTrip", new Class<?>[]{boolean.class}, new Object[]{false});
+            });
+        }
+        int late = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(ce, "lateSearchStarts")) - l0;
+        c.note("trips searched late that went from the next START: " + late);
+        check(late > 0, "no searched trip went from the START after its late hand-back (the late start was not tested)");
+    }
+
     /** Trip price every plan row starts from (0 = none learned); the walk row prices every etherwarp trip out. */
     private static double acTripPrice;
     /** 62-argrim-1125-plan-moved: the server puts him in the middle of the arena when the plan's first etherwarp lands. */
@@ -6105,7 +6138,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (hits && armed) {
                 c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
             }
-            if (second && armed && !restarted[0] && logHas(m, chainLine)) {
+            if (second && armed && !restarted[0] && logHas(m, tripArm != null ? tripArm : chainLine)) {
                 restarted[0] = true;   // the second clearRoom starts in the chain's own tick
                 start.run();
             }

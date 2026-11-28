@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-27T23:55:37",
- "modSource": "lane-autopilot-instaclear-pick-1127d",
- "modGitSha": "fb633f1a99d1d505ae33a5ee0a6d2b6866ac19c3",
+ "generatedAt": "2026-11-27T23:32:05",
+ "modSource": "lane-tl1127-trip-firstuse-b",
+ "modGitSha": "3dc3426d83f18f86768852556a77a30c0d6f4bd8",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
