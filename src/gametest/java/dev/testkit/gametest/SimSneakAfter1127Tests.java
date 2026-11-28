@@ -326,6 +326,7 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
         }
         registered = true;
         ClientTickEvents.END_CLIENT_TICK.register(SimSneakAfter1127Tests::probe);
+        ClientTickEvents.START_CLIENT_TICK.register(SimSneakAfter1127Tests::probeStart);
     }
 
     /** What the tick's work was, by kind: a cast in place, a hop, a walk, an Auto Secret phase, else Auto Clear's phase. */
@@ -372,21 +373,15 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
         // A DECIDE set after Auto Secret's own END (the Auto Clear hand-back, a start from another END handler) is decided
         // at the next tick's START, before that tick's keys and packets: no tick lost. It counts only when the decision
         // came later than that START (decideEnd is the endTicks it was made at; START keeps the END's count).
+        // Judged by probeStart, right after that START: an END that finds DECIDE still set decides again and moves decideEnd.
         long endNow = -1;
-        long decidedAt = -2;
         try {
             if (asEndTicks != null) {
                 endNow = ((Number) asEndTicks.get(null)).longValue();
-                decidedAt = ((Number) asDecideEnd.get(null)).longValue();
             }
         } catch (IllegalAccessException e) {
             endNow = -1;
         }
-        if (pendingEnd >= 0 && decidedAt != pendingEnd) {
-            deferred++;
-            WHY.merge(pendingWhy, 1, Integer::sum);
-        }
-        pendingEnd = -1;
         if (asp.equals("DECIDE") && !prevAs.equals("DECIDE") && !prevAs.isEmpty()) {
             String why = "DECIDE left after " + prevAs + " (Auto Clear " + acp + ")";
             if (endNow < 0) {
@@ -440,6 +435,33 @@ public class SimSneakAfter1127Tests implements FabricClientGameTest {
                 why = "?";
             }
             WHY.merge(startKey + " t+" + Math.min(3, tick - openStart) + " heardNow=" + heard + " why=" + why, 1, Integer::sum);
+        }
+    }
+
+    /**
+     * START of the tick after an END left DECIDE (this handler is registered after the mod's, so Auto Secret's START has
+     * run): deferred unless that START made the decision (decideEnd is the END count it was made at, which START keeps).
+     */
+    private static void probeStart(Minecraft mc) {
+        if (!on || pendingEnd < 0) {
+            return;
+        }
+        long was = pendingEnd;
+        pendingEnd = -1;
+        try {
+            long decidedAt = ((Number) asDecideEnd.get(null)).longValue();
+            if (decidedAt != was) {
+                deferred++;
+                String s = pendingWhy + " (START saw phase " + asPhase.get(null) + ", last decision " + (decidedAt - was)
+                        + " END(s) from that END, Auto Clear " + acPhase.get(null) + ":"
+                        + String.valueOf(acAction.get(null)).replaceAll(" -> .*| \\(.*|[0-9.,-]+", "").trim() + ")";
+                WHY.merge(s, 1, Integer::sum);
+                System.out.println("[" + AP_CASE + "] DEFERRED " + s + " at executor tick "
+                        + ModUnderTest.staticCall(EXEC, "clientTick"));
+            }
+        } catch (IllegalAccessException | RuntimeException e) {
+            deferred++;
+            WHY.merge(pendingWhy + " (unreadable: " + e + ")", 1, Integer::sum);
         }
     }
 
