@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T07:40:28",
- "modSource": "lane-icefill1127-fix-instacost",
- "modGitSha": "96b3e5bcdf4262c8b1091ee782deb546b7df78d1",
+ "generatedAt": "2026-11-28T07:50:29",
+ "modSource": "lane-slotbinds-multi-1128",
+ "modGitSha": "d0c7551998faca4b3ebfcc00fb97da8fbea072c1",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
