@@ -582,7 +582,7 @@ final class InventoryCases {
             });
             tap.run();
             c.ctx().waitTicks(5);
-            boolean bound = c.onClient(mc -> ((Map<?, ?>) Mod.call(cfgObj, "getBinds")).containsKey(9));
+            boolean bound = c.onClient(mc -> (Boolean) Mod.call(cfgObj, "isBound", 9));
             boolean prot = c.onClient(mc -> (Boolean) Mod.call(protectObj, "hasProtectedKey", "hx-hyp-1"));
             c.check(!bound, "first press on a bound slot did not remove the bind");
             c.check(!prot, "first press on a bound slot also protected the item");

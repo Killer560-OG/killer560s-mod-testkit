@@ -627,8 +627,8 @@
     {
       "owner": "(unscoped)",
       "key": "slot binds",
-      "text": "Links two inventory slots so shift-clicking one swaps them. Hold the bind key over a slot and release it over a hotbar slot to swap the two. If Protect Item uses the same key, a quick tap protects the item and a drag is only a swap.",
-      "why": "hover rewritten: b9afe573 2026-10-18 Slot Binds: hold the bind key and release over a hotbar slot to swap"
+      "text": "Links inventory slots to a hotbar slot so shift-clicking one swaps them; several slots can share one hotbar slot (shift-clicking the shared slot swaps with the one it swapped with last). Setup: hold the bind key and click a slot, then click each slot to link with it; click a linked slot to unlink it. Without a click, holding the key over a slot and releasing over a hotbar slot swaps the two. If Protect Item uses the same key, a quick tap protects the item and a drag is only a swap.",
+      "why": "hover rewritten: slotbinds-multi-1128 (killer560 2026-11-28) several slots on one slot, held-key click setup"
     },
     {
       "owner": "Auto Blood Camp",
@@ -831,8 +831,8 @@
     {
       "owner": "Slot Binds",
       "key": "slot binds",
-      "text": "Links two inventory slots so shift-clicking one swaps them. Hold the bind key over a slot and release it over a hotbar slot to swap the two. If Protect Item uses the same key, a quick tap protects the item and a drag is only a swap.",
-      "why": "hover rewritten: b9afe573 2026-10-18 Slot Binds: hold the bind key and release over a hotbar slot to swap"
+      "text": "Links inventory slots to a hotbar slot so shift-clicking one swaps them; several slots can share one hotbar slot (shift-clicking the shared slot swaps with the one it swapped with last). Setup: hold the bind key and click a slot, then click each slot to link with it; click a linked slot to unlink it. Without a click, holding the key over a slot and releasing over a hotbar slot swaps the two. If Protect Item uses the same key, a quick tap protects the item and a drag is only a swap.",
+      "why": "hover rewritten: slotbinds-multi-1128 (killer560 2026-11-28) several slots on one slot, held-key click setup"
     },
     {
       "owner": "Solver Highlights",
