@@ -5964,15 +5964,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /** 62-argrim-1127-same-latesearch-*: the trip row with every search handed back between ticks; the late start must act. */
     private static void caseLateSearch(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
         String ce = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+        // Every trip of this arena is one straight warp, which skips the planner: without testSearchEveryTrip no search
+        // ran, and only USE / OPEN_CLICK (whose replans search) ever reached the late start (lane1127-1425: swap, tp and
+        // second counted 0; their earlier 1s were a hand-back left over from the case before, now cleared by the switch).
         int l0 = c.ctx().computeOnClient(mc -> {
+            ModUnderTest.staticCall(ce, "testSearchEveryTrip", new Class<?>[]{boolean.class}, new Object[]{true});
             ModUnderTest.staticCall(ce, "testLateSearch", new Class<?>[]{boolean.class}, new Object[]{true});
             return (Integer) ModUnderTest.staticCall(ce, "lateSearchStarts");
         });
         try {
             caseAutoClearHype(c, act, second, false, true, "[AutoClear] etherwarp toward");
         } finally {
-            c.ctx().runOnClient(mc -> ModUnderTest.staticCall(ce, "testLateSearch", new Class<?>[]{boolean.class},
-                    new Object[]{false}));
+            c.ctx().runOnClient(mc -> {
+                ModUnderTest.staticCall(ce, "testLateSearch", new Class<?>[]{boolean.class}, new Object[]{false});
+                ModUnderTest.staticCall(ce, "testSearchEveryTrip", new Class<?>[]{boolean.class}, new Object[]{false});
+            });
         }
         int late = c.ctx().computeOnClient(mc -> (Integer) ModUnderTest.staticCall(ce, "lateSearchStarts")) - l0;
         c.note("trips searched late that went from the next START: " + late);
