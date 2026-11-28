@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T04:16:18",
- "modSource": "lane-ptam-wayout-budget",
- "modGitSha": "8f577fe60a0ac200c07b2bfefd39e9d0b0cf1dd6",
+ "generatedAt": "2026-11-28T05:32:03",
+ "modSource": "lane-testjar-no-mining-foraging-1127b",
+ "modGitSha": "21ec67d69917d6be6fdbd6455ac19521c158bfeb",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
