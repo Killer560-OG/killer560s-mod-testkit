@@ -53,6 +53,16 @@ public class InstaClearTests implements FabricClientGameTest {
         List<String> failed = new ArrayList<>();
         runCase(ctx, "361-logic-insta-clear", InstaClearTests::logicCase, failed);
         runCase(ctx, "361-logic-insta-clear-v2", InstaClearTests::logicV2Case, failed);
+        if (!Scenario.skip(KILL_VISIT) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            // Legit: the tracker is off, so nothing is ever known (its own row, never a skip).
+            boolean none = !known(ctx, "Big Room", "from=1,0;land=15,68,15");
+            System.out.println("[" + KILL_VISIT + "] " + (none ? "PASS" : "FAIL") + " - legit jar: no entry is ever known");
+            if (!none) {
+                failed.add("[" + KILL_VISIT + "] legit jar knows an entry");
+            }
+        } else {
+            runCase(ctx, KILL_VISIT, InstaClearTests::killVisitCase, failed);
+        }
         // Not by skip("98-sim-insta-clear"): that name is contained in the -live case's, so the filter
         // "98-sim-insta-clear-live" would not select it, but "98-sim-insta-clear" selects both.
         runCase(ctx, "98-sim-insta-clear", InstaClearTests::simCase, failed);
@@ -284,6 +294,63 @@ public class InstaClearTests implements FabricClientGameTest {
         }
         System.out.println("[" + name + "] PASS - v1 failures LEGACY, Entrance dropped, INSTA and verdicts kept, the"
                 + " original copied aside once, PASS_THROUGH not counted");
+    }
+
+    private static final String KILL_VISIT = "1127-logic-insta-killvisit";
+
+    /**
+     * 1127-logic-insta-killvisit (instaclear-pick-1127): a kill visit to a room the map already showed (before
+     * "discovered" / "unopened") was no insta clear attempt and is no failure of its entry; a KILLED on a room the map
+     * had not shown ("undiscovered"), a record with no map state, and a manual NOT_INSTA still are. His 11-27 file:
+     * 1,705 KILLED "discovered" and 496 "unopened" against 16 "undiscovered".
+     */
+    private static void killVisitCase(ClientGameTestContext ctx) {
+        List<String> problems = new ArrayList<>();
+        Path file;
+        try {
+            file = Files.createTempDirectory("insta-clear-killvisit").resolve("insta-clear.json");
+        } catch (Exception e) {
+            throw new AssertionError("no temp dir", e);
+        }
+        String kB = "from=1,0;land=15,68,15";
+        String kC = "from=0,1;land=15,68,29";
+        String kD = "from=-1,0;land=8,68,15";
+        String json = "{\n  \"version\": 2,\n  \"settings\": {\"minSuccesses\": 2, \"windowSeconds\": 15},\n  \"rooms\": {\n"
+                + "    \"Big Room\": {\"" + kB + "\": [" + obsB(1, "INSTA", "undiscovered") + ", " + obsB(2, "INSTA", "undiscovered")
+                + ", " + obsB(3, "KILLED", "discovered") + ", " + obsB(4, "KILLED", "unopened") + ", "
+                + obsB(5, "NO_CLEAR", "discovered") + "],\n"
+                + "      \"" + kC + "\": [" + obsB(6, "INSTA", "undiscovered") + ", " + obsB(7, "INSTA", "undiscovered")
+                + ", " + obsB(8, "KILLED", "undiscovered") + "],\n"
+                + "      \"" + kD + "\": [" + obsB(9, "INSTA", "undiscovered") + ", " + obsB(10, "INSTA", "undiscovered")
+                + ", " + obs(11, "teleport", "manual", "KILLED", null) + "]}\n  }\n}\n";
+        try {
+            Files.writeString(file, json);
+            ctx.runOnClient(mc -> call("testUseFile", new Class<?>[]{String.class}, file.toString()));
+            int[] b = counts(ctx, "Big Room", kB);
+            check(problems, "kill visits to a shown room are not failures (" + c(b) + ")", b[0] == 2 && b[1] == 0 && b[2] == 3);
+            check(problems, "so the entry with 2 insta clears is known", known(ctx, "Big Room", kB));
+            int[] cc = counts(ctx, "Big Room", kC);
+            check(problems, "a KILLED on an unshown room still fails its entry (" + c(cc) + ")", cc[1] == 1
+                    && !known(ctx, "Big Room", kC));
+            check(problems, "a KILLED with no map state (older record) still fails", !known(ctx, "Big Room", kD));
+            ctx.runOnClient(mc -> call("testReload", new Class<?>[]{}));
+            check(problems, "the file is not rewritten: the shown-room KILLEDs are still there after a reload",
+                    counts(ctx, "Big Room", kB)[2] == 3 && Files.readString(file).contains("\"before\": \"discovered\""));
+        } catch (java.io.IOException e) {
+            throw new AssertionError(e);
+        } finally {
+            ctx.runOnClient(mc -> call("testUseFile", new Class<?>[]{String.class}, (Object) null));
+        }
+        if (!problems.isEmpty()) {
+            throw new AssertionError("insta-clear kill visit:\n    " + String.join("\n    ", problems));
+        }
+        System.out.println("[" + KILL_VISIT + "] PASS - kill visits to rooms the map showed do not fail an entry; real"
+                + " failures, old records and the file itself unchanged");
+    }
+
+    private static String obsB(int t, String outcome, String before) {
+        String o = obs(t, "etherwarp", "Auto Secret", outcome, null);
+        return o.substring(0, o.length() - 1) + ", \"before\": \"" + before + "\"}";
     }
 
     private static String obs(int t, String method, String driver, String outcome, String verdict) {
