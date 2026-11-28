@@ -127,6 +127,11 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
                     // cleanup must not replace the verdict
                 }
             });
+            // The Keys line is this case's own: left on the sim's board it read "0x" in every later case of the run, so
+            // a key picked up there counted only for the 2 s chat lead and a door wait longer than that stalled to the
+            // end (instapick-fix-1127: 1127-sim-instapick-big and 1126-sim-instacost-quiz after this case).
+            ctx.runOnClient(mc -> clearKeys(mc.getSingleplayerServer()));
+            ctx.waitTicks(2);
             SimMobFloorTests.leave(ctx);
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_FLOOR, "setEnabled", new Class<?>[]{boolean.class},
                     new Object[]{false}));
@@ -150,6 +155,8 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
             ModUnderTest.set(auto, "setAutoQuizEnabled", true);
             ModUnderTest.set(auto, "setAutoIceFillEnabled", true);
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", true);
+            // Autopilot plans no Ice Fill trip with the Ice Fill Solver off (autopilot-icefill-solver-off-1127): this run needs it solved.
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.IceFillSolverConfig"), "setEnabled", true);
             Object as = ModUnderTest.config(AS_CONFIG);
             Object solo = ModUnderTest.enumValue(AS_CONFIG + "$RunMode", "SOLO");
             ModUnderTest.call(as, "setRunMode", new Class<?>[]{solo.getClass()}, new Object[]{solo});
@@ -320,6 +327,24 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
                 board.getOrCreatePlayerScore(ScoreHolder.forNameOnly(KEYS_HOLDER), obj).set(0);
             } catch (ReflectiveOperationException e) {
                 System.out.println("[" + NAME + "] could not read SimKeys: " + e);
+            }
+        });
+    }
+
+    /** Server thread: takes {@link #drawKeys}' line off the sim's board again. */
+    static void clearKeys(MinecraftServer server) {
+        if (server == null) {
+            return;
+        }
+        server.execute(() -> {
+            Scoreboard board = server.getScoreboard();
+            Objective obj = board.getObjective("k560sim");
+            if (obj != null) {
+                board.resetSinglePlayerScore(ScoreHolder.forNameOnly(KEYS_HOLDER), obj);
+            }
+            PlayerTeam team = board.getPlayerTeam(KEYS_TEAM);
+            if (team != null) {
+                board.removePlayerTeam(team);
             }
         });
     }
