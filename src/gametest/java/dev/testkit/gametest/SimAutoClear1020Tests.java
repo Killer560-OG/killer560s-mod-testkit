@@ -669,7 +669,7 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
         });
     }
 
-    private static List<SimAutoClearTests.Placed> spawnAt(ClientGameTestContext ctx, String room, List<BlockPos> spots) {
+    static List<SimAutoClearTests.Placed> spawnAt(ClientGameTestContext ctx, String room, List<BlockPos> spots) {
         List<SimAutoClearTests.Placed> placed = new ArrayList<>();
         for (BlockPos s : spots) {
             int pairs = starredPairCount(ctx);
@@ -688,7 +688,7 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
     }
 
     /** Up to {@code want} floor spots in the room's first tile, each at least {@code apart} from the others. */
-    private static List<BlockPos> spreadSpots(ClientGameTestContext ctx, SimAutoClearTests.Room room, int want,
+    static List<BlockPos> spreadSpots(ClientGameTestContext ctx, SimAutoClearTests.Room room, int want,
                                               double apart) {
         int yHint = ctx.computeOnClient(mc -> ((BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
                 new Class<?>[]{int.class}, new Object[]{0})).getY());
