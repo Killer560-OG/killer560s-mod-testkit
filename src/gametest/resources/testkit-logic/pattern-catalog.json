@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T05:32:03",
- "modSource": "lane-testjar-no-mining-foraging-1127b",
- "modGitSha": "21ec67d69917d6be6fdbd6455ac19521c158bfeb",
+ "generatedAt": "2026-11-28T06:38:13",
+ "modSource": "lane-routes-chain-always-1127pm",
+ "modGitSha": "03830cb85b25abd004feac245032cc351e98be70",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
