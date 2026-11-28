@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T01:09:30",
- "modSource": "lane-autopilot-instaclear-pick-1127d",
- "modGitSha": "ea35ceeb29838bc16207cd0e5da2e629300dbfd0",
+ "generatedAt": "2026-11-28T01:23:14",
+ "modSource": "lane-newtrap-fall-no-alert-1127",
+ "modGitSha": "2eb8255f509c16dbb6c2574ee9dd5228bfd383ef",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
