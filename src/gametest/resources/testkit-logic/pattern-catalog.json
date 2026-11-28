@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T01:23:14",
- "modSource": "lane-newtrap-fall-no-alert-1127",
- "modGitSha": "2eb8255f509c16dbb6c2574ee9dd5228bfd383ef",
+ "generatedAt": "2026-11-28T04:16:18",
+ "modSource": "lane-testjar-no-mining-foraging-1127b",
+ "modGitSha": "98a6d70d4d76f91005d3e6eb76065fb3c1421984",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
