@@ -115,6 +115,27 @@ final class InstaCost1126Cases {
         Object to = Mod.staticCall(P, "instaNextDoor", pickS, cands, tr, dBig, "H");
         String why = String.valueOf(Mod.call(to, "why"));
         c.check("its net counts S's lost saving (6.0 - 4.3 = 1.7 s)", why.contains("saves 1.7 s net"), why);
+        // instapick-fix-1127: H - Y - F (the pick), G off Y, B off G. The way to F shows G; G's own way goes through Y only,
+        // so B (credited more, merely next to G) does not cost the swap. Counting it refused "Gravel first: the way to
+        // Flags would show it" on 1126-sim-instacost-all and lost Gravel's insta clear.
+        Map<String, Double> at2 = Map.of("H", 0.0, "Y", 1.0, "F", 2.0, "G", 2.0, "B", 3.0);
+        Map<String, List<String>> nb2 = Map.of("H", List.of("Y"), "Y", List.of("H", "F", "G"), "F", List.of("Y"),
+                "G", List.of("Y", "B"), "B", List.of("G"));
+        Object tr2 = java.lang.reflect.Proxy.newProxyInstance(InstaCost1126Cases.class.getClassLoader(),
+                new Class<?>[]{Mod.cls(P + "$Travel")}, (proxy, m, args) -> switch (m.getName()) {
+                    case "fromHere" -> at2.get((String) args[0]);
+                    case "between" -> Math.abs(at2.get((String) args[0]) - at2.get((String) args[1]));
+                    default -> null;
+                });
+        List<Object> cands2 = new ArrayList<>();
+        for (String r : List.of("G", "B")) {
+            cands2.add(Mod.cls(P + "$Candidate").getConstructor(Mod.cls(P + "$Kind"), String.class, double.class,
+                    double.class, boolean.class, int.class).newInstance(Mod.enumValue(P + "$Kind", "CLEAR"), r, 3.9, 5.0,
+                    false, -1));
+        }
+        Object way3 = Mod.staticCall(P, "instaBefore", "F", cands2, tr2, shape(nb2, Map.of("G", 3.0, "B", 4.0)), "H");
+        c.check("a bigger credited room merely next to the swap room does not block the swap", way3 != null
+                && "G".equals(Mod.call(way3, "room")), String.valueOf(way3));
     }
 
     private static Object shape(Map<String, List<String>> nb, Map<String, Double> saving) throws Exception {

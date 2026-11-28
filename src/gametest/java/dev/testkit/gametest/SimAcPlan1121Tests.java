@@ -83,6 +83,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private int goalTick = -1;
     private final Map<String, Integer> clearedAt = new HashMap<>();
     private final Map<String, Integer> instaAt = new HashMap<>();
+    /** The insta cleared armed rooms in the order the sim cleared them. */
+    private final List<String> instaSeq = new ArrayList<>();
     /** Armed rooms the priority trip itself sent him into first ("insta clear X first: the way to ..." on its decide). */
     private final Set<String> onTheWay = new HashSet<>();
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
@@ -421,6 +423,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         goalTick = -1;
         clearedAt.clear();
         instaAt.clear();
+        instaSeq.clear();
         onTheWay.clear();
         if (name.equals(INSTA_AP) || allArm(name) || COST_TRIPS.contains(name)) {
             String why = ctx.computeOnClient(mc -> name.equals(INSTA_AP) ? armInsta() : armCost(name));
@@ -473,7 +476,9 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 }
                 for (String r : armList) {
                     if (l.contains("Sim insta room: " + r + " insta cleared")) {
-                        instaAt.putIfAbsent(r, tick);
+                        if (instaAt.putIfAbsent(r, tick) == null) {
+                            instaSeq.add(r);
+                        }
                     }
                     if (l.contains("insta clear " + r + " first: the way to") && (name.equals(COST_QUIZ)
                             ? l.contains("decide (Quiz first)") : name.equals(COST_ICE) ? l.contains("decide (Ice Fill first)")
@@ -787,11 +792,26 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         }
         if (name.equals(COST_ALL)) {
             // 5: the base branch (autopilot-menu-1126, 8810ad042) insta cleared 4 of these 8 on this floor (11-26).
+            // instapick-fix-1127: the first pick (Gold, next to the Entrance) is the sim's draw, not a pick decision: the
+            // start takes about 12 ticks to land its first warp and the sim shows a room next door after a random 8-15
+            // (9 runs on four jars: shown at 9-12, insta cleared otherwise). A first pick the sim showed before any
+            // insta clear is not asked for. The other four (Gravel, Three Floors, Hallway, King Midas) always are; the
+            // origin jar's fifth was Multicolored on a trip that hopped through Hallway, which Hypixel does not clear.
             int min = Integer.getInteger("testkit.instacostMin", 5);
+            String first = lastPicks.isEmpty() ? null : lastPicks.get(0)[1];
+            boolean drawLost = false;
+            for (String l : instaLines) {
+                if (l.contains(" insta cleared - ")) {
+                    break;
+                }
+                drawLost |= first != null && armList.contains(first) && l.contains("Sim insta room: " + first + " shown on the map");
+            }
+            int need = drawLost ? min - 1 : min;
             System.out.println("[" + name + "] armed " + armList.size() + " " + armList + "; insta cleared " + instaAt.size()
-                    + " " + instaAt.keySet() + " in " + lastTick + " ticks: " + seq);
-            row(name, instaAt.size() >= min, "armed " + armList.size() + ", insta cleared " + instaAt.size() + " "
-                    + instaAt.keySet() + " (" + min + " needed), " + lastTick + " ticks");
+                    + " " + instaSeq + " in " + lastTick + " ticks: " + seq);
+            row(name, instaAt.size() >= need, "armed " + armList.size() + ", insta cleared " + instaAt.size() + " "
+                    + instaSeq + " (" + need + " needed" + (drawLost ? ": the sim showed the first pick " + first
+                    + " before the first warp landed" : "") + "), " + lastTick + " ticks");
             return;
         }
         List<Integer> k = new ArrayList<>(killClears);
@@ -830,27 +850,41 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     /**
      * 1127-sim-instapick-big (instaclear-pick-1127, killer560 2026-11-27: "it isnt choosing good rooms yet to insta
      * clear"): an "insta clear X first: the way to Y would show it" swap never gives up a bigger armed room Y (more tiles,
-     * the sim's clear cost) for a smaller X; the origin jar traded Hallway (4 tiles) for Multicolored and Three Floors (1).
-     * The feature must act: at least two armed rooms really insta cleared (the sim's "insta cleared" line).
+     * the sim's clear cost) for a smaller X; the origin jar traded Hallway (4 tiles) for Multicolored (1), whose trip hops
+     * through Hallway. Given up (instapick-fix-1127) is what happened to Y, not the swap's order: Y still unshown at the
+     * swap and then never insta cleared, or "insta cleared" BEFORE X, which is X's trip hopping through it (the sim clears a
+     * room on any first teleport in; on Hypixel a room he only hops through is shown and later killed, his 11-27 Slime).
+     * Three Floors (1) before Hallway (4) is a good swap: its trip does not touch Hallway, which is insta cleared next.
+     * The feature must act: a swap was made and at least four armed rooms really insta cleared (the sim's own line).
      */
     private void instaBig(String name, String seq) {
         Set<String> bad = new TreeSet<>();
         Set<String> swaps = new TreeSet<>();
+        Set<String> shown = new HashSet<>();
         for (String l : instaLines) {
+            for (String r : armTiles.keySet()) {
+                if (l.contains("Sim insta room: " + r + " shown on the map")) {
+                    shown.add(r);
+                }
+            }
             Matcher m = SWAP.matcher(l);
             if (m.find() && armTiles.containsKey(m.group(1)) && armTiles.containsKey(m.group(2))) {
-                String s = m.group(1) + "(" + armTiles.get(m.group(1)) + ") before " + m.group(2) + "(" + armTiles.get(m.group(2)) + ")";
+                String x = m.group(1);
+                String y = m.group(2);
+                String s = x + "(" + armTiles.get(x) + ") before " + y + "(" + armTiles.get(y) + ")";
                 swaps.add(s);
-                if (armTiles.get(m.group(2)) > armTiles.get(m.group(1))) {
-                    bad.add(s);
+                int ix = instaSeq.indexOf(x);
+                int iy = instaSeq.indexOf(y);
+                if (armTiles.get(y) > armTiles.get(x) && !shown.contains(y) && (iy < 0 || ix >= 0 && iy < ix)) {
+                    bad.add(s + (iy < 0 ? " (never insta cleared)" : " (hopped through)"));
                 }
             }
         }
         long done = instaAt.keySet().stream().filter(armTiles::containsKey).count();
-        System.out.println("[" + name + "] tiles " + armTiles + "; swaps " + swaps + "; insta cleared " + instaAt.keySet()
+        System.out.println("[" + name + "] tiles " + armTiles + "; swaps " + swaps + "; insta cleared " + instaSeq
                 + "; picks " + seq);
-        row(name, bad.isEmpty() && done >= 2, "swaps " + swaps + ", bigger room given up " + bad + ", armed insta cleared "
-                + done + " " + instaAt.keySet() + ", " + lastTick + " ticks");
+        row(name, bad.isEmpty() && !swaps.isEmpty() && done >= 4, "swaps " + swaps + ", bigger room given up " + bad
+                + ", armed insta cleared " + done + " " + instaSeq + ", " + lastTick + " ticks");
     }
 
     /** Client thread: arms the rooms a 1126-sim-instacost case is about (see the class doc). @return null, else why not. */
