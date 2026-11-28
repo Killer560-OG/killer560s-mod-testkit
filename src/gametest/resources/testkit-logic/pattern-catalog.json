@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T06:13:34",
- "modSource": "lane-tl1127-sneak-after-impact-b",
- "modGitSha": "73de21b48ea0ef5aaae6c1065b600fc56b0173eb",
+ "generatedAt": "2026-11-28T06:28:39",
+ "modSource": "lane-tickledger-1127",
+ "modGitSha": "2df86af8e5a606b9c5a846552164900df9b5dce2",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {
