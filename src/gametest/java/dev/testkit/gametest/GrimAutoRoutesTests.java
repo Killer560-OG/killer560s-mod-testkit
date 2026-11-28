@@ -304,6 +304,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1127-chainalways-path-ping400", c -> caseChainAlways(c, true, 400, null, null));
                 s.test("62-argrim-1127-chainalways-path-spike", c -> caseChainAlways(c, true, 150, null, "spike"));
                 s.test("62-argrim-1127-chainalways-path-correction", c -> caseChainAlways(c, true, 150, null, "correction"));
+                // 62-argrim-1127-chainalways-path-same-use, 62-argrim-1127-chainalways-path-same-openclick,
+                // 62-argrim-1127-chainalways-path-same-attack, 62-argrim-1127-chainalways-path-same-swap,
+                // 62-argrim-1127-chainalways-path-same-tp
                 for (dev.testkit.gametest.SameTick.Act a : List.of(
                         dev.testkit.gametest.SameTick.Act.USE, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
                         dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP,
