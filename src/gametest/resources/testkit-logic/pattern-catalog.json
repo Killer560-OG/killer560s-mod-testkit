@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-28T06:38:13",
- "modSource": "lane-routes-chain-always-1127pm",
- "modGitSha": "03830cb85b25abd004feac245032cc351e98be70",
+ "generatedAt": "2026-11-28T07:50:29",
+ "modSource": "lane-slotbinds-multi-1128",
+ "modGitSha": "d0c7551998faca4b3ebfcc00fb97da8fbea072c1",
  "modSourceDirty": false,
  "count": 1001,
  "byKind": {

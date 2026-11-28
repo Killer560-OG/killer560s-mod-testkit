@@ -140,7 +140,7 @@ final class ItemUiCases {
         });
     }
 
-    private static void openInventory(UiCase c) {
+    static void openInventory(UiCase c) {
         c.onClient(mc -> {
             McCompat.setScreen(mc, new InventoryScreen(mc.player));
             return null;
@@ -148,7 +148,7 @@ final class ItemUiCases {
         c.ticks(5);
     }
 
-    private static void closeScreen(UiCase c) {
+    static void closeScreen(UiCase c) {
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             return null;
@@ -157,7 +157,7 @@ final class ItemUiCases {
     }
 
     /** GUI position {x, y} of the player-inventory slot with container index {@code invIndex} on the open screen. */
-    private static int[] invSlotPos(UiCase c, int invIndex) {
+    static int[] invSlotPos(UiCase c, int invIndex) {
         return c.onClient(mc -> {
             AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
             int left = (Integer) Mod.field(s, "leftPos");
@@ -171,7 +171,7 @@ final class ItemUiCases {
         });
     }
 
-    private static void hoverGui(UiCase c, double gx, double gy) {
+    static void hoverGui(UiCase c, double gx, double gy) {
         double scale = c.onClient(mc -> (double) mc.getWindow().getGuiScale());
         c.ctx().getInput().setCursorPos(gx * scale, gy * scale);
         c.ticks(3);
@@ -379,6 +379,19 @@ final class ItemUiCases {
 
     // ==== 703 slot binds by key ========================================================================================
 
+    /** Slot Binds' binds as slot -&gt; partner, both directions (each slot has one bind in this case). */
+    private static Map<Integer, Integer> binds(UiCase c) {
+        return c.onClient(mc -> {
+            Map<Integer, Integer> out = new LinkedHashMap<>();
+            for (Object o : (List<?>) Mod.call(Mod.cfg(SBC), "pairs")) {
+                int[] p = (int[]) o;
+                out.put(p[0], p[1]);
+                out.put(p[1], p[0]);
+            }
+            return out;
+        });
+    }
+
     static void slotBindsKey(UiCase c) throws Exception {
         Path p = InvBatchCases.configPath(c, SBC);
         byte[] old = InvBatchCases.read(p);
@@ -405,7 +418,7 @@ final class ItemUiCases {
             hoverGui(c, h0[0] + 8, h0[1] + 8);
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
-            Map<?, ?> after1 = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
+            Map<?, ?> after1 = binds(c);
             // 2: key on slot 10, LEFT CLICK on slot 11 (must not bind), then key on hotbar 1.
             int[] s10 = invSlotPos(c, 10);
             int[] s11 = invSlotPos(c, 11);
@@ -416,11 +429,11 @@ final class ItemUiCases {
             hoverGui(c, s11[0] + 8, s11[1] + 8);
             c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(2);
-            Map<?, ?> afterClick = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
+            Map<?, ?> afterClick = binds(c);
             hoverGui(c, h1[0] + 8, h1[1] + 8);
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
-            Map<?, ?> after2 = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
+            Map<?, ?> after2 = binds(c);
             // 3: two non-hotbar slots: no bind.
             int[] s12 = invSlotPos(c, 12);
             int[] s13 = invSlotPos(c, 13);
@@ -430,7 +443,7 @@ final class ItemUiCases {
             hoverGui(c, s13[0] + 8, s13[1] + 8);
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
-            Map<?, ?> after3 = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
+            Map<?, ?> after3 = binds(c);
             c.note("binds after key/key 9->hotbar0: " + after1 + "; after key on 10 + click on 11: " + afterClick
                     + "; after key on hotbar1: " + after2 + "; after key on 12 and 13: " + after3);
             int m9 = s9[2];

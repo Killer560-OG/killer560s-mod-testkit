@@ -156,7 +156,8 @@ public class UiSuite implements FabricClientGameTest {
             "668-ui-leaporder-reset", "669-ui-leaporder-shots"};
     /** killer560's 2026-10-11 item / inventory UI list ({@link ItemUiCases}); 708 is in the menu suite. Own block. */
     static final String[] ITEM_UI_CASES = {"701-ui-invsearch-red-fill", "702-ui-invsearch-calculator",
-            "703-ui-slotbinds-key-toggle", "704-ui-petwheel-no-slices-text-scale", "705-ui-itemprotect-hover-star-drops",
+            "703-ui-slotbinds-key-toggle", "1128-ui-slotbinds-many-to-one", "1128-ui-slotbinds-old-file",
+            "1128-ui-slotbinds-invsort-editor", "704-ui-petwheel-no-slices-text-scale", "705-ui-itemprotect-hover-star-drops",
             "706-ui-gif-dvd-hidden-in-containers", "707-ui-storagesearch-equipment-wardrobe", "709-ui-itembrowser-tooltip",
             "710-ui-itembrowser-minion-tiers", "711-ui-itembrowser-neu-recipe", "712-ui-itembrowser-sort-and-bar"};
     /** killer560's 2026-10-15 small dungeon list ({@link SmallDungeonCases}): Thorn through-walls switches, one ESP wither color + legit tracer, Secrets HUD color. Own block. */
@@ -745,6 +746,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "701-ui-invsearch-red-fill", ItemUiCases::redFill);
                     UiCase.run(ctx, "702-ui-invsearch-calculator", ItemUiCases::calculator);
                     UiCase.run(ctx, "703-ui-slotbinds-key-toggle", ItemUiCases::slotBindsKey);
+                    UiCase.run(ctx, "1128-ui-slotbinds-many-to-one", SlotBindsMulti1128Cases::manyToOne);
+                    UiCase.run(ctx, "1128-ui-slotbinds-old-file", SlotBindsMulti1128Cases::oldFile);
+                    UiCase.run(ctx, "1128-ui-slotbinds-invsort-editor", SlotBindsMulti1128Cases::sorterEditor);
                     UiCase.run(ctx, "704-ui-petwheel-no-slices-text-scale", ItemUiCases::petWheel);
                     UiCase.run(ctx, "705-ui-itemprotect-hover-star-drops", ItemUiCases::protectHoverAndDrops);
                     UiCase.run(ctx, "706-ui-gif-dvd-hidden-in-containers", ItemUiCases::overlaysHidden);
